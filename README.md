@@ -33,6 +33,6 @@ npm run build
 
 ## 发布
 
-[GitHub Pages](https://daidaideaa.github.io/birthday-card/) 由 `main` 的 `.github/workflows/pages.yml` 构建和部署。电影素材的来源与权利信息保留在素材说明中。
+[GitHub Pages](https://daidaidebest.github.io/birthday-card/) 由 `main` 的 `.github/workflows/pages.yml` 构建和部署。电影素材的来源与权利信息保留在素材说明中。
 
 当前本机仍是历史分支 `experience/finish-duet`，工作区含新版未提交文件。下一次提交基于最新 `origin/main` 核对当前文件，不直接推旧分支或清空工作区。本机 `.asset-build/memory-book/prepare-release.mjs` 可生成新的发布清单；交接计划、旧发布清单与清理日志已删除。

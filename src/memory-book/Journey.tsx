@@ -3,7 +3,7 @@ import { SandKit } from './vendor/sandkit/index.js';
 import type { ShapeSource } from './vendor/sandkit/index.js';
 import './journey.css';
 
-type PlaceId = 'zhoukou' | 'tianjin' | 'beijing' | 'hongkong' | 'wuhan' | 'nanjing' | 'shanghai' | 'shenzhen';
+type PlaceId = 'zhoukou' | 'tianjin' | 'beijing' | 'hongkong' | 'wuhan' | 'nanjing' | 'shanghai' | 'shenzhen' | 'tokyo';
 type Place = { id: PlaceId; city: string; region: string; school?: string; motif: string; owner: 'her' | 'me' | 'both'; line: string; caption: string };
 const PLACES: Place[] = [
   { id: 'zhoukou', city: '周口', region: '河南', motif: '古城门阙 · 沙颍河', owner: 'her', line: '你的故事，从河南周口开始。', caption: '还没有相遇的时候，世界已经在认真写你。' },
@@ -15,12 +15,14 @@ const PLACES: Place[] = [
   { id: 'nanjing', city: '南京', region: '求学的这一页', school: '东南大学', motif: '城门 · 梧桐', owner: 'me', line: '经过南京，也经过自己的春夏。', caption: '东南大学，是我来路中的一站。' },
   { id: 'shanghai', city: '上海', region: '继续向前', school: '上海交通大学', motif: '浦江 · 东方明珠', owner: 'me', line: '又从南京，走到了上海。', caption: '上海交通大学之后，这条路也写向了深圳。' },
   { id: 'shenzhen', city: '深圳', region: '同一座城，另一条来路', motif: '城市天际线 · 海湾', owner: 'me', line: '我的路，也终于写到了深圳。', caption: '曾经各自向前的我们，来到了同一座城。' },
-  { id: 'shenzhen', city: '深圳', region: '两条来路，终于同页', motif: '中国地图 · 深圳相遇', owner: 'both', line: '各自走来的路，从这里开始并肩。', caption: '后来，在深圳，我遇见了你。' },
+  { id: 'tokyo', city: '东京', region: '日本', motif: '东亚地图 · 东京', owner: 'both', line: '各自走来的路，在东京写下同一页。', caption: '日本 · 东京，是这一页的最后一站。' },
 ];
 // Natural Earth 1:110m generalized geographic outline, public domain.
 // Source: github.com/nvkelso/natural-earth-vector — ne_110m_admin_0_countries.geojson
 // Equirectangular display at latitude 36.9 degrees; not a campus or navigation map.
 const CHINA_OUTLINE = 'M650.7 736.5L639.2 731.1L638.8 716.1L645.7 708.1L661 703.2L669 703.6L672.1 710.3L666 718L662.7 728.1L650.7 736.5ZM241.6 313.9L240.5 303.9L250.1 299.3L237.5 268.9L265.3 262L272.4 258.1L282.5 226.7L310.3 232.5L318.1 224.6L318.8 207L330.4 205.4L341 193.7L346.5 192.3L350.2 204.5L362 213.8L381.9 220.4L391.6 234.5L386.2 254.9L391.2 262.5L407.9 265.5L426.7 267.9L443.6 278.8L452.3 280.8L458.7 296.9L466.9 307.3L482.3 306.9L511.2 310.8L529.8 308.4L543.7 311L564.4 321.6L581.3 321.6L587.5 327L603.8 317.6L626.4 311.6L647.4 310.9L663.8 304.8L673.8 295.4L683.6 289.5L681.3 283.7L676.9 277L684.2 265.7L692.1 267.3L706.5 270.8L720.4 261.6L741.8 254.8L752.1 243.2L761.9 238.2L782.2 235.9L793.3 237.9L794.8 231.7L782.1 219.4L770.9 213.8L760.1 220.3L746.3 217.6L738.4 219.8L734.8 212.6L744.7 195.1L751.5 182L768.3 188.6L788 177.5L787.9 169.8L800.5 151.2L808.3 145.6L808.2 136L800.5 131.8L812 123.1L829.4 119.9L848 119.5L869 124.7L881.2 131.1L889.9 148.8L895.1 156.3L900 167.1L905.2 184.2L929.6 189.8L946.2 202.2L951.8 218.7L973.1 218.7L985.2 211.8L1008.4 206.6L1001 222.4L995.6 228.8L990.8 248L981.4 265L964.4 261.9L952.4 268.1L956 283L954 303.7L946.9 304.2L947 313.1L937.9 302.8L932.4 312.6L910.7 320.1L912.9 329.3L900.8 328.7L894.2 323.2L884.5 335.6L869.1 345L857.7 356.3L838.1 361.3L827.8 369.5L812.8 374.3L820.2 366.2L817.3 359.4L828.4 347.6L821 338.4L808.8 344.6L793 356.8L784.3 368.1L770.6 368.9L763.5 377.1L770.8 388.9L782.3 391.8L782.8 399.7L793.8 404.8L809.5 392.3L822 399.1L831 399.5L833.3 408.7L813.5 413.6L806.9 423L793.3 431.8L786.1 444.1L801.2 453.7L806.7 470.9L815.2 486.9L824.7 500.4L824.5 513.4L815.7 518.2L819 527.5L827.3 532.9L825.1 547.2L821.6 561.1L813.8 562.6L803.5 581.6L792.2 604.5L779.2 625.4L759.9 641.6L740.5 656.3L724.7 658.3L716.1 666.1L711.3 660.4L703.4 669.1L683.8 677.9L669 680.5L664.2 699L656.5 700.1L652.8 687.4L656.1 680.6L637.3 675L630.7 677.8L616.6 673.3L609.9 666.2L612.2 656.1L599.4 652.9L592.6 646.3L580.7 655.7L567.1 657.7L555.9 657.6L548.4 661.9L541.1 664.4L543.2 684.4L535.8 684L534.5 679.9L534.1 672.6L523.8 677.7L517.8 674.5L507.4 667.9L511.4 653.4L502.6 650L499.2 633.9L484.5 636.8L486.1 616L499.4 601.4L500 587L499.6 573.6L493.4 569.4L488.8 559.1L480.6 560.4L465.5 557.8L470.2 550.5L463.6 539.6L453.7 546.9L441.9 542.6L425.8 553.8L413 566.8L401.8 569L395.6 564.3L388.2 563.9L378.2 559.8L370.7 564.3L361.4 577.3L360.2 563.5L351.7 567.2L335.4 565.5L319.5 561.4L308.2 553.8L297.3 550.3L292.6 541.9L284.7 539.4L270.6 528L259.4 522.6L253.6 526.8L234.1 514.6L220.3 503.5L216.4 484.2L226.5 486.5L226.9 477.6L221.4 468.6L222.8 454.4L207.7 433.9L184.7 426.8L180.6 413.3L170.2 405.2L167.7 400.2L165.6 390.2L166.1 383.4L157.6 379.4L153 381.1L149.5 365L153.4 360.9L151.5 356.9L164.9 348.6L174.5 345.2L189.4 347.5L194.7 336.3L212.6 334.3L217.6 327.3L239.7 317.8L241.6 313.9ZM822.9 628.1L814.5 656.2L808.5 670.5L801.1 655.7L799.5 642.8L807.7 625.6L818.9 612.3L825.3 617.5L822.9 628.1Z';
+const JAPAN_OUTLINE = 'M1104.4 369.3L1091.4 387.0L1091.7 405.0L1086.4 419.0L1088.8 427.7L1081.5 440.1L1063.7 448.3L1039.0 449.4L1019.1 469.4L1009.7 462.6L1009.1 449.6L984.8 453.4L968.2 461.7L951.8 462.0L966.0 474.9L956.7 504.6L947.6 512.0L940.8 505.2L944.3 489.4L935.4 484.3L929.7 472.3L943.0 466.9L950.3 455.9L964.4 446.9L974.6 434.9L1002.5 429.7L1017.5 433.3L1032.1 402.2L1041.5 410.5L1062.0 393.0L1070.0 386.2L1078.8 364.8L1076.4 345.1L1082.3 334.1L1097.2 330.9L1104.8 355.1L1104.4 369.3ZM1142.6 285.7L1152.5 278.3L1155.6 297.9L1134.8 302.7L1122.6 320.1L1100.6 308.1L1092.9 327.3L1077.4 327.5L1075.4 310.1L1082.4 296.7L1097.3 295.7L1101.4 271.5L1105.5 257.8L1122.0 276.1L1132.7 282.0L1142.6 285.7ZM971.2 469.4L978.9 458.9L986.9 461.0L992.7 453.6L1002.9 457.4L1004.7 463.4L996.8 474.0L991.1 468.4L983.9 472.4L980.2 482.7L971.1 477.7L971.2 469.4Z';
+const FINAL_OUTLINE = CHINA_OUTLINE + JAPAN_OUTLINE;
 const ART_WIDTH = 1280;
 const ART_HEIGHT = 850;
 const LAST = PLACES.length - 1;
@@ -36,27 +38,27 @@ const MAP_POINTS = [
   { id: 'tianjin', label: '天津', lon: 117.196607, lat: 39.082772, dx: 31, dy: 10 },
   { id: 'beijing', label: '北京', lon: 116.394201, lat: 39.901720, dx: -30, dy: -28 },
   { id: 'hongkong', label: '香港', lon: 114.183064, lat: 22.306927, dx: 50, dy: 52 },
-  { id: 'shenzhen', label: '深圳 · 相遇', lon: 114.061154, lat: 22.548097, dx: -78, dy: 16 },
+  { id: 'shenzhen', label: '深圳', lon: 114.061154, lat: 22.548097, dx: -78, dy: 16 },
   { id: 'wuhan', label: '武汉', lon: 114.268071, lat: 30.581977, dx: -44, dy: 2 },
   { id: 'nanjing', label: '南京', lon: 118.778029, lat: 32.051965, dx: -10, dy: -27 },
   { id: 'shanghai', label: '上海', lon: 121.434559, lat: 31.218398, dx: 39, dy: 13 },
+  { id: 'tokyo', label: '日本 · 东京', lon: 139.6917, lat: 35.6895, dx: -15, dy: 44 },
 ];
 // Screen-pixel callouts keep mobile labels legible without moving the geographic anchors.
 const MOBILE_MAP_CALLOUTS: Record<string, { x: number; y: number }> = {
   zhoukou: { x: -30, y: -9 }, tianjin: { x: 28, y: -10 }, beijing: { x: -22, y: -22 },
   hongkong: { x: 32, y: 22 }, shenzhen: { x: -29, y: -3 }, wuhan: { x: -24, y: 16 },
-  nanjing: { x: 32, y: -17 }, shanghai: { x: 36, y: 13 },
+  nanjing: { x: 32, y: -17 }, shanghai: { x: 36, y: 13 }, tokyo: { x: -10, y: 30 },
 };
 const mapPosition = (point: { lon: number; lat: number }) => [140 + (point.lon - 73) * 14, 110 + (54 - point.lat) * 17.5];
 const mapRoute = (ids: string[]) => ids.map((id, i) => `${i ? 'L' : 'M'}${mapPosition(MAP_POINTS.find((point) => point.id === id)!).join(' ')}`).join('');
-const MAP_ROUTES = [mapRoute(['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhen']), mapRoute(['wuhan', 'nanjing', 'shanghai', 'shenzhen'])];
-const MEETING = mapPosition(MAP_POINTS[4]);
-const HONGKONG = mapPosition(MAP_POINTS[3]);
+const MAP_ROUTES = [mapRoute(['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhen', 'tokyo']), mapRoute(['wuhan', 'nanjing', 'shanghai', 'shenzhen', 'tokyo'])];
+const MEETING = mapPosition(MAP_POINTS[8]);
 // Same geographic coordinates, enlarged locally. Labels are offset, the cities are not.
-// Equirectangular projection around latitude 22.5° keeps north above and east to the right.
-const deltaPosition = (point: { lon: number; lat: number }) => [118 + (point.lon - 114.02) * 260, 23 + (22.65 - point.lat) * 280];
-const DELTA_HONGKONG = deltaPosition(MAP_POINTS[3]);
-const DELTA_SHENZHEN = deltaPosition(MAP_POINTS[4]);
+// Shenzhen to Tokyo, with north above and east to the right.
+const deltaPosition = (point: { lon: number; lat: number }) => [50 + (point.lon - 114) * 8, 28 + (36 - point.lat) * 7];
+const LEG_SHENZHEN = deltaPosition(MAP_POINTS[4]);
+const LEG_TOKYO = deltaPosition(MAP_POINTS[8]);
 
 // SandKit is MIT licensed, Copyright (c) 2026 Linkly AI. The original distribution
 // and full license are preserved in vendor/sandkit. Story and drawings are ours.
@@ -68,6 +70,7 @@ const DRAWING_PATHS: Record<PlaceId, string[]> = {
   wuhan: ['M400 532Q505 548 650 475Q795 548 900 532', 'M466 352Q555 368 650 295Q745 368 834 352', 'M81 671H1192M81 650H1192'],
   nanjing: ['M247 647V528H331V449H968V528H1041V647', 'M410 331Q514 341 650 266Q786 341 890 331', 'M202 711Q422 647 663 695T1106 711'],
   shanghai: ['M577 635L651 411V124M651 411L725 635', 'M832 635V309L864 280L897 309V635M941 633Q901 409 980 174Q960 411 1025 633', 'M108 677Q352 618 611 679T1193 674'],
+  tokyo: [],
   shenzhen: ['M689 635L708 253L752 121L795 253L814 635', 'M340 635V470Q399 445 424 340Q449 445 509 470V635', 'M87 679Q362 621 654 684T1193 673'],
 };
 function randomGenerator(seed: number) {
@@ -140,8 +143,8 @@ function tower(ctx: CanvasRenderingContext2D, x: number, bottom: number, w: numb
 }
 function drawSandArtwork(ctx: CanvasRenderingContext2D, id: PlaceId, owner: Place['owner']) {
   ctx.lineCap='round'; ctx.lineJoin='round';
-  if(id==='shenzhen'&&owner==='both') {
-    ctx.globalAlpha=.08; fill(ctx,CHINA_OUTLINE,'#a58853'); ctx.globalAlpha=1; stroke(ctx,CHINA_OUTLINE,'#a58853',3.1);
+  if(id==='tokyo'&&owner==='both') {
+    ctx.globalAlpha=.08; fill(ctx,FINAL_OUTLINE,'#a58853'); ctx.globalAlpha=1; stroke(ctx,FINAL_OUTLINE,'#a58853',3.1);
     MAP_POINTS.forEach(point=>{const [x,y]=mapPosition(point);ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#a58853';ctx.fill();}); return;
   }
   const random=randomGenerator(id.length*23);
@@ -427,15 +430,15 @@ export default function Journey({ onComplete, reducedMotion, active: sceneActive
   }, [reducedMotion]);
 
   return (
-    <section ref={rootRef} className={`journey-stage journey-duet${view.finale ? ' journey-map-finale' : ''}${leaving ? ' journey-leaving' : ''}${reducedMotion ? ' journey-still' : ''}${!playing || !sceneActive ? ' journey-paused' : ''}`} data-scene={view.finale ? 'both-shenzhen' : `${shapeName(view.indices[0])} ${shapeName(view.indices[1])}`} aria-label="第二章，两条各自走过的人生来路，最终在深圳相遇">
+    <section ref={rootRef} className={`journey-stage journey-duet${view.finale ? ' journey-map-finale' : ''}${leaving ? ' journey-leaving' : ''}${reducedMotion ? ' journey-still' : ''}${!playing || !sceneActive ? ' journey-paused' : ''}`} data-scene={view.finale ? 'both-tokyo' : `${shapeName(view.indices[0])} ${shapeName(view.indices[1])}`} aria-label="第二章，两条各自走过的人生来路，最后一站是日本东京">
       <header className="journey-heading" data-pet-obstacle><span className="journey-eyebrow">第二章 · 两条来路</span><span className="journey-chapter-poem">各自的时光，终于同页。</span></header>
       <div className="journey-duet-field">
         {view.indices.map((index, n) => {
           const place = PLACES[index]; const paired = index === LAST;
-          return <article className={`journey-lane journey-lane-${n === 0 ? 'her' : 'me'}`} key={n} aria-hidden={view.finale && n === 1} aria-label={paired ? '我们的相遇' : n === 0 ? '她的来路' : '我的来路'}>
+          return <article className={`journey-lane journey-lane-${n === 0 ? 'her' : 'me'}`} key={n} aria-hidden={view.finale && n === 1} aria-label={paired ? '我们的最后一站，日本东京' : n === 0 ? '她的来路' : '我的来路'}>
             <header className="journey-place" data-pet-obstacle>
               <span className="journey-person">{paired ? '终于同页' : n === 0 ? '你的来路' : '我的来路'}</span>
-              <h3>{place.id === 'zhoukou' || place.id === 'wuhan' ? `${place.region} · ${place.city}` : paired ? '深圳 · 相遇' : place.city}</h3>
+              <h3>{place.id === 'zhoukou' || place.id === 'wuhan' ? `${place.region} · ${place.city}` : paired ? '日本 · 东京' : place.city}</h3>
               {place.school && <p className="journey-school">{place.school}</p>}
             </header>
             <div className="journey-art" ref={(node) => { laneRefs.current[n] = node; }}>
@@ -444,9 +447,9 @@ export default function Journey({ onComplete, reducedMotion, active: sceneActive
                 <canvas ref={(node) => { sandRefs.current[n] = node; }} className="journey-sand" aria-hidden="true" />
                 <svg className="journey-drawn-lines" viewBox={`0 0 ${ART_WIDTH} ${ART_HEIGHT}`} aria-hidden="true">
                   {(paired ? MAP_ROUTES : DRAWING_PATHS[place.id]).map((d, i) => <path pathLength="1" className={paired ? `journey-map-route journey-map-route-${i}` : undefined} d={d} key={`${index}-${i}`} ref={(node) => { pathRefs.current[n][i] = node; }} />)}
-                  {paired && <><g className="journey-map-knot" transform={`translate(${MEETING[0]} ${MEETING[1]})`}><circle r="23" /><circle r="10" /><path d="M0 0C-25-20-34 13-9 9L0 0C24-21 34 12 9 9Z" /><path d="M-1 2Q-9 23-27 26M2 2Q11 24 30 27" /></g><g className="journey-delta-connector"><circle cx={(MEETING[0] + HONGKONG[0]) / 2} cy={(MEETING[1] + HONGKONG[1]) / 2} r="21" /><path className="journey-delta-leader-desktop" d={`M${HONGKONG[0] + 20} ${HONGKONG[1]}L862 664L1040 590`} /><path className="journey-delta-leader-mobile" d={`M${HONGKONG[0]} ${HONGKONG[1] + 21}L${HONGKONG[0]} 756L640 818`} /></g></>}
+                  {paired && <><g className="journey-map-knot" transform={`translate(${MEETING[0]} ${MEETING[1]})`}><circle r="23" /><circle r="10" /><path d="M0 0C-25-20-34 13-9 9L0 0C24-21 34 12 9 9Z" /><path d="M-1 2Q-9 23-27 26M2 2Q11 24 30 27" /></g><g className="journey-delta-connector"><path className="journey-delta-leader-desktop" d={`M${MEETING[0] + 20} ${MEETING[1]}L1140 500L1040 590`} /><path className="journey-delta-leader-mobile" d={`M${MEETING[0]} ${MEETING[1] + 21}L${MEETING[0]} 756L640 818`} /></g></>}
                 </svg>
-                {paired && <div className="journey-map-labels" aria-label="周口、天津、北京、香港、深圳；武汉、南京、上海、深圳">
+                {paired && <div className="journey-map-labels" aria-label="周口、天津、北京、香港、深圳、东京；武汉、南京、上海、深圳、东京">
                   {MAP_POINTS.map((point) => { const [x, y] = mapPosition(point); return <span className={`journey-map-label journey-map-label-${point.id}`} key={point.id} style={{ left: `${(x + point.dx) / ART_WIDTH * 100}%`, top: `${(y + point.dy) / ART_HEIGHT * 100}%` }}>{point.label}</span>; })}
                   {MAP_POINTS.map((point) => {
                     const [x, y] = mapPosition(point); const callout = MOBILE_MAP_CALLOUTS[point.id];
@@ -457,10 +460,10 @@ export default function Journey({ onComplete, reducedMotion, active: sceneActive
                   })}
                 </div>}
               </div>
-              {paired && <figure className="journey-delta-inset" aria-label="港深局部放大：香港科技大学所在的香港，来到深圳。保留城市真实经纬度相对位置。" data-pet-obstacle>
-                <figcaption>最后一程 · 港深放大</figcaption>
-                <svg viewBox="0 0 320 156" aria-hidden="true"><path className="journey-delta-grid" d="M31 66H289M31 110H289M77 26V136M221 26V136" /><path className="journey-delta-route" pathLength="1" d={`M${DELTA_HONGKONG.join(' ')}L${DELTA_SHENZHEN.join(' ')}`} /><circle className="journey-delta-city" cx={DELTA_HONGKONG[0]} cy={DELTA_HONGKONG[1]} r="5" /><circle className="journey-delta-city journey-delta-meeting" cx={DELTA_SHENZHEN[0]} cy={DELTA_SHENZHEN[1]} r="7" /><path className="journey-delta-arrow" d={`M${DELTA_SHENZHEN[0] - 3} ${DELTA_SHENZHEN[1] + 16}l-4-10 10 5`} /></svg>
-                <span className="journey-delta-hongkong"><strong>香港</strong><small>香港科技大学</small></span><span className="journey-delta-shenzhen"><strong>深圳</strong><small>我们的相遇</small></span>
+              {paired && <figure className="journey-delta-inset" aria-label="最后一程，从深圳到日本东京。保留城市真实经纬度相对位置。" data-pet-obstacle>
+                <figcaption>最后一程 · 深圳 → 东京</figcaption>
+                <svg viewBox="0 0 320 156" aria-hidden="true"><path className="journey-delta-grid" d="M31 66H289M31 110H289M77 26V136M221 26V136" /><path className="journey-delta-route" pathLength="1" d={`M${LEG_SHENZHEN.join(' ')}L${LEG_TOKYO.join(' ')}`} /><circle className="journey-delta-city" cx={LEG_SHENZHEN[0]} cy={LEG_SHENZHEN[1]} r="5" /><circle className="journey-delta-city journey-delta-meeting" cx={LEG_TOKYO[0]} cy={LEG_TOKYO[1]} r="7" /><path className="journey-delta-arrow" d={`M${LEG_TOKYO[0] - 3} ${LEG_TOKYO[1] + 16}l-4-10 10 5`} /></svg>
+                <span className="journey-delta-hongkong" style={{ left: '20%', top: '65%' }}><strong>深圳</strong><small>继续向前</small></span><span className="journey-delta-shenzhen" style={{ right: '5%', top: '5%' }}><strong>东京</strong><small>日本 · 最后一站</small></span>
               </figure>}
             </div>
             <p className="journey-lane-caption" data-pet-obstacle>{paired && view.closingLine ? place.caption : place.line}</p>
@@ -470,7 +473,7 @@ export default function Journey({ onComplete, reducedMotion, active: sceneActive
       <footer className="journey-footer" data-pet-obstacle>
         <button type="button" onClick={() => controller.current?.replay()} disabled={!ready || leaving}>重新读起</button>
         <button type="button" className="journey-playback" onClick={() => controller.current?.toggle()} disabled={!ready || leaving} aria-label={playing ? '暂停两条路线的自动讲述' : '继续两条路线的自动讲述'}>{playing ? '让这一刻停留' : '让故事继续'}</button>
-        <button type="button" className="journey-next" onClick={() => controller.current?.next()} disabled={!ready || leaving}>{view.finale ? '收进回忆' : '看相遇'}<span aria-hidden="true">↗</span></button>
+        <button type="button" className="journey-next" onClick={() => controller.current?.next()} disabled={!ready || leaving}>{view.finale ? '收进回忆' : '看最后一站'}<span aria-hidden="true">↗</span></button>
       </footer>
       <p className="journey-status" role="status">{!ready ? '沙粒正在汇聚…' : fallback && !reducedMotion ? '以静帧沙画，继续讲述来路' : ''}</p>
     </section>

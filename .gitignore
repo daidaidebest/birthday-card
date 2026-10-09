@@ -6,11 +6,11 @@ dist/
 *.credentials.json.bak
 *.log
 .DS_Store
-*.tsbuildinfo
-.asset-build/
-*.blend
-*.blend1
 __pycache__/
 private-restored/
 *-password.txt
 *.private-plan.json
+# local tooling: the depth model (~100 MB) is downloaded on demand by whoever regenerates depth planes
+models/
+depth/
+site/preview.html

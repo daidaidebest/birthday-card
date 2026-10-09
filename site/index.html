@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070d">
+<meta name="description" content="写给师宝宝的一场梦：月光送来的信、会自己翻页的魔法书、两条在深圳相遇的来路、风与星光，和一个只属于你的生日愿望。">
+<title>师宝宝 · 生日奇遇</title>
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/gift-serif.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/scenes.css">
+</head>
+<body>
+<main id="film" class="is-loading">
+  <div id="stage" aria-live="off"></div>
+  <canvas id="pups" aria-hidden="true"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="bars" aria-hidden="true"><i></i><i></i></div>
+  <div id="grain" aria-hidden="true"></div>
+  <div id="subtitle" aria-live="polite"></div>
+  <div id="chapter-card" aria-hidden="true"><small></small><b></b><span></span></div>
+
+  <section id="gate" aria-label="开始">
+    <div class="gate-stars"></div>
+    <div class="gate-inner">
+      <p class="gate-eyebrow">A LETTER BY MOONLIGHT</p>
+      <h1>写给师宝宝的<br>一场梦</h1>
+      <button id="gate-seal" type="button" aria-label="轻触火漆，开始">
+        <img src="assets/img/seal.webp" alt="">
+      </button>
+      <p class="gate-hint">轻触火漆，开启今晚的魔法</p>
+      <p class="gate-note">建议戴上耳机 · 打开声音 · 留出十分钟</p>
+      <p class="gate-loading" id="gate-loading">月光正在赶来…</p>
+    </div>
+  </section>
+
+  <nav id="hud" aria-label="控制">
+    <button id="btn-sound" type="button" aria-label="静音" aria-pressed="true"><span class="eq"><i></i><i></i><i></i><i></i></span></button>
+    <button id="btn-pause" type="button" aria-label="暂停"><span class="ico-pause"></span></button>
+    <button id="btn-menu" type="button" aria-label="章节">章节</button>
+  </nav>
+  <div id="menu" hidden>
+    <div class="menu-paper">
+      <p class="menu-eyebrow">CONTENTS</p>
+      <ol id="menu-list"></ol>
+      <button type="button" id="menu-close">合上目录</button>
+    </div>
+  </div>
+  <button id="btn-next" type="button" hidden>继续 <span>→</span></button>
+  <div id="progress" aria-hidden="true"><i></i></div>
+</main>
+<script src="js/content.js"></script>
+<script src="js/gift.js"></script>
+</body>
+</html>

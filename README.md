@@ -1,38 +1,64 @@
-# 师宝宝 · 一本只认识你的魔法书
+# 写给师宝宝的一场梦 · v12
 
-中文互动生日礼物：古书、双人沙画旅程、照片与信、原版动画角色重编排、星空蛋糕。手机优先，无后端。
+一部大约 3 分半钟、会自己播放的生日小电影（不含片尾字幕和她停留的时间）。它是纯静态网页，不需要 WebGL，也不用安装任何依赖。v12 起，每一个场景都是 2.5D 的。
 
-## 运行与打包
+## 故事顺序
+1. **序章 · 月光来信**：月夜湖面上，一点光从月亮落下，化成一封火漆封口的信。镜头从月亮一路摇到湖面，天空、群山、湖水和松林分层移动。
+2. **第一章 · 只认识你**：书房被拆成四个景深层，漂浮的蜡烛各在自己的深度上，魔法书离镜头最近。书会自己写字、自己翻页，最后整本书朝镜头扑来。
+3. **第二章 · 两条来路**：两块沙画灯箱同时播放她和你的路线。沙子在框后面微微浮动，像嵌在灯箱深处。最后合成一张中国和日本的地图：两条路都经过深圳，最后一起走到日本东京，在那里刻出一颗心。
+4. **第三章 · 藏起时光**：灯串上挂着三张拍立得。被看着的那张会“活”过来：镜头在照片的景深里缓缓推进、平移。之后是你写的那封生日信。
+5. **第四章 · 风与星光**：镜头跟着两匹野马穿过分层的金色旷野；入夜后，天空、远山、岩石上的狮子、近处的大树和草，各在自己的深度上移动。
+6. **终章 · 为你点亮**：蛋糕立在书房桌面的那一层上，窗外的夜空在最远的一层。
 
-使用 Node.js 22.12+：
+**会跟着她动**：在电脑上，画面会微微朝鼠标方向偏；在手机上，倾斜手机就能“看进”画面（iPhone 点火漆时会请求一次“动作与方向”权限）。如果系统开启了“减少动态效果”，就不会跟随。
 
-```sh
-npm ci
-npm run dev
-npm run build
-```
+## 最常改的地方（不需要任何工具）
+- **照片和书信**：在 `site/js/content.js` 里改。现在是 3 张 Unsplash 示意照片。照片放进 `site/assets/img/` 后，改对应的 `src`、`title`、`caption`。
+  - 换成自己的照片后，照片会以柔和的推拉镜头展示。想要“活照片”的景深效果，再做一步（需要 Python）：
+    `pip install onnxruntime opencv-python pillow numpy`（第一次运行会自动下载约 100 MB 的景深模型）
+    → `python3 tools/depth.py site/assets/img/你的照片.webp`
+    → `python3 tools/layers.py 你的照片 3`
+    → `python3 tools/layers.py --manifest`
+    → `tools/build.sh`
+- **音乐**：每一章一首，在 `site/assets/audio/*.mp3`。用同名文件替换即可。
 
-开发地址为 `/birthday-card/`；`npm run build` 生成可部署的 `dist`，包含类型检查与一次资源检查。`npm run lint` 检查源码。
+## 发布到 GitHub Pages（沿用仓库里现有的工作流，不用碰 `.github`）
+仓库里现有的 `.github/workflows/pages.yml` 会依次执行 `npm ci → npm run lint → npm run build`，然后发布 `dist/`。这个文件夹的 `package.json` 正是为它准备的：`build` 会把 `site/` 原样复制到 `dist/`，没有任何依赖。
+1. 把这个文件夹里的所有内容复制到仓库根目录：`site/`、`scripts/`、`tools/`、`package.json`、`package-lock.json`、`README.md`。
+   - 仓库里的 `.github/` 保持不动。
+   - 旧的 `src/`、`public/`、`vite.config.ts`、`tsconfig.json`、`eslint.config.js`、`index.html` 建议删掉。不删也不影响构建，旧版本仍保存在“完整备份_20261005”里。
+2. 推送到 `main`。一两分钟后访问 `https://<你的用户名>.github.io/birthday-card/`（和原来的网址相同）。所有路径都是相对路径。
+3. 部署完成后，工作流会用 `scripts/check-memory-book.mjs --url` 检查线上页面能否正常打开。
 
-源码包保留 `src`、`public`、`scripts`、`assets`、`.github`、项目配置、`package.json`、`package-lock.json` 和本说明。排除 `node_modules`、`.git`、`dist`、缓存、诊断目录与私密恢复材料。仅部署网站时使用重新构建的 `dist`。基础路径默认 `/birthday-card/`，自有域名根路径可设置 `VITE_APP_BASE=/` 后构建。
+本地预览：运行 `npm run dev`（或在 `site` 目录运行 `python3 -m http.server 8123`），然后打开 `http://localhost:8123`。
 
-换电脑继续修改美术时，额外带走 `.asset-build/memory-book` 的 `masters`、`film-source`、`masks`、`preview` 和 `wind-and-stars-master.png`。这些本机制作资料被 Git 忽略，重新克隆无法找回。恢复包和 `private-restored` 单独备份。
+## 2.5D 是怎么做的
+1. **离线算景深**：`tools/depth.py` 用开源的 Depth Anything V2（small，Apache-2.0）为每幅画估算一张景深图。
+2. **拆成景深层**：`tools/layers.py` 按深度把画拆成 3–4 层。
+   - 被前景挡住的部分用 OpenCV 修补，所以镜头移动时露出来的是合理的背景，而不是空洞或重影。
+   - 层边缘按深度羽化。镜头静止时，各层叠起来和原画完全一样。
+3. **网页里实时合成**：`site/js/depth.js` 负责每一帧的视差、推拉镜头，以及跟随鼠标或手机倾斜。
 
-## 修改入口
+为了保证流畅，每个房间的天空、景深层和烛光都画在同一张画布上，需要合成的图层反而比 v11 少。在不启用显卡加速的测试里，帧率与 v11 持平或更高。
 
-- 内容、书信和许愿：[MemoryGift.tsx](src/memory-book/MemoryGift.tsx)
-- 照片与电影来源：[media.ts](src/memory-book/media.ts)
-- 书和蛋糕：[MagicObject.tsx](src/memory-book/MagicObject.tsx)、[建模脚本](scripts/models/build_magic_objects.py)
-- 沙画：[Journey.tsx](src/memory-book/Journey.tsx)
-- 电影场景：[Cinema.tsx](src/memory-book/Cinema.tsx)
-- 多角度泰迪：[Pets.tsx](src/memory-book/Pets.tsx)
-- 母版来源与生成提示词：[素材记录](assets/memory-book-artwork.json)
-- 素材来源和许可：[ASSET_SOURCES.md](public/ASSET_SOURCES.md)
+## 改动代码时
+- `site/js/` 里是可读的源码，网页实际加载的是打包好的 `site/js/gift.js`。改了源码后运行 `tools/build.sh` 重新打包（需要 Node.js）。
+- 改了文字后，运行 `python3 tools/build_fonts.py` 重新生成字体子集。
+- `tools/music.py` 可以重新合成全部配乐和音效；`tools/paper.py` 可以重新渲染信纸、信封和火漆。
 
-照片目前为示意网图，书信为暂拟内容；原书信另存于本机 `masters/letter-original.txt`。她的路线为河南周口、天津、北京中国政法大学、香港科技大学、深圳；他的路线为湖北武汉、南京东南大学、上海交通大学、深圳。不要补造年份、校区或个人经历。
+## 小提示
+- 第一次打开需要点一下火漆印章（浏览器要求先点击才能播放声音）。
+- 右上角可以静音、暂停、跳到任意章节。按空格键暂停；读信时点“收好这封信”继续。
+- 署名与版权：
+  - 字体：Noto Serif SC（SIL OFL 1.1）、TeX Gyre Pagella / Chorus（GUST Font License）。
+  - 地图轮廓来自 Natural Earth（公有领域）。
+  - 景深模型为 Depth Anything V2 Small（Apache-2.0），只在制作时离线使用，不随网页发布。
+  - 配乐与音效为原创合成；《Happy Birthday to You》旋律属于公有领域。
+  - 电影章节是原创动画，只在气氛上致敬《小马王》《狮子王》。
 
-## 发布
-
-[GitHub Pages](https://daidaidebest.github.io/birthday-card/) 由 `main` 的 `.github/workflows/pages.yml` 构建和部署。电影素材的来源与权利信息保留在素材说明中。
-
-当前本机仍是历史分支 `experience/finish-duet`，工作区含新版未提交文件。下一次提交基于最新 `origin/main` 核对当前文件，不直接推旧分支或清空工作区。本机 `.asset-build/memory-book/prepare-release.mjs` 可生成新的发布清单；交接计划、旧发布清单与清理日志已删除。
+## v12 相比 v11
+- 全部场景改为 2.5D：景深分层、视差、推拉镜头，并跟随鼠标或手机倾斜。
+- 第三章改为 3 张照片，正在看的那张是有景深的“活照片”。
+- 整体时长从约 4.5 分钟缩短到约 3 分半钟：到吹蜡烛约 3 分钟，之后是约半分钟的告白，然后是片尾字幕。
+- 部署改为兼容仓库现有的工作流，不需要再修改 `.github`。
+- 沿用了仓库里 10 月 8 日的修改：沙画旅程的终点改为日本东京（地图加上日本，两条路从深圳继续走到东京）。

@@ -1,60 +1,25 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { parseArgs } from 'node:util';
-
-const { values } = parseArgs({ options: {
-  dir: { type: 'string', default: 'dist' },
-  url: { type: 'string' },
-} });
-
-function entryAssets(html) {
-  const assets = [...html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|css))["']/g)]
-    .map(match => match[1]);
-  if (!assets.some(href => href.endsWith('.js'))) throw Error('入口缺少 JavaScript 资源');
-  return [...new Set(assets)];
+// Checks the built site (dist/) or, with --url, the live deployment.
+// Same name and flags as the old project's script, so the existing .github workflows keep working.
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+const urlArg = process.argv.indexOf('--url');
+const must = ['index.html', 'js/gift.js', 'js/content.js', 'css/style.css', 'css/scenes.css'];
+if (urlArg < 0) {
+  const root = existsSync('dist') ? 'dist' : 'site';
+  const missing = must.filter(f => !existsSync(join(root, f)));
+  // every asset path the code and styles mention must exist
+  const text = ['js/gift.js', 'js/content.js', 'css/style.css', 'css/scenes.css', 'index.html'].map(f => readFileSync(join(root, f), 'utf8')).join('\n');
+  const refs = new Set([...text.matchAll(/assets\/(?:img|audio|fonts)\/[\w.\-]+\.(?:webp|png|jpe?g|svg|mp3|woff2?)/g)].map(m => m[0]));
+  for (const r of refs) if (!existsSync(join(root, r))) missing.push(r);
+  const walk = d => readdirSync(d).flatMap(f => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
+  const depth = walk(join(root, 'assets/depth')).length;
+  if (missing.length) { console.error('check: missing\n  ' + missing.join('\n  ')); process.exit(1); }
+  console.log(`check: ${root}/ ok — ${refs.size} referenced assets, ${depth} depth-plane files`);
+} else {
+  const base = process.argv[urlArg + 1].replace(/\/?$/, '/');
+  const get = async p => { for (let i = 0; i < 6; i++) { try { const r = await fetch(base + p, { cache: 'no-store' }); if (r.ok) return r; } catch {} await new Promise(r => setTimeout(r, 10000)); } throw new Error('unreachable: ' + base + p); };
+  const html = await (await get('')).text();
+  if (!html.includes('js/gift.js')) { console.error('check: live index.html does not load js/gift.js'); process.exit(1); }
+  for (const p of must.slice(1)) await get(p);
+  console.log('check: live site ok at ' + base);
 }
-
-async function localCheck() {
-  const root = path.resolve(values.dir);
-  const base = process.env.VITE_APP_BASE || '/birthday-card/';
-  const html = await fs.readFile(path.join(root, 'index.html'), 'utf8');
-  const assets = entryAssets(html);
-  for (const href of assets) {
-    if (!href.startsWith(base)) throw Error(`资源路径不在 ${base} 下：${href}`);
-    await fs.stat(path.join(root, decodeURIComponent(href.slice(base.length))));
-  }
-
-  let count = 0;
-  async function checkPublic(relative = '') {
-    for (const entry of await fs.readdir(path.join('public/memory-book', relative), { withFileTypes: true })) {
-      const file = path.join(relative, entry.name);
-      if (entry.isDirectory()) await checkPublic(file);
-      else {
-        const stat = await fs.stat(path.join(root, 'memory-book', file));
-        if (!stat.size) throw Error(`构建资源为空：${file}`);
-        count++;
-      }
-    }
-  }
-  await checkPublic();
-  console.log(`构建资源检查通过：${assets.length} 个入口资源、${count} 个本地素材`);
-}
-
-async function liveCheck() {
-  const site = new URL(values.url);
-  const response = await fetch(site, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw Error(`网站入口不可用：HTTP ${response.status}`);
-  const assets = entryAssets(await response.text());
-  for (const href of assets) {
-    const asset = await fetch(new URL(href, site), { signal: AbortSignal.timeout(20000) });
-    const expected = href.endsWith('.css') ? /text\/css/ : /javascript|ecmascript/;
-    await asset.body?.cancel();
-    if (!asset.ok || !expected.test(asset.headers.get('content-type') || '')) {
-      throw Error(`入口资源不可用：${href}（HTTP ${asset.status}）`);
-    }
-  }
-  console.log(`线上入口检查通过：${site.href}，${assets.length} 个 JS/CSS 资源`);
-}
-
-if (values.url) await liveCheck();
-else await localCheck();

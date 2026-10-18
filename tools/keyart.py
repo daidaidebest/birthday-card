@@ -23,7 +23,11 @@ from diffusers import FluxPipeline, FluxImg2ImgPipeline, FluxTransformer2DModel,
 REPO, M, OUT = 'unsloth/FLUX.1-schnell', '/tmp/flux', Path('/kaggle/working/out')
 STYLE = ('hand-painted background and character art from a classic 1990s 2D animated feature film, lush gouache and oil '
          'painting, soft painterly brushwork, cinematic lighting, highly detailed, no text, no watermark')
+FILM = 'cinematic matte painting from a big-budget fantasy film, atmospheric, mysterious, magical, highly detailed, no text, no watermark'
 PROMPTS = {
+    # the prologue (an original homage to the Harry Potter films' owl post); assets built by tools/prologue_art.py
+    'castle': 'A breathtaking night view: an enormous ancient gothic castle of dark stone with dozens of tall towers, turrets and pointed spires, hundreds of small windows glowing with warm golden candlelight, perched high on a craggy cliff above a vast still black lake. A bright full moon high in a deep blue starry sky with soft drifting clouds, misty dark mountains and pine forests around the lake, silver moonlight shimmering on the water, a few tiny boats with lanterns gliding across the lake toward the castle. ' + FILM,
+    'owl': 'A majestic snowy owl in flight seen from the front, flying straight toward the camera with its broad white wings fully spread wide and level, feathers lit by cool silver moonlight with a soft rim light, golden eyes, photorealistic, cinematic, sharp detail, isolated on a pure black background',
     'lions': 'Wide cinematic shot of a great jutting rock promontory rising above the African savanna at sunset. On top of the rock two lions rest side by side facing the setting sun: a majestic male lion with a thick dark flowing mane sits upright, and a graceful lioness lies close beside him, leaning her head against his mane. Below stretch endless golden plains dotted with flat-topped acacia trees and a silver river winding to the horizon. Huge glowing sky of orange, rose and violet clouds, the large sun low on the horizon, warm rim light on their fur. The rock and the lions sit in the right third of the frame and the upper half of the picture is open sky. ' + STYLE,
     'lions-night': 'The same wide shot of the great rock promontory above the African savanna, now at night. On top of the rock the majestic maned lion sits upright and the lioness lies beside him, leaning her head against his mane, both silvered by moonlight. A deep indigo and violet sky full of stars, the last faint amber glow along the horizon, the plains, acacia trees and winding river in cool blue moonlit shadow. ' + STYLE,
     'horses': 'Intimate close-up of two wild mustang horses touching noses tenderly at golden hour on a prairie of tall golden grass. On the left a buckskin stallion with a golden coat and a long flowing black mane; on the right a pinto paint mare with white and chestnut patches. Gentle soft eyes, manes lifting in the warm wind, the low sun glowing between their muzzles, distant red sandstone mesas softly blurred behind. ' + STYLE,
@@ -31,6 +35,8 @@ PROMPTS = {
 }
 # name, prompt key, seeds, width, height, img2img source name (the night is painted over the sunset)
 JOBS = [
+    ('castle', 'castle', [3, 8, 13, 21, 34, 55], 1024, 1536, None),
+    ('owl', 'owl', [2, 7, 19, 42], 1024, 1024, None),
     ('lions', 'lions', [11, 23, 37, 58, 71, 89], 1536, 864, None),
     ('lions-night', 'lions-night', [11, 23, 37, 58, 71, 89], 1536, 864, 'lions'),
     ('horses', 'horses', [5, 9, 14, 23, 31, 47], 1536, 864, None),

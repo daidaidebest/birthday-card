@@ -25,7 +25,7 @@ function lanternSprite(h) {
 export default {
   id: 'wish', music: 'wish',
   async load() {
-    const [land, port, lake] = await Promise.all(['img/study-land.webp', 'img/study-port.webp', 'img/night-lake.webp'].map(p => loadImage(asset(p))));
+    const [land, port, lake] = await Promise.all(['img/study-land.webp', 'img/study-port.webp', 'img/castle.webp'].map(p => loadImage(asset(p))));
     Object.assign(A, { land, port, lake }); if (!A.cake) A.cake = gradeCake(await loadCake());
     [A.dLand, A.dPort] = await Promise.all([loadDepth('study-land'), loadDepth('study-port')]);
   },

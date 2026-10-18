@@ -17,7 +17,7 @@ const PLACES = {
   shenzhenHis: { region: '', city: '深圳', line: '我的路，也终于写到了深圳。', art: 'shenzhen' },
 };
 const HER = ['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhenHer'], HIS = ['wuhan', 'nanjing', 'shanghai', 'shenzhenHis'];
-const HER_STEP = 4.5, HIS_STEP = 5.6, ROUTES_END = 22.4, MAP_LEN = 9;
+const MAP_LEN = 9;
 const SAND = [44, 26, 12];
 const MAP_OFF = [-12, 6]; // centres China + Japan inside the light table
 const mxy = c => { const [x, y] = mapXY(c); return [x + MAP_OFF[0], y + MAP_OFF[1]]; };
@@ -176,9 +176,49 @@ export default {
       labelEls.forEach(({ id, s }) => { const on = Math.min(progressFor(0, id), progressFor(1, id)) <= Math.max(fh, fm) + .001 && t > 2; s.classList.toggle('on', on); });
     }
 
+    // ---------- her hands in the sand ----------
+    // a finger drawn across a lightbox carves a trail the light shines through; a sweep (or a tap) pours
+    // the next stop. Left alone, each stop moves on after a few seconds.
+    const AUTO_STEP = 6.5, AUTO_MAP = 6, AUTO_END = 9;
+    const hintEl = document.createElement('p'); hintEl.className = 'jr-hint'; el.appendChild(hintEl);
+    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    let touchAny = false, mapAsked = 0, endAsked = 0, wantMap = false, wantEnd = false;
+    const laneAt = (x, y) => lanes.find(l => { const r = l.sand.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && r.width > 0; });
+    let stroke = null;
+    el.addEventListener('pointerdown', e => {
+      if (e.target.closest('#hud,#menu,#btn-next')) return;
+      touchAny = true; hint(null);
+      const l = mode === 'routes' ? laneAt(e.clientX, e.clientY) : lanes[0];
+      stroke = { l, x: e.clientX, y: e.clientY, x0: e.clientX, t0: T, dist: 0 };
+      if (l) carve(l, e.clientX, e.clientY, e.clientX, e.clientY);
+    });
+    addEventListener('pointermove', e => {
+      if (!stroke || !stroke.l) return;
+      carve(stroke.l, stroke.x, stroke.y, e.clientX, e.clientY);
+      stroke.dist += Math.hypot(e.clientX - stroke.x, e.clientY - stroke.y); stroke.x = e.clientX; stroke.y = e.clientY;
+    }, { passive: true });
+    const release = e => {
+      if (!stroke) return; const st = stroke; stroke = null;
+      const r = st.l?.sand.getBoundingClientRect(), sweep = r && Math.abs(st.x - st.x0) > r.width * .35, tap = T - st.t0 < .3 && st.dist < 10;
+      if (mode === 'routes') {
+        if (st.l && (sweep || tap)) st.l.want = true;
+        else if (!st.l && tap && lanes.every(l => l.last && l.ready)) wantMap = true;
+      } else if (mode === 'map' && (tap || sweep)) { if (met) wantEnd = true; }
+    };
+    addEventListener('pointerup', release); addEventListener('pointercancel', release);
+    function carve(l, x0, y0, x1, y1) {
+      const r = l.sand.getBoundingClientRect(), k = l.sand.width / r.width;
+      const g = l.g; g.save(); g.globalCompositeOperation = 'destination-out'; g.lineCap = 'round'; g.lineWidth = Math.max(3, l.sand.width / 70);
+      g.beginPath(); g.moveTo((x0 - r.left) * k, (y0 - r.top) * k); g.lineTo((x1 - r.left) * k, (y1 - r.top) * k); g.stroke(); g.restore();
+      // grains thrown aside by the finger, catching the light
+      if (Math.random() < .5) fx.trail(x1, y1, { life: .8, size: 1.1, spread: 8, vy: -8 });
+      l.carved = true;
+    }
+
     // ---------- clock ----------
     let T = 0, mode = 'routes', ended = false, cardShown = false, mapT = 0;
-    const cues = env.cues([[ROUTES_END + .6, ROUTES_END + 4.6, '各自走来的路，在东京写下同一页。'], [ROUTES_END + 5, ROUTES_END + MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
+    let mapStart = 1e9;
+    const cuesMap = env.cues([[.6, 4.6, '各自走来的路，在东京写下同一页。'], [5, MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
     function resize() {
       const Wv = env.W, Hv = env.H, portrait = env.portrait;
       el.classList.toggle('portrait', portrait);
@@ -191,7 +231,8 @@ export default {
     resize();
     return {
       resize,
-      progress: () => clamp(T / (ROUTES_END + MAP_LEN)),
+      progress: () => mode === 'map' ? .75 + clamp(mapT / MAP_LEN) * .25 : clamp(((lanes[0].idx + 1) / HER.length + (lanes[1].idx + 1) / HIS.length) / 2) * .75,
+      destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
       update(dt, t) {
         T = t;
         if (!cardShown) { cardShown = true; env.chapterCard('II', 1700); }
@@ -207,18 +248,25 @@ export default {
         const rt = t - 1.7; // routes begin after the chapter card
         if (rt < 0) { el.classList.remove('lit'); return; }
         el.classList.add('lit');
-        cues(rt);
+        cuesMap(rt - mapStart);
         if (mode === 'routes') {
-          const hi = Math.min(HER.length - 1, Math.floor(rt / HER_STEP)), mi = Math.min(HIS.length - 1, Math.floor(rt / HIS_STEP));
-          if (lanes[0].idx !== hi) { lanes[0].idx = hi; setPlace(lanes[0], HER[hi]); }
-          if (lanes[1].idx !== mi) { lanes[1].idx = mi; setPlace(lanes[1], HIS[mi]); }
+          lanes.forEach((l, k) => {
+            const stops = k ? HIS : HER;
+            if (l.idx < 0) { l.idx = 0; setPlace(l, stops[0]); l.want = false; l.ready = false; }
+            l.last = l.idx >= stops.length - 1;
+            if (l.ready && !l.last && (l.want || rt - l.readyAt > AUTO_STEP + k * .9)) { l.idx++; l.ready = false; l.want = false; l.carved = false; setPlace(l, stops[l.idx]); }
+          });
+          if (!touchAny && rt > 6 && lanes.some(l => l.ready)) hint('用手指拂过沙画，看下一站');
+          const allDone = lanes.every(l => l.last && l.ready);
+          if (allDone && !mapAsked) { mapAsked = rt; if (touchAny) hint('轻触，让两条路相遇'); }
           lanes.forEach(l => {
-            if (l.p < 1.25) { l.p += dt / 1.6; compose(l); }
+            if (l.p < 1.25) { l.p += dt / 1.6; compose(l); if (l.p >= 1.25) { l.ready = true; l.readyAt = rt; } }
             pour(l, dt);
-            const k = ((rt % (l.n ? HIS_STEP : HER_STEP)) / (l.n ? HIS_STEP : HER_STEP));
+            const k = clamp(l.ready ? (rt - l.readyAt) / AUTO_STEP : 0);
             const z = `translate(${(par[0] * .45).toFixed(1)}px,${(par[1] * .45).toFixed(1)}px) scale(${(1.03 + k * .03).toFixed(4)})`; // the sand sits a little deeper than the frame if (l.z !== z) { l.z = z; l.sand.style.transform = l.glow.style.transform = z; }
           });
-          if (rt >= ROUTES_END) {
+          if (allDone && (wantMap || rt - mapAsked > AUTO_MAP)) {
+            hint(null); mapStart = rt;
             mode = 'map'; mapT = 0; field.classList.add('is-map');
             const l = lanes[0]; l.old = l.cur; l.cur = ART.arts.map; l.p = 0; l.grains = [];
             l.sand.style.transform = l.glow.style.transform = '';
@@ -229,7 +277,8 @@ export default {
           mapT += dt; const l = lanes[0];
           if (l.p < 1.25) { l.p += dt / 1.5; compose(l); }
           else mapFrame(mapT); // the carving accumulates on the finished sand, no per-frame recompose
-          if (!ended && mapT > MAP_LEN) { ended = true; env.next({ transition: 'gold' }); }
+          if (met && !endAsked) { endAsked = mapT; setTimeout(() => { if (!ended) hint('轻触，翻到下一章'); }, 2600); }
+          if (!ended && met && (wantEnd || mapT - endAsked > AUTO_END)) { ended = true; hint(null); env.next({ transition: 'gold' }); }
         }
       },
     };

@@ -1,14 +1,14 @@
-// Chapter V: the falling star lights the first candle; each candle is lit by a memory.
+// Chapter V: the falling star lights the first candle; she carries its flame to the others (or taps
+// a candle and a star flies in to light it), each with a whispered line.
 // She closes her eyes, makes a wish and blows them out. Sky lanterns rise, and the last letter appears.
 import { asset, loadImage, canvas, clamp, lerp, between, win, easeInOut, easeOut, rng, glowSprite, sparkleSprite, TAU, wait } from '../util.js';
-import { paintCake, CANDLES, CAKE_W, CAKE_H } from './cake.js';
+import { loadCake, CANDLES, CAKE_W, CAKE_H, FLAME } from './cake.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 
 const A = {};
 const WIN_L = { x0: 855, y0: 60, x1: 1250, y1: 470 }, WIN_P = { x0: 345, y0: 30, x1: 738, y1: 770 };
-const LIGHT_AT = [.6, 2.1, 3.6, 5.1, 6.6];
-const LIGHT_ORDER = [2, 0, 1, 3, 4];
-const WHISPERS = ['这一支，为你走过的那些路。', '这一支，为我们相遇的那座城。', '这一支，为隔着山海的想念。', '这一支，为往后的每一天。', '最后这一支，为你。'];
+const N = CANDLES.length, FIRST = Math.floor((N - 1) / 2); // the star lights a middle candle first
+const WHISPERS = ['这一支，为你走过的那些路。', '这一支，为我们相遇的那座城。', '这一支，为隔着山海的想念。', '这一支，为一起看过的星星。', '这一支，为往后的每一天。', '最后这一支，为你。'];
 const FINAL = ['今晚我在东京，你在远方。', '隔着一片海，和很多很多公里的夜空，', '我们看的，是同一片星星。', '愿你一直勇敢，也一直被爱。', '往后的每一页，想和你一起写。'];
 
 function lanternSprite(h) {
@@ -26,7 +26,7 @@ export default {
   id: 'wish', music: 'wish',
   async load() {
     const [land, port, lake] = await Promise.all(['img/study-land.webp', 'img/study-port.webp', 'img/night-lake.webp'].map(p => loadImage(asset(p))));
-    Object.assign(A, { land, port, lake }); if (!A.cake) A.cake = paintCake();
+    Object.assign(A, { land, port, lake }); if (!A.cake) A.cake = gradeCake(await loadCake());
     [A.dLand, A.dPort] = await Promise.all([loadDepth('study-land'), loadDepth('study-port')]);
   },
   create(env) {
@@ -63,7 +63,34 @@ export default {
     const flames = CANDLES.map((_, i) => ({ lit: 0, out: 0, seed: R() * 40 }));
     const flights = []; const smoke = []; const lamps = [];
     let topDirty = true, map = { s: 1, x: 0, y: 0 }, cake = { x: 0, y: 0, s: 1 }, T = 0, phase = 'light', phaseAt = 0, lit = 0, blowAt = 0, finalAt = 0, creditsAt = 0, mic = null;
-    const whisper = env.cues(LIGHT_AT.map((a, i) => [a + .25, a + 1.6, WHISPERS[i]]));
+    // ---------- lighting by hand ----------
+    const AUTO_LIGHT = 7;
+    let carry = null, lastLight = 0, hinted = false, sayTimer = 0;
+    const hintEl = document.createElement('p'); hintEl.className = 'ws-hint'; el.appendChild(hintEl);
+    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    const unlit = () => flames.map((f, i) => i).filter(i => !flames[i].lit && !flights.some(f => f && !f.done && f.i === i));
+    const nearest = (x, y, list, r) => { let best = -1, bd = r; list.forEach(i => { const [tx, ty] = tip(i), d = Math.hypot(tx - x, ty - y); if (d < bd) { bd = d; best = i; } }); return best; };
+    function light(i) {
+      if (flames[i].lit) return; flames[i].lit = .01; lit++; lastLight = T;
+      const [tx, ty] = tip(i); fx.burst(tx, ty - 8, { n: 26, speed: 70, life: 1.2, size: 1.6 }); env.audio.sfx('light', .7);
+      env.say(WHISPERS[Math.min(lit, WHISPERS.length) - 1]); clearTimeout(sayTimer); sayTimer = setTimeout(() => env.say(null), 2600);
+    }
+    function launch(i, from) {
+      const [sx, sy] = from || P(WINDOW.x0 + R() * 540, WINDOW.y0 + 120 + R() * 200);
+      flights.push({ i, sx, sy, st: T, done: false }); lastLight = T;
+    }
+    const wickReach = () => Math.max(26, CAKE_W * cake.s * .06);
+    cv.addEventListener('pointerdown', e => {
+      if (phase !== 'light') return;
+      hint(null);
+      const litOnes = flames.map((f, i) => i).filter(i => flames[i].lit > .5);
+      if (nearest(e.clientX, e.clientY, litOnes, wickReach() * 1.6) >= 0) { carry = { x: e.clientX, y: e.clientY }; env.audio.sfx('sparkle', .2); return; }
+      const i = nearest(e.clientX, e.clientY, unlit(), wickReach() * 1.4);
+      if (i >= 0) launch(i);
+    });
+    addEventListener('pointermove', e => { if (carry) { carry.x = e.clientX; carry.y = e.clientY; } }, { passive: true });
+    const drop = () => { carry = null; };
+    addEventListener('pointerup', drop); addEventListener('pointercancel', drop);
 
     function layout() {
       const W = env.W, H = env.H; portrait = env.portrait;
@@ -78,8 +105,8 @@ export default {
       const dm = portrait ? A.dPort : A.dLand; if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .026, focus: portrait ? .73 : .8 }); }
       el.classList.toggle('land', !portrait);
       // the cake stands on the desk: in front of the window on wide screens, centred on phones
-      const cs = (portrait ? 640 : 560) / CAKE_W * s, baseY = portrait ? 1250 : 870, cx = portrait ? W / 2 : map.x + 640 * s;
-      cake = cake0 = { s: cs, x: cx - CAKE_W * cs / 2, y: map.y + baseY * s - (CAKE_H - 22) * cs };
+      const cs = (portrait ? 780 : 600) / CAKE_H * s, baseY = portrait ? 1250 : 870, cx = portrait ? W / 2 : map.x + 640 * s;
+      cake = cake0 = { s: cs, x: cx - CAKE_W * cs / 2, y: map.y + baseY * s - (CAKE_H - 6) * cs };
       const wcx = map.x + (WINDOW.x0 + WINDOW.x1) / 2 * s, wcy = map.y + (WINDOW.y0 + WINDOW.y1) / 2 * s;
       const z = portrait ? 1.35 : Math.min(2.2, H * .9 / ((WINDOW.y1 - WINDOW.y0) * s));
       el.style.setProperty('--look', `translate(${(W / 2 - wcx).toFixed(1)}px,${(H * .48 - wcy).toFixed(1)}px) scale(${z.toFixed(3)})`);
@@ -110,12 +137,13 @@ export default {
     $('.ws-mic').addEventListener('click', e => startMic(e.currentTarget));
     cv.addEventListener('click', () => { if (phase === 'wish') blow(); });
     $('[data-again]').addEventListener('click', () => {
-      flames.forEach(f => { f.lit = 0; f.out = 0; }); lit = 0; phase = 'relight'; phaseAt = T; el.classList.remove('blown', 'final', 'credits', 'look'); env.audio.cue('wish', 2);
+      flames.forEach(f => { f.lit = 0; f.out = 0; }); flights.length = 0; lit = 0; phase = 'relight'; phaseAt = T; el.classList.remove('blown', 'final', 'credits', 'look'); env.audio.cue('wish', 2);
     });
     $('[data-replay]').addEventListener('click', () => { location.hash = ''; location.search = ''; location.reload(); });
 
     return {
       resize: layout,
+      debug: () => ({ phase, lit, tips: flames.map((f, i) => [...tip(i), +f.lit.toFixed(2)]) }),
       progress: () => phase === 'light' ? T / 60 : phase === 'blown' ? .7 + clamp((T - blowAt) / 60) * .3 : .5,
       update(dt, t) {
         T = t; const W = env.W, H = env.H;
@@ -167,9 +195,13 @@ export default {
         g.globalCompositeOperation = 'lighter'; g.globalAlpha = warm * .55 * (.92 + Math.sin(t * 9) * .05);
         g.drawImage(glowW, W / 2 - cw * 1.1, cake.y - ch * .15, cw * 2.2, ch * 1.4);
         g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+        // a soft contact shadow where the stand meets the desk
+        { const sx = cake.x + cw / 2, sy = cake.y + ch * .99, sh = g.createRadialGradient(sx, sy, 0, sx, sy, cw * .5);
+          sh.addColorStop(0, 'rgba(8,4,2,.6)'); sh.addColorStop(1, 'rgba(8,4,2,0)');
+          g.save(); g.translate(sx, sy); g.scale(1, .12); g.translate(-sx, -sy); g.fillStyle = sh; g.fillRect(sx - cw * .5, sy - cw * .5, cw, cw); g.restore(); }
         g.drawImage(A.cake, cake.x, cake.y, cw, ch);
         // the room falls into shadow except where the candles reach
-        const [lx, ly] = tip(2), reach = Math.max(W, H) * (.25 + warm * .45);
+        const [lx, ly] = tip(FIRST), reach = Math.max(W, H) * (.25 + warm * .45);
         const dg = g.createRadialGradient(lx, ly, 0, lx, ly, reach);
         dg.addColorStop(0, `rgba(5,5,14,${(darkness * (1 - warm * .85)).toFixed(3)})`); dg.addColorStop(.55, `rgba(5,5,14,${(darkness * (1 - warm * .4)).toFixed(3)})`); dg.addColorStop(1, `rgba(5,5,14,${darkness.toFixed(3)})`);
         if (phase === 'blown') { tg.fillStyle = `rgba(5,5,14,${darkness.toFixed(3)})`; tg.fillRect(0, 0, W, H); } // the zoomed world no longer covers the screen edges
@@ -177,24 +209,29 @@ export default {
 
         // ---------- lighting the candles ----------
         if (phase === 'light' || phase === 'relight') {
-          const base = phase === 'relight' ? phaseAt - .6 : 0, times = phase === 'relight' ? [0, .5, 1, 1.5, 2] : LIGHT_AT;
-          if (phase === 'light') whisper(t);
-          times.forEach((at, k) => {
-            const i = LIGHT_ORDER[k], st = base + at;
-            if (t > st && !flights[k + (phase === 'relight' ? 5 : 0)]) {
-              const [sx, sy] = k === 0 && phase === 'light' ? [W / 2, -20] : P(WINDOW.x0 + R() * 540, WINDOW.y0 + 120 + R() * 200);
-              flights[k + (phase === 'relight' ? 5 : 0)] = { i, sx, sy, st, done: false };
-            }
-          });
+          // the star from the night sky lights the first candle; then the rest are hers to light
+          if (!flights.length && t > .6) launch(FIRST, [W / 2, -20]);
+          if (phase === 'relight' && t - lastLight > .5 && unlit().length) launch(unlit()[0]);
+          if (phase === 'light' && lit >= 1 && unlit().length) {
+            if (!hinted && t - lastLight > 2.2) { hinted = true; hint('触碰烛火，把它带到另一支蜡烛上'); }
+            if (t - lastLight > AUTO_LIGHT && !carry) launch(unlit()[0]);
+          }
           flights.forEach(f => {
             if (!f || f.done) return; const u = clamp((t - f.st) / 1.15); const [tx, ty] = tip(f.i);
             const x = lerp(f.sx, tx, easeInOut(u)) + Math.sin(u * Math.PI) * 60 * (f.i % 2 ? 1 : -1), y = lerp(f.sy, ty - 10, easeInOut(u)) - Math.sin(u * Math.PI) * 30;
             g.globalCompositeOperation = 'lighter'; g.drawImage(spark, x - 14, y - 14, 28, 28); g.globalCompositeOperation = 'source-over';
             if (Math.random() < .9) fx.trail(x, y, { life: 1.1, size: 1.6 });
-            if (u >= 1) { f.done = true; flames[f.i].lit = .01; fx.burst(tx, ty - 8, { n: 26, speed: 70, life: 1.2, size: 1.6 }); env.audio.sfx('light', .7); lit++; }
+            if (u >= 1) { f.done = true; if (phase === 'relight') { flames[f.i].lit = .01; lit++; env.audio.sfx('light', .5); } else light(f.i); }
           });
-          if (lit >= 5 && phase === 'light' && t > LIGHT_AT[4] + 1.9) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); }
-          if (lit >= 10 && phase === 'relight' && t > phaseAt + 3) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); lit = 5; }
+          // a flame carried on her fingertip
+          if (carry) {
+            drawFlame(g, carry.x, carry.y + 10, FLAME * .75 * cake.s, t, 3, 0, 1);
+            if (Math.random() < .7) fx.trail(carry.x, carry.y - 6, { life: .9, size: 1.3, vy: -20 });
+            const i = nearest(carry.x, carry.y + 10, unlit(), wickReach());
+            if (i >= 0) light(i);
+          }
+          if (lit >= N && phase === 'light' && t - lastLight > 1.9) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); carry = null; hint(null); }
+          if (lit >= N && phase === 'relight' && t > phaseAt + 3) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); }
         }
         if (phase === 'ask' && t - phaseAt > 45) startWish(); // let the moment happen on its own if nobody taps
         if (phase === 'wish') {
@@ -209,14 +246,14 @@ export default {
           if (f.lit > 0) f.lit = Math.min(1, f.lit + dt * 2.2);
           if (phase === 'blown') { const st = blowAt + .35 + i * .09; if (t > st && f.out < 1) { if (f.out === 0) for (let k = 0; k < 26; k++) smoke.push({ i, age: -k * .07, p: Math.random() * TAU }); f.out = Math.min(1, f.out + dt * 5); } }
           const a = f.lit * (1 - f.out); if (a <= 0) return;
-          const [x, y] = tip(i), sc = cake.s * 2.1;
+          const [x, y] = tip(i);
           const lean = phase === 'blown' ? between(t, blowAt, blowAt + .35) * 14 : 0;
-          drawFlame(g, x, y, 16 * sc * (.4 + .6 * a), t, f.seed, lean, a);
+          drawFlame(g, x, y, FLAME * cake.s * (.4 + .6 * a), t, f.seed, lean, a);
         });
         // smoke wisps curling up
         for (let k = smoke.length - 1; k >= 0; k--) {
           const s = smoke[k]; s.age += dt; if (s.age > 3.2) { smoke.splice(k, 1); continue; } if (s.age < 0) continue;
-          const [x, y] = tip(s.i), u = s.age / 3.2, sc = cake.s * 2;
+          const [x, y] = tip(s.i), u = s.age / 3.2, sc = cake.s * FLAME / 16;
           g.globalAlpha = (1 - u) * .22; const r = (2 + u * 12) * sc;
           g.drawImage(smokeS, x + Math.sin(s.age * 3 + s.i) * 10 * u * sc + Math.sin(s.age * 7 + s.p) * 2 - r, y - 8 * sc - u * 120 * sc - r, r * 2, r * 2);
         }
@@ -244,7 +281,7 @@ export default {
           }
         }
       },
-      destroy() { stopMic(); },
+      destroy() { stopMic(); removeEventListener('pointerup', drop); removeEventListener('pointercancel', drop); },
     };
 
     function drawArc(g, box, k, t) {
@@ -260,6 +297,17 @@ export default {
     }
   },
 };
+// Settles the painted cake into the candlelit room: a warm multiply, light falling off toward the stand.
+function gradeCake(img) {
+  const c = canvas(img.width, img.height), g = c.getContext('2d'), h = img.height;
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgb(255,222,188)'; g.fillRect(0, 0, img.width, h);
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, 'rgb(255,250,240)'); gr.addColorStop(.45, 'rgb(205,180,160)'); gr.addColorStop(1, 'rgb(120,92,72)');
+  g.fillStyle = gr; g.fillRect(0, 0, img.width, h);
+  g.globalCompositeOperation = 'destination-in'; g.drawImage(img, 0, 0); // keep the cut-out's own alpha
+  return c;
+}
 function heartPath(g, x, y, s) { g.beginPath(); for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU; const hx = 16 * Math.pow(Math.sin(a), 3), hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); i ? g.lineTo(x + hx * s / 16, y + hy * s / 16) : g.moveTo(x + hx * s / 16, y + hy * s / 16); } g.closePath(); }
 function drawFlame(g, x, y, s, t, seed, lean, a) {
   const f = 1 + Math.sin(t * 13 + seed) * .07 + Math.sin(t * 7.1 + seed * 3) * .05, sway = Math.sin(t * 3.3 + seed) * s * .07 + lean * s * .06;

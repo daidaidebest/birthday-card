@@ -3,6 +3,7 @@ import { clamp, canvas, wait, isPortrait } from './util.js';
 import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { Pups } from './pups.js';
+import { Gate } from './gate.js';
 import prologue from './scenes/prologue.js';
 import book from './scenes/book.js';
 import journey from './scenes/journey.js';
@@ -137,23 +138,35 @@ async function go(i, { transition = 'cross', fast = false } = {}) {
   if (transition === 'gold') { env.fx.goldSwirl(); env.veil(.55, 650, '#fff1d0'); }
   else if (transition === 'white') env.veil(.7, 650, '#fff4dc');
   else if (transition === 'amber') env.veil(.85, 700, '#f2c27e');
+  else if (transition === 'moon') env.veil(1, 1, '#eef1ff');
   else if (transition === 'black' || fast) await env.veil(1, 450);
   await preload(i);
   if (old) old.frozen = true;
   currentIndex = i; updateMenu();
   const S = SCENES[i];
-  const el = document.createElement('div'); el.className = 'scene scene-' + S.id; el.style.opacity = old && !fast && transition !== 'black' ? 0 : 1; stage.appendChild(el);
+  const el = document.createElement('div'); el.className = 'scene scene-' + S.id; el.style.opacity = old && !fast && transition !== 'black' ? 0 : 1;
+  if (transition === 'moon') setTimeout(() => env.veil(0, 2200, '#eef1ff'), 300); stage.appendChild(el);
   env.letterbox(false);
   current = S.create({ ...env, el }); settle = performance.now() + 1600; gaps.length = 0;
   current.el = el; current.t = 0;
   env.audio.cue(S.music, 1.6);
   for (let k = i + 1; k < Math.min(SCENES.length, i + 3); k++) preload(k);
   history.replaceState(null, '', '#' + S.id);
-  const fade = transition === 'gold' ? 1100 : 900;
-  requestAnimationFrame(() => { el.style.transition = `opacity ${fade / SPEED}ms ease`; el.style.opacity = 1; });
+  const fade = transition === 'gold' ? 1500 : transition === 'moon' ? 600 : 1300;
+  // a lens pulling focus: the old shot drifts forward and softens while the new one resolves out of a blur
+  const soft = !env.software && !env.reduced && !film.classList.contains('low-power') && old && !fast && transition !== 'black';
+  if (soft) {
+    el.classList.add('entering');
+    old.el.style.transition = `transform ${fade * 1.2 / SPEED}ms cubic-bezier(.4,0,.2,1), filter ${fade / SPEED}ms ease`;
+    old.el.classList.add('leaving');
+  }
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.style.transition = `opacity ${fade / SPEED}ms ease, transform ${fade * 1.4 / SPEED}ms cubic-bezier(.2,.7,.2,1), filter ${fade * 1.1 / SPEED}ms ease`;
+    el.style.opacity = 1; el.classList.remove('entering');
+  }));
   await wait(fade / SPEED);
   if (old) { old.destroy?.(); old.el?.remove(); }
-  el.style.transition = ''; env.veil(0, 800);
+  setTimeout(() => { el.style.transition = ''; }, fade * .5 / SPEED); env.veil(0, 900);
   switching = false;
 }
 env.go = go;
@@ -228,24 +241,20 @@ document.addEventListener('visibilitychange', () => env.audio.pause(document.hid
 
 // ---------- start ----------
 const startIndex = Math.max(0, SCENES.findIndex(s => s.id === (params.get('scene') || location.hash.slice(1))));
-Promise.all([preload(startIndex), document.fonts?.ready]).then(() => {
-  film.classList.remove('is-loading'); $('#gate-loading').textContent = '';
-});
-const gate = $('#gate');
 let started = false;
-async function begin() {
+const gate = new Gate(env, begin);
+// iOS only grants motion access (and audio) from inside a real gesture: ask on the first press of the moon
+const firstTouch = () => { enableTilt(); env.audio.unlock(); };
+$('#gate-moon').addEventListener('pointerdown', firstTouch, { once: true });
+$('#gate-moon').addEventListener('keydown', firstTouch, { once: true });
+Promise.all([preload(startIndex), document.fonts?.ready]).then(() => {
+  film.classList.remove('is-loading'); $('#gate-loading').textContent = ''; gate.setReady();
+});
+function begin() {
   if (started) return; started = true;
-  enableTilt(); // must run inside the tap for iOS to ask for motion access
-  env.audio.unlock();
-  gate.classList.add('cracking');
-  const r = $('#gate-seal').getBoundingClientRect();
-  env.fx.burst(r.left + r.width / 2, r.top + r.height / 2, { n: 120, speed: 260, life: 2.2, color: '255,214,150', size: 2.6, drag: 1.6 });
-  env.audio.sfx('seal');
-  await wait(450);
-  gate.classList.add('gone'); film.classList.add('started'); wake();
-  go(startIndex);
+  gate.close(); film.classList.add('started'); wake();
+  go(startIndex, { transition: 'moon' });
 }
-$('#gate-seal').addEventListener('click', begin);
-if (params.has('autostart')) { film.classList.remove('is-loading'); begin(); }
+if (params.has('autostart')) { film.classList.remove('is-loading'); env.audio.unlock(); begin(); }
 requestAnimationFrame(frame);
 window.__gift = { stats, env, go, get scene() { return current; }, setPaused };

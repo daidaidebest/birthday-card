@@ -8,6 +8,7 @@
 <title>师宝宝 · 生日奇遇</title>
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/gift-serif.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="assets/img/moon.webp" as="image">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/scenes.css">
 </head>
@@ -22,17 +23,20 @@
   <div id="chapter-card" aria-hidden="true"><small></small><b></b><span></span></div>
 
   <section id="gate" aria-label="开始">
-    <div class="gate-stars"></div>
+    <canvas class="gate-sky" aria-hidden="true"></canvas>
     <div class="gate-inner">
       <p class="gate-eyebrow">A LETTER BY MOONLIGHT</p>
       <h1>写给师宝宝的<br>一场梦</h1>
-      <button id="gate-seal" type="button" aria-label="轻触火漆，开始">
-        <img src="assets/img/seal.webp" alt="">
-      </button>
-      <p class="gate-hint">轻触火漆，开启今晚的魔法</p>
+      <div class="gate-orrery">
+        <i class="gate-halo" aria-hidden="true"></i>
+        <svg class="gate-dial" viewBox="-210 -210 420 420" aria-hidden="true"></svg>
+        <button id="gate-moon" type="button" aria-label="按住月亮，开始"><canvas></canvas></button>
+      </div>
+      <p class="gate-hint"><span class="idle">按住月亮，等它慢慢圆满</span><span class="hold">再等一等……</span></p>
       <p class="gate-note">建议戴上耳机 · 打开声音 · 留出十分钟</p>
       <p class="gate-loading" id="gate-loading">月光正在赶来…</p>
     </div>
+    <i class="gate-flood" aria-hidden="true"></i>
   </section>
 
   <nav id="hud" aria-label="控制">

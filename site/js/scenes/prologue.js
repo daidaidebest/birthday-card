@@ -1,5 +1,6 @@
 // Prologue: a moonlit lake. A point of light slips from the moon, drifts down on a trail of stardust,
-// and blooms into a sealed envelope addressed to 师宝宝. The letter rises and writes itself.
+// and blooms into an envelope wrapped in a silk band with a gold-foil crescent charm. She slips the band
+// off herself (tap the charm or drag the band), and the letter rises and writes itself.
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, rng, fbm, glowSprite, sparkleSprite, TAU } from '../util.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 
@@ -13,6 +14,15 @@ const LETTER = [
   '请跟着烛光，去书房找它。',
 ];
 const SIGN = '—— 一个在远方，很想你的人';
+// gold-foil charm: a tiny orrery, the full moon she just filled at its heart
+const CHARM = `<svg viewBox="-50 -50 100 100"><defs>
+  <linearGradient id="pro-foil" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a5524"/><stop offset=".28" stop-color="#e9cd8a"/><stop offset=".45" stop-color="#fff4d2"/><stop offset=".62" stop-color="#c99a4f"/><stop offset="1" stop-color="#6e4a1e"/></linearGradient>
+  <radialGradient id="pro-disc" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="#2a2016"/><stop offset="1" stop-color="#120d08"/></radialGradient>
+</defs>
+  <circle r="46" fill="url(#pro-disc)"/><circle r="46" fill="none" stroke="url(#pro-foil)" stroke-width="2.4"/><circle r="40" fill="none" stroke="url(#pro-foil)" stroke-width=".7" stroke-dasharray=".1 3.3" stroke-linecap="round"/>
+  <circle r="30" fill="none" stroke="url(#pro-foil)" stroke-width=".55" opacity=".8"/><circle r="21" fill="none" stroke="url(#pro-foil)" stroke-width=".9"/>
+  <circle cx="16.1" cy="-13.5" r="2.4" fill="url(#pro-foil)"/><circle cx="-24.6" cy="17.2" r="1.5" fill="url(#pro-foil)"/>
+  <circle r="11" fill="url(#pro-foil)"/></svg>`;
 const MOON = { x: 836, y: 287 }, CASTLE = { x: 884, y: 1094 };
 const A = {};
 
@@ -31,7 +41,7 @@ export default {
   id: 'prologue', music: 'prologue',
   async load() {
     const [lake] = await Promise.all([loadImage(asset('img/night-lake.webp')),
-      ...['letter', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in', 'seal'].map(n => loadImage(asset(`img/${n}.webp`)))]);
+      ...['letter', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in'].map(n => loadImage(asset(`img/${n}.webp`)))]);
     A.lake = lake; A.depth = await loadDepth('night-lake');
     if (!A.clouds) A.clouds = [makeClouds(1.3), makeClouds(7.9)];
   },
@@ -58,9 +68,11 @@ export default {
         <div class="pro-paper"><div class="pro-paper-inner"></div></div>
         <img class="pro-env-pocket" src="${asset('img/env-pocket.webp')}" alt="">
         <div class="pro-env-flap"><img class="out" src="${asset('img/env-flap.webp')}" alt=""><img class="in" src="${asset('img/env-flap-in.webp')}" alt=""></div>
-        <button class="pro-seal" type="button" aria-label="打开信"><img src="${asset('img/seal.webp')}" alt=""></button>
-      </div>`;
-    const envEl = wrap.querySelector('.pro-env'), paper = wrap.querySelector('.pro-paper'), inner = wrap.querySelector('.pro-paper-inner'), seal = wrap.querySelector('.pro-seal');
+        <div class="pro-band" aria-hidden="true"><i class="pro-band-sheen"></i></div>
+        <button class="pro-charm" type="button" aria-label="解开缎带，打开信">${CHARM}</button>
+      </div>
+      <p class="pro-hint">轻触金色的小月亮，解开缎带</p>`;
+    const envEl = wrap.querySelector('.pro-env'), paper = wrap.querySelector('.pro-paper'), inner = wrap.querySelector('.pro-paper-inner'), charm = wrap.querySelector('.pro-charm'), band = wrap.querySelector('.pro-band');
     const chars = [];
     LETTER.forEach(line => {
       const p = document.createElement('p'); if (!line) p.className = 'gap';
@@ -75,8 +87,13 @@ export default {
     const WRITE_LEN = at;
 
     const ARRIVE = 4.7;
-    let T = 0, openAt = ARRIVE + 1.3, opened = false, openStart = 0, written = 0, done = false, doneAt = 0, leaving = false, bloomed = false, res = 1;
-    seal.addEventListener('click', () => { if (!opened && T > ARRIVE + .6) openAt = T; });
+    let T = 0, openAt = Infinity, opened = false, openStart = 0, written = 0, done = false, doneAt = 0, leaving = false, bloomed = false, res = 1;
+    const release = () => { if (!opened && T > ARRIVE + .6) openAt = T; };
+    charm.addEventListener('click', release);
+    // the band can also be slid off: a short drag anywhere across it
+    let drag = null;
+    band.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; });
+    addEventListener('pointerup', e => { if (drag && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 24) release(); drag = null; });
     const cues = env.cues([[.5, 4, '今晚的月亮，替一个人送来一封信。'], [ARRIVE + .2, ARRIVE + 2.4, '寄给 · 师宝宝']]);
 
     const inst = {
@@ -160,16 +177,17 @@ export default {
           envEl.style.opacity = a.toFixed(3);
           envEl.style.transform = `translateY(${(Math.sin(t * 1.6) * 5).toFixed(1)}px) rotate(${(Math.sin(t * 1.1) * 1.1).toFixed(2)}deg) scale(${lerp(.7, 1, a).toFixed(3)})`;
           if (a >= 1) wrap.classList.add('ready');
+          if (t > ARRIVE + 4.5) wrap.classList.add('hinted');
         }
         if (!opened && t > openAt) {
-          opened = true; openStart = t; wrap.classList.add('open'); env.audio.sfx('seal');
+          opened = true; openStart = t; wrap.classList.add('open'); env.audio.sfx('page', .8); env.audio.sfx('sparkle', .5);
           envEl.style.transform = ''; envEl.style.opacity = 1;
-          const r = seal.getBoundingClientRect(); fx.burst(r.left + r.width / 2, r.top + r.height / 2, { n: 60, speed: 180, life: 1.3, size: 2 });
+          const r = charm.getBoundingClientRect(); fx.burst(r.left + r.width / 2, r.top + r.height / 2, { n: 60, speed: 180, life: 1.3, size: 2 });
         }
         if (opened) {
           const k2 = t - openStart;
-          wrap.classList.toggle('flap', k2 > .12); wrap.classList.toggle('rise', k2 > .7); wrap.classList.toggle('free', k2 > 1.45);
-          const ws = openStart + 1.9;
+          wrap.classList.toggle('flap', k2 > .7); wrap.classList.toggle('rise', k2 > 1.3); wrap.classList.toggle('free', k2 > 2.05);
+          const ws = openStart + 2.5;
           while (written < chars.length && t >= ws + times[written]) {
             const sp = chars[written++]; sp.classList.add('on');
             if (written % 4 === 0) { const r = sp.getBoundingClientRect(); fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.4, vy: -16 }); }

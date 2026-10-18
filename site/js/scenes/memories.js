@@ -1,10 +1,10 @@
-// Chapter III: polaroids hung on a string of fairy lights; each one drifts forward to be looked at,
-// then the birthday letter unfolds and writes itself.
+// Chapter III: polaroids hung on a string of fairy lights. She takes any of them down to look into it
+// (a living photo she can lean into); left alone, they come forward one by one. Then the letter.
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeOutBack, rng, glowSprite, TAU } from '../util.js';
 import { PHOTOS, LETTER } from '../content-shim.js';
 import { loadDepth, depthNameFor, DepthView, wander } from '../depth.js';
 
-const DROP = 3.0, FOCUS = 4.0;
+const DROP = 3.0;
 const DEPTHS = {};
 export default {
   id: 'memories', music: 'memories',
@@ -36,9 +36,30 @@ export default {
     const chars = []; const addP = (txt, cls) => { const p = document.createElement('p'); if (cls) p.className = cls; for (const ch of txt) { const s = document.createElement('span'); s.textContent = ch; p.appendChild(s); chars.push(s); } textEl.appendChild(p); };
     addP(LETTER.greeting, 'greet'); LETTER.paragraphs.forEach(t => addP(t)); addP(LETTER.closing, 'close'); addP(LETTER.ps, 'ps');
     let at = 0; const times = chars.map(s => { const t0 = at; const ch = s.textContent; at += '，。；：！？♡'.includes(ch) ? .15 : .038; if (s === s.parentNode.lastChild) at += .32; return t0; });
-    const LETTER_AT = DROP + PHOTOS.length * FOCUS + .6, WRITE_AT = LETTER_AT + 1.1, WRITE_END = WRITE_AT + at;
+    let LETTER_AT = 1e9, WRITE_AT = 1e9, WRITE_END = 1e9;
+    const openLetter = t => { if (LETTER_AT < 1e9) return; LETTER_AT = t + .3; WRITE_AT = LETTER_AT + 1.1; WRITE_END = WRITE_AT + at; env.offerNext(null); hint(null); };
+    // ---------- looking at photos: tap one to take it down, tap again to hang it back ----------
+    const AUTO_IDLE = 7, HOLD_LOOK = 6.5;
+    let focusIdx = -1, focusAt = 0, lastInput = 0, lookE = 0; const seen = new Set();
+    const hintEl = document.createElement('p'); hintEl.className = 'mm-hint'; el.appendChild(hintEl);
+    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    const focus = i => { focusIdx = i; focusAt = T; if (i >= 0) { seen.add(i); env.audio.sfx('page', .35); } };
+    let drag = null;
+    el.addEventListener('pointerdown', e => {
+      if (e.target.closest('#hud,#menu,#btn-next') || LETTER_AT < 1e9) return;
+      lastInput = T; hint(null);
+      const card = e.target.closest('.mm-card'), i = card ? cards.findIndex(c => c.el === card) : -1;
+      drag = { x: e.clientX, y: e.clientY, i, t: T };
+    });
+    addEventListener('pointermove', e => { if (drag && focusIdx >= 0) { drag.dx = (e.clientX - drag.x) / env.W; drag.dy = (e.clientY - drag.y) / env.H; } }, { passive: true });
+    const release = () => {
+      if (!drag) return; const d = drag; drag = null;
+      if (Math.hypot(d.dx || 0, d.dy || 0) > .03) return; // that was a look around, not a tap
+      if (d.i >= 0 && d.i !== focusIdx) focus(d.i); else if (focusIdx >= 0) focus(-1);
+    };
+    addEventListener('pointerup', release); addEventListener('pointercancel', release);
 
-    let rs = 1, anchors = [], cardW = 180, portrait = false, T = 0, written = 0, offered = false, ended = false, cardShown = false;
+    let rs = 1, anchors = [], cardW = 180, portrait = false, T = 0, written = 0, offered = false, folded = false, ended = false, cardShown = false;
     function layout() {
       const W = env.W, H = env.H; portrait = env.portrait;
       rs = env.software ? .5 : .75; bg.width = Math.round(W * rs); bg.height = Math.round(H * rs);
@@ -62,7 +83,7 @@ export default {
 
     return {
       resize: layout,
-      progress: () => clamp(T / (WRITE_END + 6)),
+      progress: () => LETTER_AT < 1e9 ? .6 + clamp((T - LETTER_AT) / (WRITE_END - LETTER_AT + 4)) * .4 : seen.size / PHOTOS.length * .6,
       update(dt, t) {
         T = t; const W = env.W, H = env.H;
         const wd = wander(t, 8.3, .8), lx = (wd.x * .6 + env.look.x) * Math.min(W, H) * .02, ly = (wd.y * .4 + env.look.y * .7) * Math.min(W, H) * .02;
@@ -86,31 +107,43 @@ export default {
           g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
         });
         // ---------- polaroids ----------
-        const fi = Math.floor((t - DROP) / FOCUS), ft = ((t - DROP) % FOCUS) / FOCUS, inFocus = t > DROP && t < DROP + PHOTOS.length * FOCUS;
+        // left alone, the next photo she has not seen comes forward; a photo she is looking at stays until she lets it go
+        if (t > DROP && LETTER_AT >= 1e9) {
+          const idle = t - Math.max(lastInput, focusAt);
+          if (focusIdx < 0 && idle > (seen.size ? 1.6 : AUTO_IDLE) && seen.size < PHOTOS.length && t - lastInput > AUTO_IDLE) focus([...cards.keys()].find(i => !seen.has(i)));
+          else if (focusIdx >= 0 && t - focusAt > HOLD_LOOK && t - lastInput > HOLD_LOOK) focus(-1);
+          if (t > DROP + 1.5 && !lastInput && focusIdx < 0 && !seen.size) hint('轻触一张照片，取下来看看');
+          if (seen.size === PHOTOS.length && focusIdx < 0 && !offered) { offered = true; env.offerNext('读一读给你的信', () => openLetter(T)); }
+          if (offered && focusIdx < 0 && t - Math.max(lastInput, focusAt) > 5) openLetter(t);
+        }
+        const fi = focusIdx, ft = clamp((t - focusAt) / HOLD_LOOK), inFocus = fi >= 0;
+        lookE += ((inFocus ? 1 : 0) - lookE) * (1 - Math.exp(-dt * 3.2));
         const letterUp = between(t, LETTER_AT, LETTER_AT + 2);
-        const qi = inFocus && ft > .14 && ft < .62 ? fi : -1; // gone before the photo returns to the string
+        const qi = inFocus && t - focusAt > .5 ? fi : -1;
         if (qi !== quoteIdx) {
           quoteIdx = qi; quote.classList.toggle('on', qi >= 0);
           if (qi >= 0) { const p = PHOTOS[qi]; quote.querySelector('small').textContent = `0${qi + 1} / 0${PHOTOS.length}`; quote.querySelector('b').textContent = p.title; quote.querySelector('span').textContent = p.caption; }
         }
         // while one photo is looked at, the others step back (smaller, higher, dimmer) to make room
-        const lookE = inFocus ? easeInOut(clamp(Math.sin(Math.PI * clamp(ft * 1.15)) * 1.6)) : 0;
         cards.forEach(c => {
           const [ax, ay] = anchors[c.i]; const k = easeOutBack(clamp((t - c.drop) / 1.1));
           if (k > 0 && !c.landed) { c.landed = true; env.audio.sfx('page', .15); }
           const sw = Math.sin(t * 1.4 + c.ph) * (2 + 6 * Math.exp(-(t - c.drop) * .7)) + c.swing * .1;
           let x = ax - lx * .5, y = lerp(-H * .4, ay, k) - ly * .5, rot = sw, s = 1, z = 0, dim = 0;
-          if (inFocus) {
-            const f = c.i === fi ? Math.sin(Math.PI * clamp(ft * 1.15)) : 0, e = easeInOut(clamp(f * 1.6));
-            if (c.i === fi) {
+          c.e = (c.e || 0) + ((c.i === fi ? 1 : 0) - (c.e || 0)) * (1 - Math.exp(-dt * 3.4));
+          if (c.e > .002 || inFocus) {
+            const e = easeInOut(c.e);
+            if (c.e > .002) {
               const target = portrait ? Math.min(W * .78, H * .42) : Math.min(H * .62 * .82, W * .32);
               s = lerp(1, target / cardW, e); x = lerp(ax, W * (portrait ? .5 : .36), e); y = lerp(ay, H * (portrait ? .12 : .14), e); rot = lerp(sw, -2, e); z = 1;
               if (c.view && c.base) { // the camera glides through the photo's depth while she looks at it
-                const b = c.base; c.view.frame(b, { x: lerp(-.9, .9, easeInOut(ft)) + env.look.x * .5, y: lerp(.35, -.25, ft) + env.look.y * .4, zoom: .14 * easeInOut(ft), focus: .3 }, [b.bw / 2, b.bw * .55]).apply(); c.still = false;
+                const b = c.base, dx = drag && c.i === fi ? (drag.dx || 0) * 4 : 0, dy = drag && c.i === fi ? (drag.dy || 0) * 3 : 0;
+                c.lx = lerp(c.lx || 0, clamp(lerp(-.7, .7, easeInOut(ft)) + env.look.x * .5 - dx, -1.3, 1.3), .08); c.ly = lerp(c.ly || 0, clamp(lerp(.3, -.2, ft) + env.look.y * .4 - dy, -1.3, 1.3), .08);
+                c.view.frame(b, { x: c.lx, y: c.ly, zoom: .14 * easeInOut(clamp(ft * 1.4)) * c.e, focus: .3 }, [b.bw / 2, b.bw * .55]).apply(); c.still = false;
               } else c.img.style.transform = `scale(${1.04 + ft * .1}) translate(${(ft - .5) * -2}%,0)`;
               c.el.classList.toggle('reading', e > .6);
-            } else { dim = (fi >= 0 && fi < PHOTOS.length ? .55 : 0) + lookE * .4; s = 1 - lookE * .26; y -= lookE * H * .07; c.el.classList.remove('reading'); }
-            if (c.i !== fi && c.view && c.base && !c.still) { c.still = true; c.view.frame(c.base, { x: 0, y: 0, zoom: 0, focus: .3 }, [c.base.bw / 2, c.base.bw / 2]).apply(); }
+            } else { dim = (inFocus ? .55 : 0) * lookE + lookE * .4; s = 1 - lookE * .26; y -= lookE * H * .07; c.el.classList.remove('reading'); }
+            if (c.e <= .002 && c.view && c.base && !c.still) { c.still = true; c.view.frame(c.base, { x: 0, y: 0, zoom: 0, focus: .3 }, [c.base.bw / 2, c.base.bw / 2]).apply(); }
           } else c.el.classList.remove('reading');
           if (letterUp > 0) { dim = Math.max(dim, letterUp * .7); y -= letterUp * H * .06; }
           c.el.style.transform = `translate(${(x - cardW / 2).toFixed(1)}px,${y.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${s.toFixed(3)})`;
@@ -126,11 +159,11 @@ export default {
             if (r.bottom > pr.bottom - pr.height * .22) paper.scrollTop += r.bottom - (pr.bottom - pr.height * .22);
             if (written % 4 === 0) fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.3, vy: -14 });
           }
-          if (written >= chars.length && !offered) { offered = true; env.offerNext('收好这封信', () => { ended = true; env.next({ transition: 'black' }); }); }
-          if (offered && !ended && t > WRITE_END + 7) { ended = true; env.offerNext(null); env.next({ transition: 'black' }); }
+          if (written >= chars.length && !folded) { folded = true; env.offerNext('收好这封信', () => { ended = true; env.next({ transition: 'black' }); }); }
+          if (folded && !ended && t > WRITE_END + 25) { ended = true; env.offerNext(null); env.next({ transition: 'black' }); }
         }
       },
-      destroy() { env.offerNext(null); },
+      destroy() { env.offerNext(null); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
     };
   },
 };

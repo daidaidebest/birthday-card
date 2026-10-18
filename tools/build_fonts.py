@@ -28,6 +28,9 @@ latin = ''.join(chr(c) for c in range(32, 127)) + '’‘“”—–…·♡'
 import subprocess
 def find(name):
     return subprocess.run(['fc-match', '-f', '%{file}', name], capture_output=True, text=True).stdout
-sub(find('TeX Gyre Chorus'), 0, ROOT + '/assets/fonts/gift-script.woff', latin)
-sub(find('TeX Gyre Pagella:italic'), 0, ROOT + '/assets/fonts/gift-latin-italic.woff', latin)
-sub(find('TeX Gyre Pagella'), 0, ROOT + '/assets/fonts/gift-latin.woff', latin)
+# fc-match quietly substitutes another family when TeX Gyre is not installed; the Latin subsets never
+# change with the site's text, so keep the existing files rather than overwrite them with the wrong face
+for name, out in [('TeX Gyre Chorus', 'gift-script'), ('TeX Gyre Pagella:italic', 'gift-latin-italic'), ('TeX Gyre Pagella', 'gift-latin')]:
+    path = find(name)
+    if 'texgyre' in path.lower(): sub(path, 0, ROOT + f'/assets/fonts/{out}.woff', latin)
+    else: print('skip', out, '(TeX Gyre not installed; existing subset kept)')

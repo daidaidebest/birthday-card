@@ -3,6 +3,9 @@
 #   python3 tools/depth.py  site/assets/img/foo.webp        # 1. depth map (Depth Anything V2, small)
 #   python3 tools/layers.py foo 4                           # 2. depth planes -> site/assets/depth/foo/
 #   python3 tools/layers.py --manifest                      # 3. regenerate js/depth-data.js
+#   python3 tools/layers.py foo-night 4 --depth foo         # a variant painted over the same composition
+#                                                           #   (e.g. night), cut with foo's depth so the
+#                                                           #   two plane sets line up and can crossfade
 #
 # Each plane k holds every pixel at least as near as threshold k (a cumulative, depth-feathered mask),
 # so stacking the planes reproduces the original exactly when the camera is still. Wherever a nearer
@@ -55,12 +58,12 @@ def inpaint(rgb, hole):
     return (out * (1 - soft) + big * soft).astype(np.uint8)
 
 
-def split(name, k, feather=.035, src=None):
+def split(name, k, feather=.035, src=None, depth=None):
     src = src or glob.glob(os.path.join(ROOT, f'site/assets/img/{name}.*'))[0]
     im = Image.open(src)
     src_a = np.asarray(im.convert('RGBA'))[..., 3].astype(np.float32) / 255 if im.mode in ('RGBA', 'LA') else None
     rgb = np.asarray(im.convert('RGB'))
-    d = np.load(os.path.join(ROOT, f'depth/{name}.npy')).astype(np.float32)
+    d = np.load(os.path.join(ROOT, f'depth/{depth or name}.npy')).astype(np.float32)
     d = cv2.bilateralFilter(d, 7, .05, 5)  # calm depth noise inside surfaces, keep edges
     th, centres = thresholds(d, k)
     os.makedirs(os.path.join(OUT, name), exist_ok=True)
@@ -110,4 +113,7 @@ if __name__ == '__main__':
     if sys.argv[1] == '--manifest':
         manifest()
     else:
-        split(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 4, *(float(a) for a in sys.argv[3:4]))
+        args, depth = sys.argv[1:], None
+        if '--depth' in args:
+            i = args.index('--depth'); depth = args[i + 1]; del args[i:i + 2]
+        split(args[0], int(args[1]) if len(args) > 1 else 4, *(float(a) for a in args[2:3]), depth=depth)

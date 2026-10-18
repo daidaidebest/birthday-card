@@ -164,9 +164,16 @@ export default {
     let T = 0, spread = -1, writeL = 0, writeR = 0, phase = 'intro', phaseAt = 0, turnP = 0, coverP = 0, rise = 0, dive = 0, focus = 0, focusTarget = 0;
     let hurry = false, ended = false, cardShown = false, frameN = 0;
     const OPEN_AT = 2.6;
-    function startTurn() {
+    // she turns the pages herself: drag a page (or the cover) leftward, or tap; a long pause turns it for her
+    const IDLE_TURN = 9, IDLE_OPEN = 8, IDLE_DIVE = 10;
+    let manual = false, turnTarget = 1, dragX = 0, dragP = 0, downAt = 0, waitAt = 0, turnsDone = 0;
+    const hintEl = document.createElement('p'); hintEl.className = 'bk-hint'; el.appendChild(hintEl);
+    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    function startTurn(byHand) {
       if (phase !== 'hold' && phase !== 'write') return;
-      if (spread >= SPREADS - 1) { phase = 'dive'; phaseAt = T; return; }
+      hint(null);
+      if (spread >= SPREADS - 1) { phase = 'dive'; phaseAt = T; env.audio.sfx('whoosh', .6); return; }
+      manual = !!byHand; turnTarget = 1;
       leafF = idxR; leafB = (spread + 1) * 2; sliceLeaf();
       // the page underneath is the next right page, still unwritten
       idxR = (spread + 1) * 2 + 1; inst.R = makePage(idxR, pageR); writeR = 0; render(inst.R, 0, T);
@@ -174,15 +181,50 @@ export default {
       env.audio.sfx('page', .9); env.audio.sfx('whoosh', .35);
     }
     function finishTurn() {
-      spread++; leafEl.style.display = 'none'; leafF = leafB = -1;
+      spread++; turnsDone++; leafEl.style.display = 'none'; leafF = leafB = -1;
       idxL = spread * 2; inst.L = makePage(idxL, pageL); writeL = 0; render(inst.L, 0, T);
       phase = 'write'; phaseAt = T; hurry = false;
     }
+    /** A turn let go too early falls back: the leaf lies down again on the right. */
+    function cancelTurn() {
+      leafEl.style.display = 'none'; idxR = leafF; leafF = leafB = -1;
+      inst.R = makePage(idxR, pageR); writeR = inst.R?.dur || 0; render(inst.R, writeR, T);
+      phase = 'hold'; phaseAt = T; waitAt = T;
+    }
+    el.addEventListener('pointerdown', e => {
+      if (e.target.closest('#hud,#menu,#btn-next')) return;
+      dragX = e.clientX; downAt = T; dragP = 0;
+      if (phase === 'hold' && spread < SPREADS - 1 && e.clientX > env.W * .35) startTurn(true);
+      else if (phase === 'cover-wait') { phase = 'cover'; phaseAt = T; manual = true; coverP = 0; hint(null); env.audio.sfx('whoosh', .5); }
+    });
+    addEventListener('pointermove', e => {
+      if (!manual) return;
+      dragP = clamp((dragX - e.clientX) / (pw * 1.3));
+      if (phase === 'turn') turnP = dragP; else if (phase === 'cover') coverP = dragP;
+    }, { passive: true });
+    const release = e => {
+      if (!manual) return; manual = false;
+      const tap = T - downAt < .3 && Math.abs((e?.clientX ?? dragX) - dragX) < 12;
+      // a tap, a flick or a drag past a third of the way completes it; otherwise it falls back
+      turnTarget = tap || dragP > .32 || (dragP > .08 && T - downAt < .35) ? 1 : 0;
+    };
+    addEventListener('pointerup', release); addEventListener('pointercancel', release);
     el.addEventListener('click', () => {
       if (phase === 'write') hurry = true;
-      else if (phase === 'hold') startTurn();
+      else if (phase === 'hold' && spread >= SPREADS - 1) startTurn();
     });
 
+    let glintAt = 0;
+    function cornerGlow(t) {
+      if (t - glintAt < .09 || !pageR.isConnected) return; glintAt = t;
+      const r = pageR.getBoundingClientRect(), k = (t * .7) % 1;
+      fx.trail(r.right - 6 - k * r.width * .06, r.bottom - 6 - (1 - k) * r.height * .1, { life: 1.1, size: 1.3, vy: -12, spread: 3 });
+    }
+    function coverGlow(t) {
+      if (t - glintAt < .07) return; glintAt = t;
+      const r = coverEl.getBoundingClientRect(), k = (t * .35) % 1;
+      fx.trail(r.right - 4, r.top + k * r.height, { life: 1.2, size: 1.4, vy: -10, spread: 3 });
+    }
     const cues = env.cues([[2.2, 5.4, '书房里的蜡烛，一支一支，自己亮了起来。']]);
     layout();
 
@@ -190,7 +232,7 @@ export default {
       progress: () => clamp((spread + 1 + turnP) / (SPREADS + 1)),
       debug: () => ({ phase, spread, writeL, writeR, T, lDur: inst.L?.dur, rDur: inst.R?.dur }),
       resize() { layout(); },
-      destroy() {},
+      destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
       update(dt, t) {
         T = t; const W = env.W, H = env.H;
         if (!cardShown && t > .2) { cardShown = true; env.chapterCard('I', 1700); }
@@ -251,10 +293,16 @@ export default {
         // ---------- choreography ----------
         if (phase === 'intro') {
           rise = easeInOut(between(t, .7, 2.9));
-          if (t > OPEN_AT) { phase = 'cover'; phaseAt = t; env.audio.sfx('whoosh', .5); idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); }
+          if (t > OPEN_AT) { phase = 'cover-wait'; phaseAt = t; idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); }
+        }
+        if (phase === 'cover-wait') {
+          if (t - phaseAt > 1.2) hint('轻触封面，或向左拨开，翻开这本书');
+          coverGlow(t);
+          if (t - phaseAt > IDLE_OPEN) { phase = 'cover'; phaseAt = t; manual = false; turnTarget = 1; hint(null); env.audio.sfx('whoosh', .5); }
         }
         if (phase === 'cover') {
-          coverP = easeInOut(clamp((t - phaseAt) / 1.3));
+          if (!manual) coverP = clamp(coverP + (turnTarget ? 1 : -1) * dt / 1.3);
+          if (coverP <= 0 && !manual && !turnTarget) { phase = 'cover-wait'; phaseAt = t - 1.2; turnTarget = 1; }
           if (coverP >= 1) { spread = 0; coverEl.style.display = 'none'; idxL = 0; inst.L = makePage(0, pageL); writeL = 0; writeR = 0; render(inst.L, 0, t); phase = 'write'; phaseAt = t; }
         }
         if (phase === 'write' || phase === 'hold') {
@@ -266,11 +314,17 @@ export default {
           // the camera follows the pen on narrow screens
           focusTarget = portrait ? (writeL < lDur ? 1 : -1) : 0;
           if (Rp?.map) focusTarget = portrait ? -1 : -.35;
-          if (phase === 'write' && writeL >= lDur && writeR >= rDur) { phase = 'hold'; phaseAt = t; }
-          if (phase === 'hold' && t - phaseAt > (spread === SPREADS - 1 ? .6 : 1.05)) startTurn();
+          if (phase === 'write' && writeL >= lDur && writeR >= rDur) { phase = 'hold'; phaseAt = t; waitAt = t; }
+          if (phase === 'hold') {
+            const last = spread >= SPREADS - 1, wait = t - waitAt;
+            if (wait > 1.4) hint(last ? '轻触书页，走进故事里' : turnsDone ? null : '向左拨动书页，翻到下一页');
+            if (!last) cornerGlow(t);
+            if (wait > (last ? IDLE_DIVE : IDLE_TURN)) startTurn();
+          }
         }
         if (phase === 'turn') {
-          turnP = clamp((t - phaseAt) / 1.12);
+          if (!manual) turnP = clamp(turnP + (turnTarget ? 1 : -1) * dt / 1.05);
+          if (turnP <= 0 && !manual && !turnTarget) { cancelTurn(); }
           focusTarget = 0;
           const e = easeInOut(turnP), root = -180 * e, curl = 115 * Math.sin(Math.PI * turnP) * (-(1 - turnP) + turnP * .55);
           let acc = root;
@@ -299,12 +353,12 @@ export default {
         const tableY = portrait ? H * .3 : H * .27;
         const ty = lerp(tableY, portrait ? -H * .02 : -H * .015, rise) + bob;
         const rx = lerp(64, 15, rise), sc = lerp(.52, 1, rise);
-        const closedShift = -pw / 2 * (1 - coverP);
+        const closedShift = -pw / 2 * (1 - easeInOut(coverP));
         const bp = view.at(1.12, tmp), bk = bp.s / map.s;
         let x = closedShift + focus * pw / 2 + (bp.x + (W / 2 - map.x) * bk - W / 2), s = sc, y = ty + (bp.y + (H / 2 - map.y) * bk - H / 2);
         if (dive > 0) { s = sc * (1 + dive * 5); x = lerp(x, -pw * .45 * (1 + dive * 5), dive); y = lerp(ty, ty + ph * .05 * dive * 5, dive); }
         floatEl.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotateX(${(rx - dive * 12).toFixed(2)}deg) rotateZ(${sway.toFixed(2)}deg) scale(${s.toFixed(4)})`;
-        coverEl.style.transform = `rotateY(${(-180 * coverP).toFixed(2)}deg) translateZ(2px)`;
+        coverEl.style.transform = `rotateY(${(-180 * easeInOut(coverP)).toFixed(2)}deg) translateZ(2px)`;
         bookEl.classList.toggle('is-open', coverP > .5);
         camX = x; camY = y; camS = s;
         if (rise > 0 && rise < 1 && Math.random() < .5) fx.trail(W / 2 + (R() - .5) * pw * 1.2, H / 2 + ty + ph * .3, { vy: -40, life: 1.4 });

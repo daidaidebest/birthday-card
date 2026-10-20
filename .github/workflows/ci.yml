@@ -2,14 +2,9 @@ name: CI
 on:
   pull_request:
     paths:
-      - 'src/**'
-      - 'public/memory-book/**'
-      - 'index.html'
+      - 'site/**'
+      - 'scripts/**'
       - 'package*.json'
-      - 'tsconfig*.json'
-      - 'vite.config.ts'
-      - 'eslint.config.js'
-      - 'scripts/check-memory-book.mjs'
       - '.github/workflows/ci.yml'
       - '.github/workflows/pages.yml'
 permissions:
@@ -20,8 +15,6 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    env:
-      VITE_APP_BASE: /birthday-card/
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

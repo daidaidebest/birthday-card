@@ -56,6 +56,8 @@ export class Audio {
     if (!this.paused) next.el.play().catch(() => {});
     this.fade(next, 1, sec);
   }
+  /** Seconds into a music cue while it is the one playing (null otherwise), for scenes that keep time with it. */
+  time(name) { const t = this.tracks.get(name); return t && t === this.current && !t.el.paused && t.el.readyState > 2 ? t.el.currentTime : null; }
   /** Lower the music under a quiet moment (0..1). */
   duck(level = .35, sec = 1.5) { if (this.current) this.fade(this.current, level, sec); }
   sfx(name, vol = 1) {

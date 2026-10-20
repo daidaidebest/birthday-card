@@ -10,41 +10,51 @@
 .pro-addr{position:absolute;left:30%;top:36%;color:#17583a;font-size:calc(var(--ew)*.052);line-height:1.75;letter-spacing:.08em;transform:rotate(-1.6deg);
   text-shadow:0 0 .6px rgba(10,60,35,.8),0 .5px 0 rgba(255,250,230,.25);opacity:.92}
 .pro-addr .a0{font-size:1.25em;font-weight:600;margin-bottom:.2em}.pro-addr .a1{margin-left:1.2em}.pro-addr .a2{margin-left:2.4em}
-/* the opening rig: inside, letter, pocket, flap and seal stacked; it replaces the card once it lies face down */
-.pro-env{position:relative;width:var(--ew);height:var(--eh);transform-style:preserve-3d;opacity:0;visibility:hidden}
+/* the opening rig: inside, letter, pocket, flap and seal stacked flat (so z-index alone orders them; only the flap and
+   the letter's folds turn in 3D, each inside its own perspective). It replaces the card once it lies face down.
+   Every step of the opening is driven per frame by scenes/prologue.js. */
+.pro-env{position:relative;width:var(--ew);height:var(--eh);perspective:1100px;opacity:0;visibility:hidden}
 .pro-env.on{opacity:1;visibility:visible}
-.pro-env-shadow{position:absolute;left:4%;right:4%;bottom:-9%;height:18%;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.55),transparent 70%);transition:opacity .6s}
-.pro-env-inside,.pro-env-pocket{position:absolute;inset:0;width:100%;height:100%;display:block;transition:opacity .7s ease,transform .9s cubic-bezier(.5,0,.2,1)}
+.pro-env-shadow{position:absolute;left:4%;right:4%;bottom:-9%;height:18%;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.55),transparent 70%)}
+.pro-env-inside,.pro-env-pocket{position:absolute;inset:0;width:100%;height:100%;display:block}
 .pro-env-inside{filter:drop-shadow(0 18px 26px rgba(0,0,0,.55))}
 .pro-env-pocket{z-index:3}
-.pro-env-flap{position:absolute;inset:0;transform-origin:50% var(--flap-top,0%);transform-style:preserve-3d;z-index:4;transition:transform .75s cubic-bezier(.55,0,.25,1),opacity .6s ease}
+.pro-env-flap{position:absolute;inset:0;transform-origin:50% 0;transform-style:preserve-3d;z-index:4;will-change:transform}
 .pro-env-flap img{position:absolute;inset:0;width:100%;height:100%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .pro-env-flap img.out{filter:drop-shadow(0 3px 3px rgba(40,25,10,.3))}
 .pro-env-flap img.in{transform:rotateY(180deg)} /* mirrored image: lands as the inside of the opened flap */
-/* the crimson wax seal; it breaks in two when she presses it */
-.pro-seal{position:absolute;left:var(--seal-x);top:var(--seal-y);width:var(--seal-w);aspect-ratio:1;transform:translate(-50%,-50%);z-index:6;pointer-events:auto;cursor:pointer;border-radius:50%;padding:0;border:0;background:none}
-.pro-seal img{position:absolute;inset:0;width:100%;height:100%;display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45));transition:transform 1s cubic-bezier(.5,0,.6,1),opacity .8s ease .3s}
-.pro-seal img.l{clip-path:polygon(0 0,52% 0,46% 30%,54% 55%,47% 100%,0 100%)}
-.pro-seal img.r{clip-path:polygon(52% 0,100% 0,100% 100%,47% 100%,54% 55%,46% 30%)}
+.pro-env-flap i{position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,18,6,.55),rgba(30,18,6,0) 60%);opacity:var(--shade,0);pointer-events:none;
+  clip-path:polygon(0 0,100% 0,50% 72%);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+/* the crimson wax seal: she presses it, light cracks through it and it shatters */
+.pro-seal{position:absolute;left:var(--seal-x);top:var(--seal-y);width:var(--seal-w);aspect-ratio:1;transform:translate(-50%,-50%);z-index:6;pointer-events:auto;cursor:pointer;border-radius:50%;padding:0;border:0;background:none;-webkit-tap-highlight-color:transparent}
+.pro-seal>img{position:absolute;inset:0;width:100%;height:100%;display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.pro-seal svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.pro-seal svg path{fill:none;stroke:#fff3c4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 2px #ffd36b) drop-shadow(0 0 6px rgba(255,190,90,.9))}
 .pro-env.on .pro-seal{animation:sealglow 2.6s ease-in-out infinite}
-@keyframes sealglow{50%{filter:drop-shadow(0 0 14px rgba(255,140,110,.55))}}
+@keyframes sealglow{50%{filter:drop-shadow(0 0 14px rgba(255,170,120,.6))}}
 .low-power .pro-env.on .pro-seal{animation:none}
 .pro-letter-wrap.open .pro-seal{animation:none;pointer-events:none}
-.pro-letter-wrap.open .pro-seal img.l{transform:translate(-55%,120%) rotate(-38deg);opacity:0}
-.pro-letter-wrap.open .pro-seal img.r{transform:translate(60%,130%) rotate(42deg);opacity:0}
+.pro-shard{position:absolute;left:var(--seal-x);top:var(--seal-y);width:var(--seal-w);aspect-ratio:1;margin-left:calc(var(--seal-w)/-2);z-index:7;pointer-events:none;will-change:transform,opacity}
+.pro-shard img{position:absolute;inset:0;width:100%;height:100%;display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.pro-flash{position:absolute;left:var(--seal-x);top:var(--seal-y);width:calc(var(--seal-w)*3.2);aspect-ratio:1;transform:translate(-50%,-50%) scale(.2);z-index:8;pointer-events:none;opacity:0;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,250,225,.95) 0,rgba(255,214,140,.55) 22%,rgba(255,170,90,.18) 45%,transparent 68%);mix-blend-mode:screen}
 .pro-hint{position:absolute;left:0;right:0;top:calc(50% + var(--eh)*.66);text-align:center;font-size:14px;letter-spacing:.32em;color:#e8d8b8cc;opacity:0;transition:opacity 1.2s ease;text-shadow:0 0 12px #000}
 .pro-letter-wrap.hinted .pro-hint{opacity:1}
-.pro-letter-wrap.flap .pro-env-flap{transform:rotateX(178deg);z-index:1}
-/* the letter: a sheet of parchment written in emerald ink */
-.pro-paper{position:absolute;left:50%;top:50%;width:var(--lw);height:var(--lh);margin:calc(var(--lh)/-2) 0 0 calc(var(--lw)/-2);z-index:2;background:url(../assets/img/letter.webp) center/100% 100% no-repeat;transform:translateY(calc(var(--eh)*.04)) scale(var(--sx),var(--sy));transition:transform .85s cubic-bezier(.45,0,.15,1),filter 1.2s ease;will-change:transform}
-.pro-letter-wrap.rise .pro-paper{transform:translateY(calc(var(--eh)*-.52)) scale(var(--sx),var(--sy))}
-.pro-letter-wrap.free .pro-paper{transform:none;z-index:6;filter:drop-shadow(0 30px 40px rgba(0,0,0,.6))}
-.pro-letter-wrap.free .pro-env-inside,.pro-letter-wrap.free .pro-env-pocket,.pro-letter-wrap.free .pro-env-flap{opacity:0;transform:translateY(40%)}
-.pro-letter-wrap.free .pro-env-shadow{opacity:0}
-.pro-letter-wrap.free .pro-env-flap{transform:translateY(40%) rotateX(178deg)}
+/* the letter: a sheet of parchment folded in three. It slides out folded, then opens fold by fold and writes itself in emerald ink */
+.pro-paper{position:absolute;left:50%;top:50%;width:var(--lw);height:var(--lh);margin:calc(var(--lh)/-2) 0 0 calc(var(--lw)/-2);z-index:2;perspective:900px;transform-style:preserve-3d;will-change:transform;transform-origin:50% 50%}
+.pro-fold{position:absolute;left:0;width:100%;height:33.334%;transform-style:preserve-3d}
+.pro-fold.f0{top:0;transform-origin:50% 100%}.pro-fold.f1{top:33.333%}.pro-fold.f2{top:66.666%;transform-origin:50% 0}
+.pro-fold b,.pro-fold u{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:url(../assets/img/letter.webp) no-repeat;background-size:100% 300%}
+.pro-fold.f0 b{background-position:0 0}.pro-fold.f1 b{background-position:0 50%}.pro-fold.f2 b{background-position:0 100%}
+.pro-fold u{transform:rotateX(180deg);filter:brightness(.93) sepia(.15)}
+.pro-fold.f0 u{background-position:0 100%}.pro-fold.f2 u{background-position:0 0}
+.pro-fold i{position:absolute;inset:0;pointer-events:none;opacity:var(--shade,0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.pro-fold.f0 i{background:linear-gradient(0deg,rgba(60,40,15,.5),rgba(60,40,15,.05))}.pro-fold.f2 i{background:linear-gradient(180deg,rgba(60,40,15,.5),rgba(60,40,15,.05))}
+.pro-fold.f1 i{background:linear-gradient(180deg,rgba(60,40,15,.35),transparent 18%,transparent 82%,rgba(60,40,15,.35))}
+.pro-paper.lifted{filter:drop-shadow(0 26px 36px rgba(0,0,0,.55))}
 .pro-paper.glow{filter:drop-shadow(0 30px 40px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(150,230,180,.35))}
-.low-power .pro-letter-wrap.free .pro-paper,.low-power .pro-paper.glow{filter:none}
-.pro-paper-inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:calc(var(--lh)*.13) calc(var(--lw)*.13) calc(var(--lh)*.08);color:#1a4d33;font-size:var(--fs);line-height:2.05;letter-spacing:.06em;text-shadow:0 0 .5px rgba(10,50,30,.7)}
+.low-power .pro-paper.lifted,.low-power .pro-paper.glow{filter:none}
+.pro-paper-inner{position:absolute;inset:0;transform:translateZ(1px);display:flex;flex-direction:column;justify-content:center;padding:calc(var(--lh)*.13) calc(var(--lw)*.13) calc(var(--lh)*.08);color:#1a4d33;font-size:var(--fs);line-height:2.05;letter-spacing:.06em;text-shadow:0 0 .5px rgba(10,50,30,.7)}
 .pro-paper-inner p{min-height:1em}.pro-paper-inner p.gap{height:.6em;min-height:0}
 .pro-paper-inner p:first-child{font-weight:600;font-size:1.06em;margin-bottom:.15em}
 .pro-paper-inner .sign{text-align:right;margin-top:.9em;font-size:.94em;color:#2c5e43}

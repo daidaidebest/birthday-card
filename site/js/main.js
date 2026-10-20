@@ -219,7 +219,7 @@ let idleTimer = 0;
 const wake = () => { film.classList.remove('idle'); clearTimeout(idleTimer); idleTimer = setTimeout(() => film.classList.add('idle'), 3200); };
 addEventListener('pointermove', wake, { passive: true }); addEventListener('pointerdown', wake, { passive: true });
 $('#btn-sound').addEventListener('click', e => { const on = env.audio.toggle(); e.currentTarget.setAttribute('aria-pressed', on); e.currentTarget.setAttribute('aria-label', on ? '静音' : '打开声音'); });
-const setPaused = p => { paused = p; film.classList.toggle('paused', p); env.audio.pause(p); $('#btn-pause').setAttribute('aria-label', p ? '继续播放' : '暂停'); };
+const setPaused = p => { paused = p; film.classList.toggle('paused', p); env.audio.pause(p); dispatchEvent(new CustomEvent('gift:pause', { detail: p })); $('#btn-pause').setAttribute('aria-label', p ? '继续播放' : '暂停'); };
 $('#btn-pause').addEventListener('click', () => setPaused(!paused));
 addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); setPaused(!paused); } if (e.code === 'ArrowRight' && nextCb) nextBtn.click(); });
 const menu = $('#menu');
@@ -237,7 +237,7 @@ function updateMenu() {
 $('#btn-menu').addEventListener('click', () => { updateMenu(); menu.hidden = false; });
 $('#menu-close').addEventListener('click', () => { menu.hidden = true; });
 menu.addEventListener('click', e => { if (e.target === menu) menu.hidden = true; });
-document.addEventListener('visibilitychange', () => env.audio.pause(document.hidden || paused));
+document.addEventListener('visibilitychange', () => { env.audio.pause(document.hidden || paused); dispatchEvent(new CustomEvent('gift:pause', { detail: document.hidden || paused })); });
 
 // ---------- start ----------
 const startIndex = Math.max(0, SCENES.findIndex(s => s.id === (params.get('scene') || location.hash.slice(1))));

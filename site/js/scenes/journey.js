@@ -43,17 +43,10 @@ async function bake(id, w, h, grain) {
   const thick = canvas(w, h), tg = thick.getContext('2d', { willReadFrequently: true });
   const R = rng(id.length * 7 + 3);
   for (let i = 0; i < 7; i++) { tg.globalAlpha = i ? .45 : 1; tg.drawImage(c, (R() - .5) * 2.6, (R() - .5) * 2.6); }
-  if (id !== 'map') { // dunes of sand along the bottom and darker corners, as on a real light table
-    tg.globalAlpha = 1; tg.fillStyle = '#000'; tg.beginPath(); tg.moveTo(0, h);
-    for (let x = 0; x <= w; x += 4) tg.lineTo(x, h * (.9 + fbm(x / 90 + id.length, 3, 3) * .06));
-    tg.lineTo(w, h); tg.fill();
-  }
   const d = tg.getImageData(0, 0, w, h).data, a = new Uint8Array(w * h), r = new Float32Array(w * h);
   const cx = w / 2, cy = h / 2;
   for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
-    let al = d[i * 4 + 3] / 255;
-    if (id !== 'map') { const v = Math.hypot((x - cx) / cx, (y - cy) / cy); al = Math.max(al, clamp((v - .92) * 1.6) * .9); }
-    a[i] = clamp(al * (.35 + grain[i] * .85)) * 255;
+    a[i] = clamp(d[i * 4 + 3] / 255 * (.35 + grain[i] * .85)) * 255;
     const n = fbm(x / 70, y / 70, 3) * .22;
     r[i] = id === 'map' ? clamp(Math.hypot(x - cx * 1.05, y - cy) / (w * .55) + n) : clamp((1 - y / h) * .72 + Math.abs(x - cx) / w * .25 + n + .05);
   }
@@ -64,6 +57,26 @@ async function bake(id, w, h, grain) {
   return { a, r, emit };
 }
 
+// What every city shares: the dunes of sand along the bottom of the table (one long strip the camera walks along,
+// so a change of city is a pan rather than a cut) and the darker sand in the corners, which stays put.
+function bakeGround(w, h, grain) {
+  const SW = w * 6, dune = new Uint8Array(SW * h), vig = new Uint8Array(w * h), cx = w / 2, cy = h / 2;
+  for (let x = 0; x < SW; x++) {
+    // the strip wraps: blend the noise toward its start over the last screen so the seam cannot show
+    const u = x / w, f = n => n(u) * (1 - clamp(x / w - 5)) + n(u - 6) * clamp(x / w - 5);
+    const top = h * (.895 + f(v => fbm(v * 7.1, 3, 3)) * .06 + f(v => fbm(v * 1.3, 9, 2)) * .03);
+    for (let y = Math.max(0, Math.floor(top) - 2); y < h; y++) {
+      const edge = clamp(y - top + 1), gi = y * w + (x % w);
+      dune[y * SW + x] = clamp(edge * (.35 + grain[gi] * .85)) * 255;
+    }
+  }
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
+    const v = Math.hypot((x - cx) / cx, (y - cy) / cy);
+    vig[i] = clamp(clamp((v - .92) * 1.6) * .9 * (.35 + grain[i] * .85)) * 255;
+  }
+  return { SW, dune, vig };
+}
+
 export default {
   id: 'journey', music: 'journey',
   async load(env) {
@@ -71,7 +84,7 @@ export default {
     const w = env.q < 1 ? 480 : 640, h = Math.round(w * 850 / 1280), grain = grainField(w, h, 4);
     const arts = {};
     for (const id of ['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhen', 'wuhan', 'nanjing', 'shanghai', 'map']) arts[id] = await bake(id, w, h, grain);
-    ART = { w, h, arts };
+    ART = { w, h, arts, ground: bakeGround(w, h, grain) };
   },
   create(env) {
     const { el, fx } = env;
@@ -89,26 +102,43 @@ export default {
       const root = $('.jr-lane.' + k), sand = root.querySelector('canvas.sand'), glow = root.querySelector('canvas.glow');
       sand.width = W; sand.height = H; glow.width = W; glow.height = H;
       const g = sand.getContext('2d'), img = g.createImageData(W, H);
-      return { n, root, sand, glow, g, gg: glow.getContext('2d'), img, u32: new Uint32Array(img.data.buffer), cur: null, old: null, p: 9, idx: -1, grains: [],
+      return { n, root, sand, glow, g, gg: glow.getContext('2d'), img, u32: new Uint32Array(img.data.buffer), cur: null, old: null, p: 9, pan: -1, doff: n * W * 2.1, idx: -1, grains: [],
         meta: { h3: root.querySelector('h3'), school: root.querySelector('.school'), line: root.querySelector('.line') } };
     });
     const R = rng(77), field = $('.jr'), labels = $('.jr-lane.her .jr-labels'), room = $('.jr-room'), metas = [...el.querySelectorAll('.jr-meta')];
     const COLOR = (SAND[2] << 16) | (SAND[1] << 8) | SAND[0];
     const spark = glowSprite('255,244,214', 64, 1.6);
 
-    function setPlace(lane, key) {
-      const P = PLACES[key]; lane.old = lane.cur; lane.cur = ART.arts[P.art || key]; lane.p = 0;
+    function setPlace(lane, key, how = 'pour') {
+      const P = PLACES[key]; lane.old = lane.cur; lane.cur = ART.arts[P.art || key];
+      if (how === 'pan') { lane.pan = 0; lane.p = 9; } else { lane.p = 0; lane.pan = -1; }
       const m = lane.meta; lane.root.classList.remove('swap'); void lane.root.offsetWidth; lane.root.classList.add('swap');
-      setTimeout(() => { m.h3.textContent = P.region ? `${P.region} · ${P.city}` : P.city; m.school.textContent = P.school || ''; m.line.textContent = P.line; }, 450);
+      setTimeout(() => { m.h3.textContent = P.region ? `${P.region} · ${P.city}` : P.city; m.school.textContent = P.school || ''; m.line.textContent = P.line; }, how === 'pan' ? PAN * 450 : 450);
       env.audio.sfx('sparkle', .25);
     }
-    function compose(lane, mapMode) {
-      const { u32 } = lane, A = lane.cur, O = lane.old, p = lane.p * 1.3 - .05, q = lane.p * 1.7;
-      const n = W * H;
-      for (let i = 0; i < n; i++) {
-        let a = A ? A.a[i] * clamp((p - A.r[i]) * 7) : 0;
-        if (O && q < 1.4) { const x = i % W; const ro = x / W * .75 + O.r[i] * .3; const b = O.a[i] * clamp(1 - (q - ro) * 5); if (b > a) a = b; }
-        u32[i] = a > 2 ? ((a & 255) << 24) | COLOR : 0;
+    // One frame of sand. A new city is poured (the drawing appears along its reveal order) or walked to: the
+    // camera pans across the table, the old city sliding out as the next slides in, the dunes in front passing
+    // a little faster than the skyline. The corners' darker sand stays put.
+    function compose(lane) {
+      const { u32 } = lane, A = lane.cur, O = lane.old, G = ART.ground, SW = G.SW, n = W * H;
+      const map = A === ART.arts.map, panning = lane.pan >= 0 && O, e = panning ? easeInOut(lane.pan) : 0;
+      const p = lane.p * 1.3 - .05, q = lane.p * 1.7, oOff = Math.round(e * W), nOff = oOff - W;
+      const dOff = Math.round(lane.doff + e * W * 1.3) % SW;
+      for (let y = 0, i = 0; y < H; y++) {
+        const row = y * W, drow = y * SW;
+        for (let x = 0; x < W; x++, i++) {
+          let a = 0;
+          if (panning) {
+            const xo = x + oOff, xn = x + nOff;
+            if (xo < W) a = O.a[row + xo];
+            if (xn >= 0) { const b = A.a[row + xn]; if (b > a) a = b; }
+          } else {
+            a = A ? A.a[i] * clamp((p - A.r[i]) * 7) : 0;
+            if (O && q < 1.4) { const ro = x / W * .75 + O.r[i] * .3, f = clamp(1 - (q - ro) * 5); let b = O.a[i]; if (map) { const gd = G.dune[drow + (x + dOff) % SW]; b = Math.max(b, gd, G.vig[i]); } b *= f; if (b > a) a = b; }
+          }
+          if (!map) { const gd = G.dune[drow + (x + dOff) % SW], v = G.vig[i]; if (gd > a) a = gd; if (v > a) a = v; }
+          u32[i] = a > 2 ? ((a & 255) << 24) | COLOR : 0;
+        }
       }
       lane.g.putImageData(lane.img, 0, 0);
     }
@@ -116,7 +146,7 @@ export default {
       const A = lane.cur; if (!A) return;
       const g = lane.gg, f = lane.p * 1.3 - .05;
       if (lane.grains.length || lane.dirtyG) { g.clearRect(0, 0, W, H); lane.dirtyG = lane.grains.length > 0; }
-      if (lane.p < .95) {
+      if (lane.p < .95 && lane.pan < 0) {
         // a thin stream of sand falling from an unseen hand onto the drawing front
         let lo = 0, hi = A.emit.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (A.emit[m][0] < f) lo = m + 1; else hi = m; }
         for (let k = 0; k < 3; k++) {
@@ -177,12 +207,14 @@ export default {
     }
 
     // ---------- her hands in the sand ----------
-    // a finger drawn across a lightbox carves a trail the light shines through; a sweep (or a tap) pours
-    // the next stop. Left alone, each stop moves on after a few seconds.
-    const AUTO_STEP = 6.5, AUTO_MAP = 6, AUTO_END = 9;
+    // a finger drawn across a lightbox carves a trail the light shines through; a sweep (or a tap) walks on to
+    // the next stop sooner. Left alone, the stops follow the music: both tables move on together, every two bars,
+    // each new city settling on the downbeat (the score is 76 bpm in 4/4, tools/music.py journey()).
+    const BAR = 240 / 76, STEP = 2 * BAR, PAN = 2.4, AUTO_END = 9;
+    const HIS_AT = [0, 1, 2, 2, 3]; // his road has one stop fewer: he waits in Shanghai while she crosses to Hong Kong
     const hintEl = document.createElement('p'); hintEl.className = 'jr-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
-    let touchAny = false, mapAsked = 0, endAsked = 0, wantMap = false, wantEnd = false;
+    let touchAny = false, endAsked = 0, wantNext = false, wantEnd = false, step = -1, nextAt = BAR, mt = 0;
     const laneAt = (x, y) => lanes.find(l => { const r = l.sand.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && r.width > 0; });
     let stroke = null;
     el.addEventListener('pointerdown', e => {
@@ -201,8 +233,7 @@ export default {
       if (!stroke) return; const st = stroke; stroke = null;
       const r = st.l?.sand.getBoundingClientRect(), sweep = r && Math.abs(st.x - st.x0) > r.width * .35, tap = T - st.t0 < .3 && st.dist < 10;
       if (mode === 'routes') {
-        if (st.l && (sweep || tap)) st.l.want = true;
-        else if (!st.l && tap && lanes.every(l => l.last && l.ready)) wantMap = true;
+        if (sweep || tap) wantNext = true;
       } else if (mode === 'map' && (tap || sweep)) { if (met) wantEnd = true; }
     };
     addEventListener('pointerup', release); addEventListener('pointercancel', release);
@@ -245,30 +276,37 @@ export default {
           set(room, `translate(${(cx * .6).toFixed(1)}px,${(cy * .6).toFixed(1)}px)`);
           par = [cx, cy];
           metas.forEach(m => set(m, `translate(${(-cx * 1.1).toFixed(1)}px,${(-cy * 1.1).toFixed(1)}px)`)); }
-        const rt = t - 1.7; // routes begin after the chapter card
-        if (rt < 0) { el.classList.remove('lit'); return; }
+        // the music's own clock (the scene clock until the track is playing), so the sand keeps time with it
+        mt += dt; { const at = env.audio.time('journey'); if (at != null) { if (Math.abs(at - mt) > .5) mt = at; else mt += (at - mt) * .1; } }
+        const rt = t - 1.7; // the chapter card
+        if (mt < BAR - 1.95) { el.classList.remove('lit'); return; }
         el.classList.add('lit');
         cuesMap(rt - mapStart);
         if (mode === 'routes') {
-          lanes.forEach((l, k) => {
-            const stops = k ? HIS : HER;
-            if (l.idx < 0) { l.idx = 0; setPlace(l, stops[0]); l.want = false; l.ready = false; }
-            l.last = l.idx >= stops.length - 1;
-            if (l.ready && !l.last && (l.want || rt - l.readyAt > AUTO_STEP + k * .9)) { l.idx++; l.ready = false; l.want = false; l.carved = false; setPlace(l, stops[l.idx]); }
-          });
-          if (!touchAny && rt > 6 && lanes.some(l => l.ready)) hint('用手指拂过沙画，看下一站');
-          const allDone = lanes.every(l => l.last && l.ready);
-          if (allDone && !mapAsked) { mapAsked = rt; if (touchAny) hint('轻触，让两条路相遇'); }
+          // a sweep brings the next stop forward to the next downbeat it can reach
+          if (wantNext) { wantNext = false; if (step >= 0 && lanes.every(l => l.pan < 0)) nextAt = Math.min(nextAt, Math.ceil((mt + PAN) / BAR - .02) * BAR); }
+          if (step < 0) { step = 0; lanes.forEach((l, k) => { l.idx = 0; setPlace(l, (k ? HIS : HER)[0]); }); nextAt = BAR + STEP; }
+          else if (step < HER.length - 1 && mt >= nextAt - PAN) {
+            step++; nextAt += STEP;
+            lanes.forEach((l, k) => { const i = k ? HIS_AT[step] : step; if (i !== l.idx) { l.idx = i; setPlace(l, (k ? HIS : HER)[i], 'pan'); } });
+          }
+          lanes.forEach(l => { l.last = l.idx >= (l.n ? HIS : HER).length - 1; l.ready = l.pan < 0 && l.p >= 1.25; });
+          if (!touchAny && step >= 1 && mt > nextAt - STEP + 1) hint('用手指拂过沙画，走向下一站');
           lanes.forEach(l => {
-            if (l.p < 1.25) { l.p += dt / 1.6; compose(l); if (l.p >= 1.25) { l.ready = true; l.readyAt = rt; } }
+            if (l.pan >= 0) {
+              l.pan = Math.min(1, l.pan + dt / PAN); compose(l);
+              if (l.pan >= 1) { l.doff = (l.doff + W * 1.3) % ART.ground.SW; l.pan = -1; l.old = null; compose(l); }
+            } else if (l.p < 1.25) l.p += dt / 1.6, compose(l);
             pour(l, dt);
-            const k = clamp(l.ready ? (rt - l.readyAt) / AUTO_STEP : 0);
-            const z = `translate(${(par[0] * .45).toFixed(1)}px,${(par[1] * .45).toFixed(1)}px) scale(${(1.03 + k * .03).toFixed(4)})`; // the sand sits a little deeper than the frame if (l.z !== z) { l.z = z; l.sand.style.transform = l.glow.style.transform = z; }
+            // a gentle step in the walk while the camera pans; the sand sits a little deeper than the frame
+            const bob = l.pan >= 0 ? Math.sin(l.pan * Math.PI * 4) * Math.sin(l.pan * Math.PI) * 2.2 : 0;
+            const z = `translate(${(par[0] * .45).toFixed(1)}px,${(par[1] * .45 + bob).toFixed(1)}px) scale(1.03)`;
+            if (l.z !== z) { l.z = z; l.sand.style.transform = l.glow.style.transform = z; }
           });
-          if (allDone && (wantMap || rt - mapAsked > AUTO_MAP)) {
+          if (step === HER.length - 1 && lanes.every(l => l.ready) && mt >= nextAt - 1) {
             hint(null); mapStart = rt;
             mode = 'map'; mapT = 0; field.classList.add('is-map');
-            const l = lanes[0]; l.old = l.cur; l.cur = ART.arts.map; l.p = 0; l.grains = [];
+            const l = lanes[0]; l.old = l.cur; l.cur = ART.arts.map; l.p = 0; l.pan = -1; l.grains = [];
             l.sand.style.transform = l.glow.style.transform = '';
             l.meta.h3.textContent = '日本 · 东京'; l.meta.school.textContent = ''; l.meta.line.textContent = '';
             env.audio.sfx('whoosh', .5);

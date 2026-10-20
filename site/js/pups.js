@@ -249,7 +249,7 @@ export class Pups {
     d.ear.forEach((e, k) => spring(e, -ax * .02 + ay * .012 + stepBounce * (k ? 1 : -1) * .02 + d.shake * Math.sin(t * 38) * 260, dt, 70, 6));
     spring(d.body, -ax * .006 + d.shake * Math.sin(t * 38) * 90, dt, 90, 9);
     if (t > d.nextBlink) { d.blinkUntil = t + .13 + Math.random() * .06; d.nextBlink = t + 2.6 + Math.random() * 3.4; if (Math.random() < .18) d.nextBlink = t + .32; }
-    d.closed = d.rest > .75 || t < d.blinkUntil || (petted && petT > .15 && petT < 2.4) || d.pet > .6 || d.shake > .3;
+    d.closed = d.rest > .75 || (t < d.blinkUntil && !petted && d.pet < .3); // eyes stay open (and bright) while she pets or taps them
     d.hopping = hopping ? hopT : -1; d.walking = walking; d.trot = trot;
     d.hearts = d.hearts.filter(h => (h.age += dt) < 1.8);
   }

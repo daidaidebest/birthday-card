@@ -130,17 +130,21 @@ CH = {  # chord voicings
 }
 
 def prologue():
-    T = Track(78, 16 * 3)
-    prog = ['Em', 'Em/D', 'Cmaj7', 'B7', 'Em', 'Am', 'B7', 'Em'] * 2
+    # a gentle, wondering waltz in D major (celesta, harp, music box): magical but warm, nothing that could startle
+    T = Track(80, 16 * 3)
+    prog = ['D', 'Bm', 'G', 'A', 'D', 'F#m', 'G', 'A', 'D', 'Bm', 'G', 'A', 'D', 'F#m', 'G', 'D']
     for i, c in enumerate(prog):
-        T.chord('pad', i * 3, 3, [p for p in CH[c][:3]], .42)
-        T.arp('harp', i * 3, 3, CH[c], step=.5, vel=.3, pattern=[0, 1, 2, 3, 2, 1])
-    mel = [('G5', 1), ('F#5', 1), ('E5', 1), ('B5', 2), ('A5', 1), ('G5', 1), ('E5', 1), ('C5', 1), ('D#5', 3),
-           ('E5', 1), ('G5', 1), ('B5', 1), ('C6', 2), ('B5', 1), ('A5', 1), ('F#5', 1), ('D#5', 1), ('E5', 3)]
-    T.melody('celesta', 0, mel, .6)
-    T.melody('celesta', 24, mel, .5, octave=-12)
-    T.melody('strings', 24, [(p, d) for p, d in mel], .32, octave=-12)
-    T.render('prologue', wet=.4)
+        T.chord('pad', i * 3, 3, [p for p in CH[c][:3]], .3 + (.08 if i >= 8 else 0))
+        T.arp('harp', i * 3, 3, CH[c], step=.5, vel=.26, pattern=[0, 1, 2, 3, 2, 1])
+    mel = [('F#5', 1), ('A5', 1), ('D6', 1), ('C#6', 1.5), ('B5', .5), ('F#5', 1), ('G5', 1), ('B5', 1), ('D6', 1), ('C#6', 2), ('A5', 1),
+           ('F#5', 1), ('A5', 1), ('D6', 1), ('E6', 1.5), ('C#6', .5), ('A5', 1), ('B5', 1), ('A5', 1), ('G5', 1), ('A5', 3),
+           ('F#5', 1), ('A5', 1), ('D6', 1), ('F#6', 1.5), ('E6', .5), ('D6', 1), ('B5', 1), ('D6', 1), ('G6', 1), ('F#6', 1.5), ('E6', .5), ('C#6', 1),
+           ('D6', 1), ('A5', 1), ('F#5', 1), ('A5', 1), ('C#6', 1), ('E6', 1), ('D6', 1.5), ('C#6', .5), ('B5', 1), ('A5', 1), ('C#6', 1), ('D6', 1)]
+    T.melody('celesta', 0, mel, .5)
+    T.melody('musicbox', 24, [(p, d) for p, d in mel[22:]], .22, octave=12)
+    T.melody('strings', 24, [(p, d) for p, d in mel[22:]], .2, octave=-12)
+    for k in range(0, 48, 6): T.note('bell', k + 5, .5, 'A6' if k % 12 else 'F#6', .1)
+    T.render('prologue', wet=.42, fade_in=1.2)
 
 BOOK_MEL = [('B5', 1.5), ('A5', .5), ('G5', 1), ('A5', 2), ('D5', 1), ('E5', 1), ('G5', 1), ('B5', 1), ('A5', 3),
             ('G5', 1.5), ('F#5', .5), ('G5', 1), ('A5', 1), ('C6', 1), ('B5', 1), ('A5', 1.5), ('G5', .5), ('F#5', 1), ('A5', 3),
@@ -251,9 +255,9 @@ def sfx():
         write('sfx-' + name, out, '96k')
     def noise(sec): return rs.randn(int(SR * sec))
     t = lambda sec: np.arange(int(SR * sec)) / SR
-    # wax seal: crack + warm chord shimmer
-    y = np.zeros(int(SR * 2.5)); c = noise(.06) * np.exp(-t(.06) / .01); y[:len(c)] += c * .6
-    for k, f in enumerate([hz(m('E5')), hz(m('G#5')), hz(m('B5')), hz(m('E6'))]):
+    # wax seal: a small crack, then a warm rising chord shimmer
+    y = np.zeros(int(SR * 2.5)); c = noise(.06) * np.exp(-t(.06) / .01); y[:len(c)] += c * .45
+    for k, f in enumerate([hz(m('D5')), hz(m('F#5')), hz(m('A5')), hz(m('D6'))]):
         b = bell(f, .3, .5); i = int(SR * (.05 + k * .06)); y[i:i + len(b)] += b[:len(y) - i]
     save('seal', y, .4)
     y = np.zeros(int(SR * 3));
@@ -269,11 +273,13 @@ def sfx():
         b = bell(hz(m('C7') + [0, 4, 7, 11, 12, 16, 19, 23, 24][k]), .1, .3); i = int(SR * k * .045); y[i:i + len(b)] += b[:len(y) - i]
     save('sparkle', y, .5)
     n = noise(1.4); b, a = butter(2, 1400 / (SR / 2)); n = lfilter(b, a, n); e = np.minimum(1, t(1.4) / .08) * np.exp(-t(1.4) / .45); save('blow', n * e, .1)
-    # two soft owl hoots
+    # the owl passing overhead: a few soft wingbeats (no hoot) and a faint shimmer
     y = np.zeros(int(SR * 2.2))
-    for st, ln in [(.0, .35), (.55, .9)]:
-        tt = t(ln); f = 390 * (1 - .06 * tt / ln); s = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * tt / ln) ** 1.5
-        s += .3 * np.sin(4 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * tt / ln) ** 2; i = int(SR * st); y[i:i + len(s)] += s
+    for k in range(5):
+        n = noise(.22); bb, aa = butter(2, [180 / (SR / 2), 1400 / (SR / 2)], 'band'); n = lfilter(bb, aa, n)
+        i = int(SR * (.1 + k * .26)); e = np.sin(np.pi * t(.22) / .22) ** 2 * (1 - k * .12); y[i:i + len(n)] += n * e * .5
+    for k, pch in enumerate(['A6', 'D7', 'F#7']):
+        b = celesta(hz(m(pch)), .2, .12); i = int(SR * (.9 + k * .12)); y[i:i + len(b)] += b[:len(y) - i]
     save('owl', y, .5)
     y = noise(.12) * np.exp(-t(.12) / .02) * .4; b = bell(hz(m('A6')), .1, .4); y = np.concatenate([y, np.zeros(len(b))]); y[int(SR * .03):int(SR * .03) + len(b)] += b[:len(y) - int(SR * .03)]
     save('light', y, .4)

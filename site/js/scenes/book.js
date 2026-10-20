@@ -1,32 +1,11 @@
-// Chapter I: the study. Candles ignite by themselves, the book rises from the desk,
+// Chapter I: a warm, cozy study. The lamps and the fire come up, the book rises from the desk,
 // opens, writes in its own ink and turns its pages on a magical breeze.
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeIn, smooth, rng, glowSprite, sparkleSprite, coverRect, TAU, fbm, wait } from '../util.js';
 import { buildPages, paper } from './pages.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
+import { studyLights } from './study-glow.js';
 
 const A = {};
-const WINDOW = { x0: 855, y0: 60, x1: 1250, y1: 470, moon: [1105, 168] };
-
-function candleSprite(h) {
-  const w = h * .2, c = canvas(w + 4, h + 4), g = c.getContext('2d');
-  const gr = g.createLinearGradient(2, 0, w + 2, 0);
-  gr.addColorStop(0, '#9d9180'); gr.addColorStop(.35, '#f4ecdc'); gr.addColorStop(.6, '#fffaf0'); gr.addColorStop(1, '#a89a86');
-  g.fillStyle = gr; g.beginPath(); g.moveTo(2, 6); g.lineTo(2, h + 2); g.lineTo(w + 2, h + 2); g.lineTo(w + 2, 6);
-  // melted rim with drips
-  g.quadraticCurveTo(w * .8 + 2, 2, w * .55 + 2, 5); g.quadraticCurveTo(w * .4, 9, w * .25, 4); g.quadraticCurveTo(w * .1, 2, 2, 6); g.fill();
-  g.fillStyle = 'rgba(255,250,236,.9)';
-  for (const [x, l] of [[.22, .16], [.7, .26], [.48, .09]]) { g.beginPath(); g.ellipse(2 + w * x, 6 + h * l / 2, w * .07, h * l / 2, 0, 0, TAU); g.fill(); }
-  const top = g.createLinearGradient(0, 0, 0, h * .3); top.addColorStop(0, 'rgba(255,200,120,.45)'); top.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = top; g.fillRect(2, 2, w, h * .3);
-  return c;
-}
-function flame(g, x, y, s, t, seed) {
-  const f = 1 + Math.sin(t * 13 + seed) * .06 + Math.sin(t * 7.3 + seed * 2) * .05, sway = Math.sin(t * 3.1 + seed) * s * .08;
-  g.save(); g.translate(x, y); g.globalCompositeOperation = 'lighter';
-  const gr = g.createRadialGradient(0, -s * .45, 0, 0, -s * .45, s * .9);
-  gr.addColorStop(0, 'rgba(255,248,220,1)'); gr.addColorStop(.35, 'rgba(255,200,110,.9)'); gr.addColorStop(1, 'rgba(255,120,40,0)');
-  g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-s * .32, -s * .2, -s * .18 + sway, -s * .75 * f, sway * 1.6, -s * 1.15 * f); g.bezierCurveTo(s * .18 + sway, -s * .75 * f, s * .32, -s * .2, 0, 0); g.fill();
-  g.restore();
-}
 
 /** Hand-marbled endpaper: domain-warped noise mapped to ink colours. */
 let marbledURL = null;
@@ -71,8 +50,8 @@ export default {
         </div>
       </div></div>`;
     const $ = s => el.querySelector(s);
-    // one canvas holds the window sky, the four depth planes of the room and the candlelight (fewest layers to composite)
-    const light = $('.bk-room'), lg = light.getContext('2d', { alpha: false }), skyG = lg;
+    // one canvas holds the window sky, the depth planes of the room and its warm light (fewest layers to composite)
+    const light = $('.bk-room'), lg = light.getContext('2d', { alpha: false });
     const floatEl = $('.bk-float'), bookEl = $('.bk-book'), leafEl = $('.bk-leaf'), coverEl = $('.bk-cover');
     const auraS = glowSprite('255,206,130', 128, 1.6); let camX = 0, camY = 0, camS = .5;
     const pageL = $('.bk-page.l canvas'), pageR = $('.bk-page.r canvas'), shadowL = $('.bk-page.l .bk-shadow'), shadowR = $('.bk-page.r .bk-shadow');
@@ -85,17 +64,10 @@ export default {
     let portrait = env.portrait, cover = null;
     const R = rng(5);
 
-    // ---------------- candles ----------------
-    const candleH = [96, 70, 50];
-    const sprites = candleH.map(h => candleSprite(h));
-    const glowW = glowSprite('255,190,110', 128, 1.8), sparkle = sparkleSprite('255,230,180', 48);
-    const candles = Array.from({ length: Math.round(9 + 7 * env.q) }, (_, i) => {
-      const depth = i % 3; return { x: .06 + R() * .88, y: .05 + R() * .32 + depth * .03, depth, ph: R() * TAU, lit: 0, at: .2 + i * .12 + R() * .2, seed: R() * 50 };
-    }).sort((a, b) => b.depth - a.depth);
+    // ---------------- warm light: soft bokeh drifting in the lamplight, a hearth glow that breathes ----------------
+    const glowW = glowSprite('255,190,110', 128, 1.8), sparkle = sparkleSprite('255,230,180', 48), bokehS = glowSprite('255,214,150', 64, 1.25);
+    const bokeh = Array.from({ length: Math.round(10 + 8 * env.q) }, () => ({ x: R(), y: .08 + R() * .6, r: .018 + R() * .035, p: R() * TAU, v: .004 + R() * .008, a: .1 + R() * .16 }));
     const motes = Array.from({ length: Math.round(60 * env.q + 20) }, () => ({ x: R(), y: R(), z: R(), p: R() * TAU }));
-    const clouds = (() => { const c = canvas(240, 90), g = c.getContext('2d'), d = g.createImageData(240, 90); for (let y = 0; y < 90; y++) for (let x = 0; x < 240; x++) { const n = fbm(x / 45, y / 22, 4) * .5 + .5, e = Math.sin(Math.PI * y / 90); const i = (y * 240 + x) * 4; d.data[i] = 180; d.data[i + 1] = 190; d.data[i + 2] = 222; d.data[i + 3] = clamp((n - .52) * 3) * e * 150; } g.putImageData(d, 0, 0); return c; })();
-    const stars = Array.from({ length: 40 }, () => ({ x: WINDOW.x0 + R() * (WINDOW.x1 - WINDOW.x0), y: WINDOW.y0 + R() * 220, p: R() * TAU, s: 1 + R() * 2 }));
-    const moonGlow = glowSprite('215,225,255', 128, 1.5);
 
     // ---------------- layout ----------------
     let map = { s: 1, x: 0, y: 0 }, view = null, viewFor = null; const tmp = {};
@@ -225,7 +197,7 @@ export default {
       const r = coverEl.getBoundingClientRect(), k = (t * .35) % 1;
       fx.trail(r.right - 4, r.top + k * r.height, { life: 1.2, size: 1.4, vy: -10, spread: 3 });
     }
-    const cues = env.cues([[2.2, 5.4, '书房里的蜡烛，一支一支，自己亮了起来。']]);
+    const cues = env.cues([[2.2, 5.4, '书房里的灯，一盏一盏，暖暖地亮了起来。']]);
     layout();
 
     return {
@@ -237,53 +209,27 @@ export default {
         T = t; const W = env.W, H = env.H;
         if (!cardShown && t > .2) { cardShown = true; env.chapterCard('I', 1700); }
         if (t < 9) cues(t);
-        // ---------- sky in the window (landscape painting only) ----------
         // ---------- 2.5D camera ----------
         const wd = wander(t, 4.1, .9);
         view.frame(map, { x: wd.x * .7 + env.look.x * .8, y: wd.y * .45 + env.look.y * .5 - .25 * (1 - rise), zoom: .035 * rise + .16 * dive, focus: .72 }, [W / 2, H * .55]);
-        const T0 = view.T[0];
-        if (!portrait) { // the sky behind the window glass, in the far plane's coordinates
-          skyG.setTransform(rs * T0.s, 0, 0, rs * T0.s, rs * T0.x, rs * T0.y);
-          const x0 = WINDOW.x0, y0 = WINDOW.y0, ww = WINDOW.x1 - WINDOW.x0, wh = WINDOW.y1 - WINDOW.y0;
-          const gr = skyG.createLinearGradient(0, y0, 0, y0 + wh); gr.addColorStop(0, '#0b1430'); gr.addColorStop(.6, '#1d2c58'); gr.addColorStop(1, '#3a4672');
-          skyG.fillStyle = gr; skyG.fillRect(x0, y0, ww, wh);
-          skyG.fillStyle = '#eef2ff';
-          stars.forEach(s => { skyG.globalAlpha = .4 + .6 * (.5 + .5 * Math.sin(s.p + t * s.s)); skyG.fillRect(s.x, s.y, 1.4, 1.4); });
-          const [mx, my] = WINDOW.moon, X = mx, Y = my, r = 26;
-          skyG.globalAlpha = .9; skyG.drawImage(moonGlow, X - r * 5, Y - r * 5, r * 10, r * 10);
-          skyG.globalAlpha = 1; skyG.fillStyle = '#f4f1e4'; skyG.beginPath(); skyG.arc(X, Y, r, 0, TAU); skyG.fill();
-          skyG.fillStyle = 'rgba(180,170,150,.25)'; [[-.3, -.2, .25], [.25, .1, .18], [-.05, .35, .15]].forEach(([a, b, c]) => { skyG.beginPath(); skyG.arc(X + a * r, Y + b * r, c * r, 0, TAU); skyG.fill(); });
-          const cw = ww * 1.4, drift = (t * 8) % cw; skyG.globalAlpha = .55;
-          skyG.drawImage(clouds, x0 - drift, y0 + wh * .12, cw, cw * .37); skyG.drawImage(clouds, x0 - drift + cw, y0 + wh * .12, cw, cw * .37);
-          skyG.globalAlpha = 1;
-        }
-        // ---------- floating candles, warm light, dust ----------
+        // ---------- the room, its warm light, dust ----------
         lg.setTransform(rs, 0, 0, rs, 0, 0); lg.globalAlpha = 1; view.draw(lg);
-        let warm = 0;
-        candles.forEach(c => {
-          if (!c.lit && t > c.at) { c.lit = .001; const x = c.x * W, y = c.y * H; fx.burst(x, y, { n: 14, speed: 60, life: 1.1, size: 1.4 }); if (Math.random() < .5) env.audio.sfx('light', .25); }
-          if (c.lit) c.lit = Math.min(1, c.lit + dt * 2.4);
-          const sc = (1 - c.depth * .28) * Math.min(1.1, Math.max(.6, Math.min(W, H) / 800));
-          const pm = view.at([.95, .62, .38][c.depth], tmp), k = pm.s / map.s;
-          const x = pm.x + (c.x * W - map.x) * k, y = pm.y + (c.y * H + Math.sin(t * .6 + c.ph) * 8 * sc - map.y) * k, spr = sprites[c.depth];
-          lg.globalAlpha = .55 + .45 * (1 - c.depth * .3);
-          lg.drawImage(spr, x - spr.width * sc / 2, y, spr.width * sc, spr.height * sc);
-          if (c.lit) {
-            const fl = .85 + Math.sin(t * 11 + c.seed) * .08 + Math.sin(t * 5.7 + c.seed) * .07;
-            lg.globalAlpha = c.lit * .55 * fl; lg.globalCompositeOperation = 'lighter';
-            const gs = 150 * sc; lg.drawImage(glowW, x - gs, y - gs * 1.05, gs * 2, gs * 2);
-            lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = c.lit;
-            flame(lg, x, y + 3 * sc, 24 * sc, t, c.seed);
-            warm += c.lit / candles.length;
-          }
+        // the lamps and the fire come up as the book wakes, then breathe gently
+        const warm = between(t, .2, 2.4) * (.9 + Math.sin(t * 2.3) * .04 + Math.sin(t * 5.1) * .03 + Math.sin(t * 9.7) * .02);
+        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm); lg.setTransform(rs, 0, 0, rs, 0, 0); }
+        lg.globalCompositeOperation = 'lighter';
+        bokeh.forEach(b => {
+          const pm = view.at(.9, tmp), k = pm.s / map.s, x = pm.x + (((b.x + t * b.v) % 1.1 - .05) * W - map.x) * k, y = pm.y + ((b.y + Math.sin(t * .4 + b.p) * .02) * H - map.y) * k, r = b.r * Math.min(W, H) * 1.6;
+          lg.globalAlpha = b.a * warm * (.6 + .4 * Math.sin(t * .7 + b.p)); lg.drawImage(bokehS, x - r, y - r, r * 2, r * 2);
         });
+        lg.globalCompositeOperation = 'source-over';
         lg.globalAlpha = 1; lg.globalCompositeOperation = 'lighter';
         motes.forEach(m => {
           const x = ((m.x + t * .006 * (m.z + .3)) % 1) * W, y = ((m.y + Math.sin(t * .2 + m.p) * .02 - t * .004 * m.z) % 1 + 1) % 1 * H;
           lg.globalAlpha = (.25 + .5 * m.z) * (.5 + .5 * Math.sin(t * 1.3 + m.p)); lg.fillStyle = '#ffdca0'; lg.fillRect(x, y, 1 + m.z * 1.4, 1 + m.z * 1.4);
         });
         lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1;
-        // warm candle wash and the book's own glow are painted here rather than as extra full-screen layers
+        // warm lamplight wash and the book's own glow are painted here rather than as extra full-screen layers
         const wv = warm * (.75 + Math.sin(t * 9) * .05 + Math.sin(t * 4.1) * .06);
         if (wv > .01) { lg.globalCompositeOperation = 'lighter'; lg.globalAlpha = wv * .22; lg.drawImage(glowW, W * .1, -H * .35, W * .8, H * 1.2); }
         const av = .35 + rise * .45 + Math.sin(t * 1.7) * .1 * rise;

@@ -8,8 +8,9 @@
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, rng, glowSprite, sparkleSprite, TAU } from '../util.js';
 import { loadHorse, Horse } from './horses.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
+import { loadClip, play, stop, setRate, progress as clipAt, drawable, drawCover } from '../video.js';
 
-let prairie, prairieDepth, horseMeta, kiss, lionsDay, lionsNight;
+let prairie, prairieDepth, horseMeta, kiss, lionsDay, lionsNight, clips = null;
 // where things sit in the paintings, as fractions of the image
 const NOSE = { x: .553, y: .55 };                // where the two muzzles meet in the close-up
 const LIONS = { x: .53, y: .33 };                // the pair on the rock
@@ -21,7 +22,12 @@ const AUTO_AFTER = 9;   // if nobody touches the screen, the horses set off on t
 
 export default {
   id: 'film', music: 'film',
-  async load() {
+  async load(env) {
+    // filmed plates for shot A (tools/video/): the gallop (a tall framing on phones) and the close-up
+    if (!env.reduced && !clips) {
+      clips = await Promise.all([loadClip(env.portrait ? 'runp' : 'run'), loadClip('kiss')]);
+      if (clips[0].failed && env.portrait) clips[0] = await loadClip('run');
+    }
     [prairie, prairieDepth, kiss, lionsDay, lionsNight, ...horseMeta] = await Promise.all([loadImage(asset('img/prairie-gold.webp')), loadDepth('prairie-gold'), loadDepth('horses-kiss'), loadDepth('lions'), loadDepth('lions-night'), loadHorse('horse-buckskin'), loadHorse('horse-paint')]);
   },
   create(env) {
@@ -46,6 +52,8 @@ export default {
     const flies = Array.from({ length: Math.round(30 * env.q + 10) }, () => ({ x: R(), y: .7 + R() * .25, p: R() * TAU, s: .3 + R() }));
 
     let T = 0, ended = false, fell = false, cardShown = false;
+    const [clipRun, clipKiss] = clips || [];
+    let filmed = !!(clipRun && clipKiss && !clipRun.failed && !clipKiss.failed);
     const viewA = new DepthView(prairieDepth, { amp: .035, focus: .55 }), tmp = {};
     const viewK = new DepthView(kiss, { amp: .03, focus: .7 }), viewD = new DepthView(lionsDay, { amp: .03, focus: .62 }), viewN = new DepthView(lionsNight, { amp: .03, focus: .62 });
     // ---------- shot A state ----------
@@ -55,7 +63,7 @@ export default {
     const up = e => {
       if (!A.held) return; A.held = false;
       // a quick tap (not a hold) sends them leaping
-      if (T - A.heldAt < .28 && Math.hypot(e.clientX - A.px, e.clientY - A.py) < 16 && !A.done && T - A.jumpAt > 1.6) {
+      if (!filmed && T - A.heldAt < .28 && Math.hypot(e.clientX - A.px, e.clientY - A.py) < 16 && !A.done && T - A.jumpAt > 1.6) {
         A.jumpAt = T; A.speed = Math.max(A.speed, .9); env.audio.sfx('whoosh', .5);
         stallion.play('Gallop_Jump'); setTimeout(() => mare.play('Gallop_Jump'), 140);
       }
@@ -65,7 +73,7 @@ export default {
       [2.8, 7.4, '后来，太阳慢慢落下去了，'], [8.0, 13.2, '也有停下来的时候，', '可以安心靠近的温柔'], [14.6, 19.2, '星星替我们，记住了今晚。'], [19.8, 24.4, '最亮的那一颗，留给你。'],
     ]);
     let rs = 1;
-    const nightCv = canvas(1, 1), ng = nightCv.getContext('2d');
+    const nightCv = canvas(1, 1), ng = nightCv.getContext('2d'), stripCv = canvas(1, 1), washCv = canvas(40, 70);
     function resize() { rs = env.res(false); cv.width = nightCv.width = Math.round(env.W * rs); cv.height = nightCv.height = Math.round(env.H * rs); }
     // the painted shots are framed inside the letterbox (style.css #bars): this is the visible band
     const band = () => { const b = env.portrait ? env.H * .07 : Math.max(env.H * .055, (env.H - env.W / 2.2) / 2); return [b, env.H - 2 * b]; };
@@ -136,6 +144,60 @@ export default {
       if (A.done && !A.kissAt && t - A.doneAt > 3.2) A.kissAt = t;
       if (A.kissAt) shotKiss(t - A.kissAt, W, H, alpha * easeInOut(between(t - A.kissAt, 0, 2.2)));
       if (A.kissAt && !A.bAt && t - A.kissAt > 8.5) A.bAt = t;
+    }
+    // ---------- shot A, filmed: the gallop runs at the pace she sets, then the close-up ----------
+    // Holding the screen runs with them (the footage at full speed); left alone it eases into slow motion.
+    // How far they have run is how far the clip has played.
+    function shotAFilmed(t, dt, W, H, alpha) {
+      if (!A.touched && t > AUTO_AFTER) A.auto = true;
+      if (!A.touched && t > 2.6 && !A.hinted) { A.hinted = true; hint.textContent = '按住屏幕，和它们一起奔跑'; hint.classList.add('on'); }
+      const want = A.done ? .6 : (A.held || A.auto) ? 1 : 0;
+      A.speed += (want - A.speed) * (1 - Math.exp(-dt * (want > A.speed ? 1.8 : 1.2)));
+      if (!A.started) { A.started = true; play(clipRun, .5, 0); }
+      setRate(clipRun, lerp(.45, 1.05, A.speed));
+      A.run = clamp(clipAt(clipRun) / .86); A.scroll += dt * A.speed;
+      if (A.run >= 1 && !A.done) { A.done = true; A.doneAt = t; A.kissAt = t; hint.classList.remove('on'); play(clipKiss, .8, 0); }
+      for (const [at, line] of sayA) if (A.run >= at && A.said < at) { A.said = at; env.say(line); setTimeout(() => { if (A.said === at) env.say(null); }, 4200); }
+      if (A.kissAt && !A.meetSaid && t - A.kissAt > 1.4) { A.meetSaid = true; env.say('风走过很远的路，终于停在你身边。'); }
+      const [b0, bh] = band(), lx = env.look.x * .02, ly = env.look.y * .02, kissIn = A.kissAt ? easeInOut(between(t - A.kissAt, 0, 1.2)) : 0;
+      if (kissIn < 1 || !drawable(clipKiss)) {
+        if (env.portrait && clipRun.v.videoWidth > clipRun.v.videoHeight) strip(clipRun, .42, alpha, 1.35); // no tall framing of the gallop
+        else { g.globalAlpha = alpha; drawCover(g, clipRun, 0, b0, W, bh, .5 + lx, .5 + ly, 1.03 + .03 * A.speed); }
+      }
+      // pollen and light streaking past with the run
+      const golden = 1 - kissIn * .5;
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 30 * env.q + 8; i++) { const x = (((i * 97.3 - A.scroll * (90 + i % 7 * 30) * W / 900 + t * 8) % (W + 40)) + W + 40) % (W + 40) - 20, y = H * (.35 + ((i * 53) % 45) / 100) + Math.sin(t + i) * 10; g.globalAlpha = alpha * (.12 + .22 * Math.sin(t * 2 + i)) * golden * (1 - kissIn); const l = 3 + A.speed * 14; g.drawImage(glowS, x - l, y - 3, l * 2, 6); }
+      g.globalCompositeOperation = 'source-over';
+      if (kissIn > 0 && drawable(clipKiss)) shotKissFilmed(t - A.kissAt, W, H, alpha * kissIn);
+      if (A.kissAt && !A.bAt && t - A.kissAt > 7.5) A.bAt = t;
+    }
+    /** A wide clip on a phone: a cinema strip across the screen, soft at its edges, over a dim wash of the same light. */
+    function strip(clip, fx, alpha, wide = 1.55) {
+      const [b0, bh] = band(), W = env.W, v = clip.v, iw = v.videoWidth, ih = v.videoHeight, s = W * wide / iw, h = ih * s, y = b0 + (bh - h) * .5;
+      // the wash: the clip squeezed into a few pixels and stretched back up, a soft blur of its colours
+      const wg = washCv.getContext('2d'); wg.filter = 'blur(4px)'; wg.drawImage(v, -8, -8, washCv.width + 16, washCv.height + 16);
+      g.globalAlpha = alpha; g.imageSmoothingEnabled = true; g.drawImage(washCv, -W * .1, b0 - bh * .05, W * 1.2, bh * 1.1);
+      g.fillStyle = 'rgba(26,13,5,.55)'; g.fillRect(0, b0, W, bh);
+      const m = { s, x: W / 2 - fx * iw * s, y };
+      // the strip melts into the wash at its top and bottom edges (an alpha mask, so no seam shows)
+      if (stripCv.width !== Math.round(W * rs) || stripCv.height !== Math.round(h * rs)) { stripCv.width = Math.round(W * rs); stripCv.height = Math.round(h * rs); }
+      const sg = stripCv.getContext('2d'); sg.setTransform(rs, 0, 0, rs, 0, 0); sg.globalCompositeOperation = 'source-over'; sg.clearRect(0, 0, W, h);
+      sg.drawImage(v, m.x, 0, iw * s, h);
+      const gr = sg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.2, '#000'); gr.addColorStop(.8, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      sg.globalCompositeOperation = 'destination-in'; sg.fillStyle = gr; sg.fillRect(0, 0, W, h);
+      g.drawImage(stripCv, 0, y, W, h);
+      return m;
+    }
+    function shotKissFilmed(k, W, H, alpha) {
+      const [b0, bh] = band(), v = clipKiss.v, iw = v.videoWidth || 1280, ih = v.videoHeight || 704;
+      let m;
+      if (env.portrait) m = strip(clipKiss, NOSE.x, alpha); // neither of them is cut off
+      else { g.globalAlpha = alpha; m = drawCover(g, clipKiss, 0, b0, W, bh, NOSE.x, .5, 1.02 + .04 * easeOut(clamp(k / 8))); }
+      const nx = m.x + NOSE.x * iw * m.s, ny = m.y + NOSE.y * ih * m.s, r = Math.min(W, H) * (.3 + Math.sin(k * 1.3) * .03);
+      g.globalCompositeOperation = 'lighter'; g.globalAlpha = alpha * .22 * between(k, .8, 3); g.drawImage(glowW, nx - r, ny - r, r * 2, r * 2); g.globalCompositeOperation = 'source-over';
+      if (k > 2.2 && !A.sparkled) { A.sparkled = true; fx.burst(nx, ny, { n: 30, speed: 55, life: 1.8, size: 1.6, color: '255,226,170' }); env.audio.sfx('sparkle', .4); }
+      g.globalAlpha = 1;
     }
     // ---------- the close-up: painted, nose to nose in the low sun ----------
     function shotKiss(k, W, H, alpha) {
@@ -212,7 +274,9 @@ export default {
         const t2 = Math.max(0, t - 1);
         g.globalAlpha = 1; g.fillStyle = '#05060c'; g.fillRect(0, 0, W, H);
         const tB = A.bAt ? t2 - A.bAt : -1, mixAB = tB < 0 ? 0 : between(tB, 0, 2.4);
-        if (mixAB < 1) shotA(t2, dt, W, H, 1);
+        if (filmed && t2 > 1.2 && !A.started && !drawable(clipRun)) filmed = false; // no picture: the painted version
+        if (mixAB < 1) (filmed ? shotAFilmed : shotA)(t2, dt, W, H, 1);
+        if (filmed && mixAB >= 1 && !A.stopped) { A.stopped = true; stop(clipRun); stop(clipKiss); }
         if (mixAB > 0) { cuesB(tB); shotB(tB + B_START, dt, W, H, mixAB); }
         g.globalAlpha = 1;
         // the brightest star falls toward the next chapter
@@ -223,7 +287,7 @@ export default {
           if (k >= 1 && !ended) { ended = true; env.letterbox(false); env.next({ transition: 'white' }); }
         }
       },
-      destroy() { env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); },
+      destroy() { env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (clipRun) { stop(clipRun); stop(clipKiss); } },
     };
   },
 };

@@ -4,9 +4,10 @@
 import { asset, loadImage, canvas, clamp, lerp, between, win, easeInOut, easeOut, rng, glowSprite, sparkleSprite, TAU, wait } from '../util.js';
 import { loadCake, CANDLES, CAKE_W, CAKE_H, FLAME } from './cake.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
+import { studyLights, behindGlass, loadGlass, glassRect } from './study-glow.js';
 
 const A = {};
-const WIN_L = { x0: 855, y0: 60, x1: 1250, y1: 470 }, WIN_P = { x0: 345, y0: 30, x1: 738, y1: 770 };
+const glassBox = name => { const [x0, y0, x1, y1] = glassRect(name); return { x0, y0, x1, y1 }; };
 const N = CANDLES.length, FIRST = Math.floor((N - 1) / 2); // the star lights a middle candle first
 const WHISPERS = ['这一支，为你走过的那些路。', '这一支，为我们相遇的那座城。', '这一支，为隔着山海的想念。', '这一支，为一起看过的星星。', '这一支，为往后的每一天。', '最后这一支，为你。'];
 const FINAL = ['今晚我在东京，你在远方。', '隔着一片海，和很多很多公里的夜空，', '我们看的，是同一片星星。', '愿你一直勇敢，也一直被爱。', '往后的每一页，想和你一起写。'];
@@ -25,8 +26,8 @@ function lanternSprite(h) {
 export default {
   id: 'wish', music: 'wish',
   async load() {
-    const [land, port, lake] = await Promise.all(['img/study-land.webp', 'img/study-port.webp', 'img/castle.webp'].map(p => loadImage(asset(p))));
-    Object.assign(A, { land, port, lake }); if (!A.cake) A.cake = gradeCake(await loadCake());
+    const [land, port, glassL, glassP] = await Promise.all([loadImage(asset('img/study-land.webp')), loadImage(asset('img/study-port.webp')), loadGlass('study-land'), loadGlass('study-port')]);
+    Object.assign(A, { land, port, glassL, glassP }); if (!A.cake) A.cake = gradeCake(await loadCake());
     [A.dLand, A.dPort] = await Promise.all([loadDepth('study-land'), loadDepth('study-port')]);
   },
   create(env) {
@@ -58,8 +59,7 @@ export default {
     const fxg = () => tg;
     const glowW = glowSprite('255,196,120', 256, 1.5), glowSm = glowSprite('255,220,160', 64, 2), spark = sparkleSprite('255,236,190', 48), smokeS = glowSprite('200,196,205', 64, 1.4);
     const lanterns = [lanternSprite(40), lanternSprite(26)];
-    const skyStars = Array.from({ length: 70 }, () => ({ x: R(), y: R() * .6, p: R() * TAU, s: .6 + R() * 2 }));
-    let WINDOW = WIN_L, portrait = false, rs = 1;
+    let WINDOW = glassBox('study-land'), portrait = false, rs = 1;
     const flames = CANDLES.map((_, i) => ({ lit: 0, out: 0, seed: R() * 40 }));
     const flights = []; const smoke = []; const lamps = [];
     let topDirty = true, map = { s: 1, x: 0, y: 0 }, cake = { x: 0, y: 0, s: 1 }, T = 0, phase = 'light', phaseAt = 0, lit = 0, blowAt = 0, finalAt = 0, creditsAt = 0, mic = null;
@@ -76,7 +76,7 @@ export default {
       env.say(WHISPERS[Math.min(lit, WHISPERS.length) - 1]); clearTimeout(sayTimer); sayTimer = setTimeout(() => env.say(null), 2600);
     }
     function launch(i, from) {
-      const [sx, sy] = from || P(WINDOW.x0 + R() * 540, WINDOW.y0 + 120 + R() * 200);
+      const [sx, sy] = from || P(WINDOW.x0 + R() * (WINDOW.x1 - WINDOW.x0), WINDOW.y0 + (WINDOW.y1 - WINDOW.y0) * (.3 + R() * .4));
       flights.push({ i, sx, sy, st: T, done: false }); lastLight = T;
     }
     const wickReach = () => Math.max(26, CAKE_W * cake.s * .06);
@@ -96,7 +96,7 @@ export default {
       const W = env.W, H = env.H; portrait = env.portrait;
       rs = env.res(true); top.width = Math.round(W * rs); top.height = Math.round(H * rs); cv.width = Math.round(W * env.dpr); cv.height = Math.round(H * env.dpr);
       room._r = env.res(true); room._at = -1; // a resized canvas is blank: repaint on the next frame
-      const img = portrait ? A.port : A.land; WINDOW = portrait ? WIN_P : WIN_L;
+      const img = portrait ? A.port : A.land; WINDOW = glassBox(portrait ? 'study-port' : 'study-land');
       const s = Math.max(W / img.width, H / img.height), fy = portrait ? .7 : .78;
       map = { s, x: (W - img.width * s) / 2, y: (H - img.height * s) * fy };
       // the room canvas spans the whole painting (wider than the screen) so the zoom toward the window never shows an edge
@@ -105,7 +105,7 @@ export default {
       const dm = portrait ? A.dPort : A.dLand; if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .026, focus: portrait ? .73 : .8 }); }
       el.classList.toggle('land', !portrait);
       // the cake stands on the desk: in front of the window on wide screens, centred on phones
-      const cs = (portrait ? 780 : 600) / CAKE_H * s, baseY = portrait ? 1250 : 870, cx = portrait ? W / 2 : map.x + 640 * s;
+      const cs = (portrait ? 760 : 520) / CAKE_H * s, baseY = portrait ? 1330 : 790, cx = portrait ? W / 2 : map.x + 520 * s;
       cake = cake0 = { s: cs, x: cx - CAKE_W * cs / 2, y: map.y + baseY * s - (CAKE_H - 6) * cs };
       const wcx = map.x + (WINDOW.x0 + WINDOW.x1) / 2 * s, wcy = map.y + (WINDOW.y0 + WINDOW.y1) / 2 * s;
       const z = portrait ? 1.35 : Math.min(2.2, H * .9 / ((WINDOW.y1 - WINDOW.y0) * s));
@@ -157,30 +157,22 @@ export default {
         const paintRoom = t - (room._at ?? -1) >= 1 / 31 || room._w !== room.width; if (paintRoom) { room._at = t; room._w = room.width; }
         if (paintRoom) {
         sg.setTransform(rr, 0, 0, rr, -map.x * rr, -map.y * rr); sg.globalAlpha = 1;
-        if (portrait) view.draw(sg);
-        // ---------- sky through the window, on the far plane ----------
+        view.draw(sg);
+        // ---------- the room's own lights, and lanterns drifting up beyond the window glass (far plane) ----------
+        const name = portrait ? 'study-port' : 'study-land';
         sg.setTransform(rr * T0.s, 0, 0, rr * T0.s, rr * (T0.x - map.x), rr * (T0.y - map.y));
-        const wx = WINDOW.x0, wy = WINDOW.y0, ww = WINDOW.x1 - WINDOW.x0, wh = WINDOW.y1 - WINDOW.y0;
-        sg.save(); sg.beginPath(); sg.rect(wx, wy, ww, wh); sg.clip();
-        if (!portrait) {
-          const ls = Math.max(ww / A.lake.width, wh / A.lake.height) * 1.02; sg.drawImage(A.lake, wx + (ww - A.lake.width * ls) / 2, wy + (wh - A.lake.height * ls) * .3, A.lake.width * ls, A.lake.height * ls);
-          sg.fillStyle = '#eef2ff';
-          skyStars.forEach(s => { sg.globalAlpha = .3 + .7 * (.5 + .5 * Math.sin(s.p + t * s.s)); sg.fillRect(wx + s.x * ww, wy + s.y * wh, 1.3 / map.s, 1.3 / map.s); });
-          sg.globalAlpha = 1;
-        }
-        // distant lanterns drifting up beyond the glass
         if (phase === 'blown') {
-          const k = t - blowAt;
-          for (let i = 0; i < 70; i++) {
-            const st = 2 + (i * 0.53) % 14, life = 18, u = (k - st) / life; if (u < 0 || u > 1) continue;
-            const x = wx + ((i * 0.618) % 1) * ww + Math.sin(k * .4 + i) * 8, y = wy + wh * (1.05 - u * 1.25), sz = (8 + (i % 5) * 3) * 2;
-            const spr = lanterns[1]; sg.globalAlpha = Math.min(1, u * 6) * (1 - Math.max(0, u - .85) * 6) * (portrait ? .85 : 1);
-            sg.drawImage(spr, x - sz * 1.5, y - sz * 1.1, sz * 3, sz * 2.2);
-          }
-          sg.globalAlpha = 1;
+          const k = t - blowAt, wx = WINDOW.x0, wy = WINDOW.y0, ww = WINDOW.x1 - WINDOW.x0, wh = WINDOW.y1 - WINDOW.y0;
+          behindGlass(sg, name, portrait ? A.glassP : A.glassL, rr * T0.s, gw => {
+            for (let i = 0; i < 70; i++) {
+              const st = 2 + (i * 0.53) % 14, life = 18, u = (k - st) / life; if (u < 0 || u > 1) continue;
+              const x = wx + ((i * 0.618) % 1) * ww + Math.sin(k * .4 + i) * 8, y = wy + wh * (1.05 - u * 1.25), sz = (6 + (i % 5) * 2.4) * 2;
+              gw.globalAlpha = Math.min(1, u * 6) * (1 - Math.max(0, u - .85) * 6); gw.drawImage(lanterns[1], x - sz * 1.5, y - sz * 1.1, sz * 3, sz * 2.2);
+            }
+            gw.globalAlpha = 1;
+          });
         }
-        sg.restore();
-        if (!portrait) { sg.setTransform(rr, 0, 0, rr, -map.x * rr, -map.y * rr); view.draw(sg); }
+        { const pm = view.at(.4, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studyLights(sg, name, t, phase === 'blown' ? .6 : 1); }
         }
         // the cake stands on the desk, so it moves with the desk's plane
         { const pm = view.at(view.focus, tmp), k = pm.s / map.s; cake = { s: cake0.s * k, x: pm.x + (cake0.x - map.x) * k, y: pm.y + (cake0.y - map.y) * k }; }

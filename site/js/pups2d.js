@@ -135,7 +135,7 @@ export class Pups2D {
     d.headYaw = turnTo(d.headYaw, headWant, dt, 6.5);
     d.lag = damp(d.lag, d.gait * Math.sign(dx || 1), dt, 3);
     if (t > d.nextBlink) { d.blinkUntil = t + .13 + Math.random() * .06; d.nextBlink = t + 2.6 + Math.random() * 3.4; if (Math.random() < .18) d.nextBlink = t + .32; }
-    d.closed = d.rest > .75 || t < d.blinkUntil || (petted && petT > .15 && petT < .55);
+    d.closed = d.rest > .75 || (t < d.blinkUntil && !petted); // eyes stay open while she taps them
     d.hopping = hopping ? hopT : -1; d.walking = walking;
     d.hearts = d.hearts.filter(h => (h.age += dt) < 1.8);
   }

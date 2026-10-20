@@ -18,7 +18,7 @@ const HORIZON = .6;                              // the stars stay above this li
 const HEART = { x: .24, y: .2 };                 // the constellation, in the open sky (wide screens)
 const TS = 1.15;
 const B_LEN = 27;       // shot B runs this long once it starts
-const AUTO_AFTER = 9;   // if nobody touches the screen, the horses set off on their own
+const AUTO_AFTER = 4.5; // if nobody touches the screen, the horses set off on their own
 
 export default {
   id: 'film', music: 'film',
@@ -284,7 +284,7 @@ export default {
           const k = clamp((tB - fallAt) / 3.2), [hx0, hy0] = heartXY(heart[0]), x = lerp(hx0, W * .5, k), y = lerp(hy0, H * .62, easeIn2(k));
           g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; const s = 40 + k * 60; g.drawImage(spark, x - s / 2, y - s / 2, s, s); g.drawImage(glowW, x - s * 2, y - s * 2, s * 4, s * 4); g.globalCompositeOperation = 'source-over';
           if (Math.random() < .8) fx.trail(x, y, { life: 1.5, size: 1.8, vy: -30 });
-          if (k >= 1 && !ended) { ended = true; env.letterbox(false); env.next({ transition: 'white' }); }
+          if (k >= 1 && !ended) { ended = true; env.letterbox(false); env.next({ transition: 'bloom', at: [x, y] }); }
         }
       },
       destroy() { env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (clipRun) { stop(clipRun); stop(clipKiss); } },

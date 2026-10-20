@@ -4,7 +4,7 @@
 import { asset, loadImage, canvas, clamp, lerp, between, win, easeInOut, easeOut, rng, glowSprite, sparkleSprite, TAU, wait } from '../util.js';
 import { loadCake, CANDLES, CAKE_W, CAKE_H, FLAME } from './cake.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
-import { studyLights, behindGlass, loadGlass, glassRect } from './study-glow.js';
+import { studyLights, studySteam, behindGlass, loadGlass, glassRect } from './study-glow.js';
 
 const A = {};
 const glassBox = name => { const [x0, y0, x1, y1] = glassRect(name); return { x0, y0, x1, y1 }; };
@@ -58,13 +58,13 @@ export default {
     const top = document.createElement('canvas'); top.className = 'full ws-top'; el.querySelector('.ws-ui').before(top); const tg = top.getContext('2d');
     const fxg = () => tg;
     const glowW = glowSprite('255,196,120', 256, 1.5), glowSm = glowSprite('255,220,160', 64, 2), spark = sparkleSprite('255,236,190', 48), smokeS = glowSprite('200,196,205', 64, 1.4);
-    const lanterns = [lanternSprite(40), lanternSprite(26)];
+    const lanterns = [lanternSprite(40), lanternSprite(26), lanternSprite(72)];
     let WINDOW = glassBox('study-land'), portrait = false, rs = 1;
     const flames = CANDLES.map((_, i) => ({ lit: 0, out: 0, seed: R() * 40 }));
     const flights = []; const smoke = []; const lamps = [];
     let topDirty = true, map = { s: 1, x: 0, y: 0 }, cake = { x: 0, y: 0, s: 1 }, T = 0, phase = 'light', phaseAt = 0, lit = 0, blowAt = 0, finalAt = 0, creditsAt = 0, mic = null;
     // ---------- lighting by hand ----------
-    const AUTO_LIGHT = 7;
+    const AUTO_LIGHT = 4.5;
     let carry = null, lastLight = 0, hinted = false, sayTimer = 0;
     const hintEl = document.createElement('p'); hintEl.className = 'ws-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
@@ -102,10 +102,10 @@ export default {
       // the room canvas spans the whole painting (wider than the screen) so the zoom toward the window never shows an edge
       { const rw = img.width * s, rh = img.height * s, rr = room._r; room.width = Math.round(rw * rr); room.height = Math.round(rh * rr);
         Object.assign(room.style, { position: 'absolute', left: map.x + 'px', top: map.y + 'px', width: rw + 'px', height: rh + 'px' }); }
-      const dm = portrait ? A.dPort : A.dLand; if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .026, focus: portrait ? .73 : .8 }); }
+      const dm = portrait ? A.dPort : A.dLand; if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .04, focus: portrait ? .73 : .8 }); }
       el.classList.toggle('land', !portrait);
       // the cake stands on the desk: in front of the window on wide screens, centred on phones
-      const cs = (portrait ? 760 : 520) / CAKE_H * s, baseY = portrait ? 1330 : 790, cx = portrait ? W / 2 : map.x + 520 * s;
+      const cs = (portrait ? 760 : 500) / CAKE_H * s, baseY = portrait ? 1330 : 800, cx = portrait ? W / 2 : map.x + 800 * s; // in front of the fire, under the window
       cake = cake0 = { s: cs, x: cx - CAKE_W * cs / 2, y: map.y + baseY * s - (CAKE_H - 6) * cs };
       const wcx = map.x + (WINDOW.x0 + WINDOW.x1) / 2 * s, wcy = map.y + (WINDOW.y0 + WINDOW.y1) / 2 * s;
       const z = portrait ? 1.35 : Math.min(2.2, H * .9 / ((WINDOW.y1 - WINDOW.y0) * s));
@@ -122,6 +122,7 @@ export default {
       phase = 'blown'; blowAt = T; el.classList.remove('wishing'); el.classList.add('blown');
       env.audio.sfx('blow', 1); stopMic();
       setTimeout(() => { env.audio.cue('finale', 3); }, 1200);
+      setTimeout(() => { if (!env.reduced) env.fx.confetti(); }, 900); // and the room fills with a little celebration
     }
     async function startMic(btn) {
       try {
@@ -166,13 +167,14 @@ export default {
           behindGlass(sg, name, portrait ? A.glassP : A.glassL, rr * T0.s, gw => {
             for (let i = 0; i < 70; i++) {
               const st = 2 + (i * 0.53) % 14, life = 18, u = (k - st) / life; if (u < 0 || u > 1) continue;
-              const x = wx + ((i * 0.618) % 1) * ww + Math.sin(k * .4 + i) * 8, y = wy + wh * (1.05 - u * 1.25), sz = (6 + (i % 5) * 2.4) * 2;
-              gw.globalAlpha = Math.min(1, u * 6) * (1 - Math.max(0, u - .85) * 6); gw.drawImage(lanterns[1], x - sz * 1.5, y - sz * 1.1, sz * 3, sz * 2.2);
+              const x = wx + ((i * 0.618) % 1) * ww + Math.sin(k * .4 + i) * 8, y = wy + wh * (1.05 - u * 1.25), sz = (4 + (i % 5) * 1.8) * (1.6 - u * .7) * 2; // smaller as they rise away
+              gw.globalAlpha = Math.min(1, u * 6) * (1 - Math.max(0, u - .85) * 6); gw.drawImage(lanterns[2], x - sz * 1.5, y - sz * 1.1, sz * 3, sz * 2.2);
             }
             gw.globalAlpha = 1;
           });
         }
         { const pm = view.at(.4, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studyLights(sg, name, t, phase === 'blown' ? .6 : 1); }
+        { const pm = view.at(.75, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studySteam(sg, name, t, .8); }
         }
         // the cake stands on the desk, so it moves with the desk's plane
         { const pm = view.at(view.focus, tmp), k = pm.s / map.s; cake = { s: cake0.s * k, x: pm.x + (cake0.x - map.x) * k, y: pm.y + (cake0.y - map.y) * k }; }
@@ -202,7 +204,7 @@ export default {
         // ---------- lighting the candles ----------
         if (phase === 'light' || phase === 'relight') {
           // the star from the night sky lights the first candle; then the rest are hers to light
-          if (!flights.length && t > .6) launch(FIRST, [W / 2, -20]);
+          if (!flights.length && t > (env.handoff ? 1.1 : .6)) launch(FIRST, env.handoff || [W / 2, -20]); // the falling star, come through from the last chapter
           if (phase === 'relight' && t - lastLight > .5 && unlit().length) launch(unlit()[0]);
           if (phase === 'light' && lit >= 1 && unlit().length) {
             if (!hinted && t - lastLight > 2.2) { hinted = true; hint('触碰烛火，把它带到另一支蜡烛上'); }
@@ -225,14 +227,14 @@ export default {
           if (lit >= N && phase === 'light' && t - lastLight > 1.9) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); carry = null; hint(null); }
           if (lit >= N && phase === 'relight' && t > phaseAt + 3) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); }
         }
-        if (phase === 'ask' && t - phaseAt > 45) startWish(); // let the moment happen on its own if nobody taps
+        if (phase === 'ask' && t - phaseAt > 18) startWish(); // let the moment happen on its own if nobody taps
         if (phase === 'wish') {
           const k = t - phaseAt; el.classList.toggle('w-close', k > .2); el.classList.toggle('w-heart', k > 2); el.classList.toggle('w-breath', k > 3.6); el.classList.toggle('w-ready', k > 5);
           if (mic && k > 5) {
             mic.an.getByteTimeDomainData(mic.buf); let sum = 0; for (const v of mic.buf) sum += (v - 128) ** 2; const rms = Math.sqrt(sum / mic.buf.length);
             mic.loud = rms > 18 ? mic.loud + dt : Math.max(0, mic.loud - dt); if (mic.loud > .25) blow();
           }
-          if (k > 40) blow();
+          if (k > 22) blow();
         }
         flames.forEach((f, i) => {
           if (f.lit > 0) f.lit = Math.min(1, f.lit + dt * 2.2);

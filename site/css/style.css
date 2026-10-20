@@ -44,11 +44,23 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 @media (max-width:700px){#subtitle{font-size:17px;letter-spacing:.08em;bottom:calc(13vh + var(--safe-b));left:7vw;right:7vw}}
 
 /* chapter title card */
-#chapter-card{position:absolute;inset:0;z-index:44;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 1.5s ease}
+/* the golden rim of a bloom transition (main.js bloom) */
+.bloom-ring{position:absolute;inset:0;z-index:40;pointer-events:none;mix-blend-mode:screen}
+#chapter-card{position:absolute;inset:0;z-index:44;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 1.5s ease;background:radial-gradient(ellipse 60% 45% at 50% 50%,rgba(8,5,4,.62),rgba(8,5,4,.28) 60%,transparent 100%)}
 #chapter-card.on{opacity:1}
 #chapter-card small{font-family:var(--latin);font-style:italic;letter-spacing:.42em;font-size:clamp(11px,1vw,14px);color:var(--gold);opacity:.9}
 #chapter-card b{font-weight:400;font-size:clamp(30px,4.2vw,58px);letter-spacing:.32em;margin:.55em 0 .5em .32em;color:#f7ead0;text-shadow:0 0 40px rgba(230,200,143,.35)}
 #chapter-card span{font-weight:300;font-size:clamp(13px,1.15vw,17px);letter-spacing:.3em;color:#d9c9a8;opacity:.9}
+#chapter-card .cc-candles{display:flex;gap:14px;margin-top:2.2em;align-items:flex-end;height:30px}
+#chapter-card .cc-candles i{position:relative;width:4px;height:15px;border-radius:1px;background:linear-gradient(90deg,#b9a78a,#f6ecd8 45%,#cdbb9c);opacity:.55}
+#chapter-card .cc-candles i::before{content:"";position:absolute;left:1.5px;top:-4px;width:1px;height:4px;background:#3a2a1a}
+#chapter-card .cc-candles i.lit{opacity:.95}
+#chapter-card .cc-candles i.lit::after{content:"";position:absolute;left:50%;bottom:100%;width:7px;height:12px;margin:0 0 1px -3.5px;border-radius:50% 50% 45% 45%/60% 60% 40% 40%;
+  background:radial-gradient(ellipse at 50% 70%,#fffbe8 0,#ffd27a 35%,rgba(255,150,60,.75) 65%,transparent 72%);box-shadow:0 0 12px 4px rgba(255,190,100,.35);animation:ccflick 1.6s ease-in-out infinite;transform-origin:50% 100%}
+#chapter-card.on .cc-candles i.new::after{animation:cclight 1.4s ease-out .9s both,ccflick 1.6s ease-in-out 2.3s infinite}
+@keyframes ccflick{0%,100%{transform:scale(1,1) rotate(-1deg)}50%{transform:scale(.92,1.08) rotate(1.5deg)}}
+@keyframes cclight{0%{transform:scale(0);opacity:0}60%{transform:scale(1.25,1.3);opacity:1}100%{transform:scale(1);opacity:1}}
+.low-power #chapter-card .cc-candles i::after{animation:none!important}
 #chapter-card b::before,#chapter-card b::after{content:"";display:inline-block;width:2.2em;height:1px;background:linear-gradient(90deg,transparent,var(--gold));vertical-align:middle;margin:0 .8em 0 -.4em;opacity:.7}
 #chapter-card b::after{background:linear-gradient(90deg,var(--gold),transparent);margin:0 -.4em 0 .4em}
 

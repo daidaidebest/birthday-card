@@ -3,7 +3,8 @@
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeIn, smooth, rng, glowSprite, sparkleSprite, coverRect, TAU, fbm, wait } from '../util.js';
 import { buildPages, paper } from './pages.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
-import { studyLights } from './study-glow.js';
+import { studyLights, studySteam } from './study-glow.js';
+import { loadClip, play, stop, drawable } from '../video.js';
 
 const A = {};
 
@@ -28,7 +29,9 @@ function marbled() {
 
 export default {
   id: 'book', music: 'book',
-  async load() {
+  async load(env) {
+    // the filmed room (tools/video/): the fire and lamplight alive, the camera breathing slowly in and out
+    if (!env.reduced && A.room === undefined) A.room = await loadClip(env.portrait ? 'studyp' : 'study');
     const [study, port, cover, spell, botanical, tex] = await Promise.all(['img/study-land.webp', 'img/study-port.webp', 'img/cover.webp', 'img/spell.webp', 'img/botanical.webp', 'img/paper.webp'].map(p => loadImage(asset(p))));
     Object.assign(A, { study, port, cover, spell, botanical, tex });
     [A.dLand, A.dPort] = await Promise.all([loadDepth('study-land'), loadDepth('study-port')]);
@@ -63,6 +66,8 @@ export default {
     let win = { x: 0, y: 0, w: 1, h: 1 }, rs = 1, pw = 300, ph = 400, dpr = env.dpr, N = env.q < 1 ? 12 : 18;
     let portrait = env.portrait, cover = null;
     const R = rng(5);
+    const room = A.room && !A.room.failed ? A.room : null;
+    if (room) { room.v.loop = true; room.portrait = env.portrait; play(room, 1); }
 
     // ---------------- warm light: soft bokeh drifting in the lamplight, a hearth glow that breathes ----------------
     const glowW = glowSprite('255,190,110', 128, 1.8), sparkle = sparkleSprite('255,230,180', 48), bokehS = glowSprite('255,214,150', 64, 1.25);
@@ -77,7 +82,7 @@ export default {
       map = coverRect(img.width, img.height, W, H, .5, portrait ? .7 : .78);
       // 2.5D room: four depth planes; the window's sky lives on the farthest plane, behind its glass
       const dm = portrait ? A.dPort : A.dLand;
-      if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .028, focus: .72 }); }
+      if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .045, focus: .72 }); }
       rs = env.res(false); light.width = Math.round(W * rs); light.height = Math.round(H * rs);
       pw = Math.round(portrait ? Math.min(W * .84, H * .42) : Math.min(W * .31, H * .47));
       ph = Math.round(pw * 1.36);
@@ -135,9 +140,9 @@ export default {
     // ---------------- timeline state ----------------
     let T = 0, spread = -1, writeL = 0, writeR = 0, phase = 'intro', phaseAt = 0, turnP = 0, coverP = 0, rise = 0, dive = 0, focus = 0, focusTarget = 0;
     let hurry = false, ended = false, cardShown = false, frameN = 0;
-    const OPEN_AT = 2.6;
+    const OPEN_AT = 4.4;
     // she turns the pages herself: drag a page (or the cover) leftward, or tap; a long pause turns it for her
-    const IDLE_TURN = 9, IDLE_OPEN = 8, IDLE_DIVE = 10;
+    const IDLE_TURN = 3.4, IDLE_OPEN = 3.5, IDLE_DIVE = 4.5; // left alone, the book turns its own pages (reading time comes while the ink writes)
     let manual = false, turnTarget = 1, dragX = 0, dragP = 0, downAt = 0, waitAt = 0, turnsDone = 0;
     const hintEl = document.createElement('p'); hintEl.className = 'bk-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
@@ -204,19 +209,25 @@ export default {
       progress: () => clamp((spread + 1 + turnP) / (SPREADS + 1)),
       debug: () => ({ phase, spread, writeL, writeR, T, lDur: inst.L?.dur, rDur: inst.R?.dur }),
       resize() { layout(); },
-      destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
+      destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); stop(room); },
       update(dt, t) {
         T = t; const W = env.W, H = env.H;
         if (!cardShown && t > .2) { cardShown = true; env.chapterCard('I', 1700); }
         if (t < 9) cues(t);
         // ---------- 2.5D camera ----------
         const wd = wander(t, 4.1, .9);
-        view.frame(map, { x: wd.x * .7 + env.look.x * .8, y: wd.y * .45 + env.look.y * .5 - .25 * (1 - rise), zoom: .035 * rise + .16 * dive, focus: .72 }, [W / 2, H * .55]);
+        view.frame(map, { x: wd.x * .7 + env.look.x * .8, y: wd.y * .45 + env.look.y * .5 - .25 * (1 - rise), zoom: .035 * rise + .06 * between(t, 1, 45) + .16 * dive, focus: .72 }, [W / 2, H * .55]);
         // ---------- the room, its warm light, dust ----------
-        lg.setTransform(rs, 0, 0, rs, 0, 0); lg.globalAlpha = 1; view.draw(lg);
+        lg.setTransform(rs, 0, 0, rs, 0, 0); lg.globalAlpha = 1;
+        const filmed = room && drawable(room) && (room.portrait === portrait);
+        if (filmed) { // the clip spans the painting's frame, moved by the camera as its middle depth would be
+          const pm = view.at(.55, tmp), img = portrait ? A.port : A.study;
+          lg.drawImage(room.v, pm.x, pm.y, img.width * pm.s, img.height * pm.s);
+        } else view.draw(lg);
         // the lamps and the fire come up as the book wakes, then breathe gently
         const warm = between(t, .2, 2.4) * (.9 + Math.sin(t * 2.3) * .04 + Math.sin(t * 5.1) * .03 + Math.sin(t * 9.7) * .02);
-        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm); lg.setTransform(rs, 0, 0, rs, 0, 0); }
+        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm * (filmed ? .35 : 1)); }
+        { const pm = view.at(.75, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studySteam(lg, portrait ? 'study-port' : 'study-land', t, warm * (1 - rise * .6)); lg.setTransform(rs, 0, 0, rs, 0, 0); }
         lg.globalCompositeOperation = 'lighter';
         bokeh.forEach(b => {
           const pm = view.at(.9, tmp), k = pm.s / map.s, x = pm.x + (((b.x + t * b.v) % 1.1 - .05) * W - map.x) * k, y = pm.y + ((b.y + Math.sin(t * .4 + b.p) * .02) * H - map.y) * k, r = b.r * Math.min(W, H) * 1.6;
@@ -238,7 +249,7 @@ export default {
 
         // ---------- choreography ----------
         if (phase === 'intro') {
-          rise = easeInOut(between(t, .7, 2.9));
+          rise = easeInOut(between(t, 2.4, 4.6)); // after the chapter's title has cleared
           if (t > OPEN_AT) { phase = 'cover-wait'; phaseAt = t; idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); }
         }
         if (phase === 'cover-wait') {
@@ -252,7 +263,7 @@ export default {
           if (coverP >= 1) { spread = 0; coverEl.style.display = 'none'; idxL = 0; inst.L = makePage(0, pageL); writeL = 0; writeR = 0; render(inst.L, 0, t); phase = 'write'; phaseAt = t; }
         }
         if (phase === 'write' || phase === 'hold') {
-          const L = inst.L, Rp = inst.R, spd = hurry ? 6 : 1;
+          const L = inst.L, Rp = inst.R, spd = hurry ? 6 : 1.5;
           const lDur = L?.dur || 0, rDur = Rp?.dur || 0;
           if (writeL < lDur + .01) { writeL += dt * spd; render(L, writeL, t); }
           else if (writeR < rDur + .01) { writeR += dt * spd; render(Rp, writeR, t); }
@@ -290,7 +301,7 @@ export default {
         }
         if (phase === 'dive') {
           dive = easeIn(clamp((t - phaseAt) / 1.8));
-          if (!ended && dive > .55) { ended = true; env.next({ transition: 'amber' }); }
+          if (!ended && dive > .55) { ended = true; env.next({ transition: 'bloom', at: [env.W / 2, env.H / 2] }); }
         }
         focus = lerp(focus, focusTarget, 1 - Math.exp(-dt * 2.2));
 

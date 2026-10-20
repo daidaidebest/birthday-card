@@ -1,12 +1,11 @@
-// Prologue, after the films' owl post: the camera dives through moonlit cloud down to a great castle
-// above a black lake (windows flickering with candlelight, lantern boats gliding to the shore, mist on the
-// water). A snowy owl leaves the tallest tower, flies straight at the camera and lets go of a letter; the
-// heavy parchment envelope tumbles down in 3D and lands addressed in emerald ink. She turns it over,
-// breaks the crimson wax seal, and the letter rises and writes itself.
+// Prologue, after the films' owl post: from high above, the camera glides down past the moon toward a castle
+// on a cliff over a misty lake (a photograph in depth planes; candlelight breathing in its windows). A snowy owl
+// glides across the sky and lets go of a letter as it leaves the frame; the heavy parchment envelope tumbles down
+// in 3D and lands addressed in emerald ink. She turns it over, breaks the crimson wax seal, and the letter slides
+// out, unfolds and writes itself while the birthday tune plays.
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeIn, rng, fbm, noise1, glowSprite, sparkleSprite, TAU } from '../util.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 import { PRO } from './prologue-art.js';
-import { loadClip, play, stop, drawable, drawCover } from '../video.js';
 
 const LETTER = [
   '亲爱的师宝宝：', '',
@@ -23,12 +22,10 @@ const A = {};
 
 // timeline (seconds)
 const DIVE = 7.2;                         // the crane from the moon down to the castle
-const OWL0 = 5.0, OWL1 = 10.6;            // the owl's flight, tower to camera
+const OWL0 = 4.4, OWL1 = 9.6;             // the owl's glide across the sky
 const DROP = 9.5, LAND = 13.4;            // the letter falls from its talons and settles in front of her
 const FLIP_AUTO = 2.8, OPEN_AUTO = 6;     // she may turn it / break the seal herself; otherwise it happens
 // the opening, in seconds after the seal is pressed
-// the filmed opening: the castle clip plays slowed (4.4 s → ~6.2 s); the owl's clip takes over as it reaches the camera
-const V = { castleRate: .7, owlAt: 5.2, owlRate: .9, blend: .9 };
 const O = { burst: .62, flap: .8, rise: 1.4, away: 2.45, forward: 2.6, unfold: 3.05, write: 4.5, covered: 4.4 };
 
 // Where the seal cracks: a few jagged rays from a point near its centre (seal.webp percent units), and the
@@ -81,10 +78,9 @@ function windowLights(img) {
 export default {
   id: 'prologue', music: 'prologue',
   async load(env) {
-    const [castle, owlBody, owlWing] = await Promise.all([loadImage(asset('img/castle.webp')), loadImage(asset('img/owl-body.webp')), loadImage(asset('img/owl-wing.webp')),
+    const [castle, owl] = await Promise.all([loadImage(asset('img/castle.webp')), loadImage(asset('img/owl-glide.webp')),
       ...['letter', 'env-front', 'env-back', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in', 'seal'].map(n => loadImage(asset(`img/${n}.webp`)))]);
-    Object.assign(A, { castle, owlBody, owlWing }); A.depth = await loadDepth('castle');
-    if (!env.reduced) A.clips = await Promise.all([loadClip('castle'), loadClip('owl')]);
+    Object.assign(A, { castle, owl }); A.depth = await loadDepth('castle');
     if (!A.puffs) A.puffs = [puff(1.3), puff(4.1), puff(7.9), puff(11.2)];
     if (!A.lights) A.lights = windowLights(castle);
   },
@@ -94,7 +90,7 @@ export default {
     const cv = canvas(1, 1); cv.className = 'full'; el.appendChild(cv);
     const g = cv.getContext('2d', { alpha: false }), img = A.castle, IW = img.width, IH = img.height;
     const R = rng(11);
-    const view = new DepthView(A.depth, { amp: .03, focus: .45 }), tmp = {}, n = A.depth.layers.length;
+    const view = new DepthView(A.depth, { amp: .05, focus: .4 }), tmp = {}, n = A.depth.layers.length;
     const moonGlow = glowSprite('205,220,255', 128, 1.6), warm = glowSprite('255,190,110', 64, 2), bloom = glowSprite('255,236,200', 128, 1.3), spark = sparkleSprite('255,246,225', 64);
     const stars = Array.from({ length: Math.round(90 * env.q + 30) }, () => ({ x: R() * IW, y: R() * IH * PRO.horizon * .8, r: .5 + R() * R() * 1.4, p: R() * TAU, s: .6 + R() * 2.2 }));
     const glints = Array.from({ length: Math.round(70 * env.q + 20) }, () => ({ x: lerp(PRO.lake.x0, PRO.lake.x1, R()) * IW, y: lerp(PRO.lake.y0, PRO.lake.y1, R() * R()) * IH, p: R() * TAU, s: 1 + R() * 3, l: 4 + R() * 14 }));
@@ -102,10 +98,6 @@ export default {
     const dive = Array.from({ length: 9 }, (_, i) => ({ x: (R() - .5) * 1.6, y: (R() - .5) * .9, z0: 1.2 + i * .32 + R() * .2, k: i % A.puffs.length, flip: R() < .5 }));
     const mist = Array.from({ length: 6 }, (_, i) => ({ x: R(), y: PRO.mistY + (R() - .5) * .03, s: .5 + R() * .5, v: .004 + R() * .006, k: i % A.puffs.length }));
     const boats = PRO.boats.map((b, i) => ({ ...b, ph: R() * TAU }));
-    // filmed plates (tools/video/): the castle from the air, then the owl. Without them, the painted 2.5D shot below.
-    const [clipCastle, clipOwl] = A.clips || [];
-    let filmed = !!(clipCastle && clipOwl && !clipCastle.failed && !clipOwl.failed);
-    if (filmed) play(clipCastle, V.castleRate, 0);
 
     // ---------- the envelope: a 3D card while it falls, then the opening rig ----------
     const wrap = document.createElement('div'); wrap.className = 'pro-letter-wrap'; el.appendChild(wrap);
@@ -157,7 +149,6 @@ export default {
 
     const inst = {
       progress: () => clamp(T / (LAND + 6 + WRITE_LEN + 3)),
-      destroy() { stop(clipCastle); stop(clipOwl); },
       resize() {
         res = env.res(true);
         cv.width = Math.round(env.W * res); cv.height = Math.round(env.H * res);
@@ -173,73 +164,59 @@ export default {
         T = t; cues(t);
         const W = env.W, H = env.H, portrait = env.portrait; g.setTransform(res, 0, 0, res, 0, 0);
         const covered = opened && t - openStart > O.covered;
-        if (!covered && filmed && (t < 1.5 || drawable(clipCastle))) {
-          filmedFrame(t, W, H, portrait);
-        } else if (!covered) {
-          if (filmed && t >= 1.5) filmed = false; // the clip never produced a picture: fall back to the painting
-          // ---------- the castle: a crane down from the moon, then a slow push toward it ----------
-          const s = Math.max(W / IW, H / IH) * (portrait ? 1.06 : 1.02), dw = IW * s, dh = IH * s;
-          const crane = easeInOut(clamp(t / DIVE)), y0 = H * .32 - PRO.moon.y * IH * s, y1 = H * .56 - PRO.castle.y * IH * s;
-          const oy = clamp(lerp(y0, y1, crane), H - dh, 0), ox = clamp(W * .5 - PRO.castle.x * IW * s, W - dw, 0);
-          const wd = wander(t, 1.3, .7), push = .12 * easeInOut(clamp((t - 2) / 16));
-          view.frame({ s, x: ox, y: oy }, { x: wd.x * .5 + env.look.x * .7, y: lerp(-1, .15, crane) + wd.y * .25 + env.look.y * .4, zoom: push, focus: .45 }, [W / 2, H * .55]);
+        if (!covered) {
+          // ---------- the castle, from the air: a slow drone glide forward and down, from the moon to the castle ----------
+          // (a photograph split into depth planes: the near forest, the cliff, the castle and the mountains each move at
+          // their own speed as the camera travels, which is what makes it read as a real place)
+          const s = Math.max(W / IW, H / IH) * (portrait ? 1.05 : 1.02), dw = IW * s, dh = IH * s;
+          const glide = easeInOut(clamp(t / (DIVE + 2.5))), y0 = H * .3 - PRO.moon.y * IH * s, y1 = H * (portrait ? .5 : .62) - PRO.castle.y * IH * s; // wide screens keep the moon in frame
+          const oy = clamp(lerp(y0, y1, glide), H - dh, 0), ox = clamp(W * .5 - PRO.castle.x * IW * s, W - dw, 0);
+          const wd = wander(t, 1.3, .6), push = .3 * easeInOut(clamp(t / 13)) + .06 * clamp((t - 13) / 10);
+          view.frame({ s, x: ox, y: oy }, { x: lerp(portrait ? -.9 : -.55, portrait ? .5 : .3, glide) + wd.x * .25 + env.look.x * .7, y: lerp(-.8, .2, glide) + wd.y * .15 + env.look.y * .4, zoom: push, focus: .4 }, [W / 2, H * .5]);
           const P = (d, x, y) => { const m = view.at(d, tmp); return [m.x + x * IW * m.s, m.y + y * IH * m.s, m.s]; };
           // sky plane, then stars and the moon's halo on it
           g.globalAlpha = 1; view.draw(g, 0, 1);
           g.fillStyle = '#eef2ff';
-          for (const st of stars) { const [x, y, ms] = P(0, st.x / IW, st.y / IH); if (y < -4 || y > H) continue; g.globalAlpha = .3 + .6 * (.5 + .5 * Math.sin(st.p + t * st.s)); g.fillRect(x, y, st.r * ms * 1.4, st.r * ms * 1.4); }
-          { const [mx, my, ms] = P(0, PRO.moon.x, PRO.moon.y), mg = 300 * ms * (1 + .05 * Math.sin(t * .8)); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .5; g.drawImage(moonGlow, mx - mg, my - mg, mg * 2, mg * 2); g.globalCompositeOperation = 'source-over'; }
+          for (const st of stars) { const [x, y, ms] = P(0, st.x / IW, st.y / IH); if (y < -4 || y > H) continue; g.globalAlpha = .2 + .4 * (.5 + .5 * Math.sin(st.p + t * st.s)); g.fillRect(x, y, st.r * ms * 1.2, st.r * ms * 1.2); }
+          { const [mx, my, ms] = P(0, PRO.moon.x, PRO.moon.y), mg = 160 * ms * (1 + .05 * Math.sin(t * .8)); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .35; g.drawImage(moonGlow, mx - mg, my - mg, mg * 2, mg * 2); g.globalCompositeOperation = 'source-over'; }
           for (let i = 1; i < n; i++) {
             g.globalAlpha = 1; view.draw(g, i, i + 1);
             const T_i = view.T[i];
-            if (i === PRO.castlePlane) { // the windows breathe with candlelight
+            if (i === PRO.castlePlane) { // the windows breathe with candlelight, and mist drifts below the walls
               g.globalCompositeOperation = 'lighter';
               A.lights.forEach((L, k) => {
                 const f = .55 + .3 * noise1(t * 1.7 + k * 9.3) + .15 * noise1(t * 6.1 + k * 3.1);
-                g.globalAlpha = .55 * f; g.drawImage(L.glow, T_i.x, T_i.y, IW * T_i.s, IH * T_i.s);
-                g.globalAlpha = .35 * f; g.drawImage(L.sharp, T_i.x, T_i.y, IW * T_i.s, IH * T_i.s);
+                g.globalAlpha = .5 * f; g.drawImage(L.glow, T_i.x, T_i.y, IW * T_i.s, IH * T_i.s);
+                g.globalAlpha = .25 * f; g.drawImage(L.sharp, T_i.x, T_i.y, IW * T_i.s, IH * T_i.s);
               });
               g.globalCompositeOperation = 'source-over';
+              for (const m of mist) { const [x, y, ms] = P(.45, ((m.x + t * m.v) % 1.4) - .2, m.y), mw = 900 * ms * m.s; g.globalAlpha = .16; g.drawImage(A.puffs[m.k], x - mw / 2, y - mw * .2, mw, mw * .4); }
             }
-            if (i === PRO.lakePlane) { // moonlight glints on the water, lantern boats, mist
+            if (i === PRO.lakePlane) { // moonlight glints on the water
               g.globalCompositeOperation = 'lighter'; g.fillStyle = '#dfe8ff';
-              for (const l of glints) { const a = Math.max(0, Math.sin(l.p + t * l.s)); if (a < .05) continue; const [x, y, ms] = P(.5, l.x / IW, l.y / IH); g.globalAlpha = a * .5; g.fillRect(x - l.l * ms / 2, y, l.l * ms, 1.2); }
-              for (const b of boats) {
-                const u = clamp(b.t0 + t / b.dur), bx = lerp(b.x0, b.x1, u), by = lerp(b.y0, b.y1, u) + Math.sin(t * 1.3 + b.ph) * .0008, [x, y, ms] = P(.55, bx, by), sz = 26 * ms * b.s;
-                g.globalCompositeOperation = 'source-over'; g.globalAlpha = .85; g.fillStyle = '#0a0c14'; g.beginPath(); g.ellipse(x, y + sz * .12, sz * .55, sz * .1, 0, 0, TAU); g.fill();
-                g.globalCompositeOperation = 'lighter'; const fl = .8 + .2 * noise1(t * 5 + b.ph);
-                g.globalAlpha = .9 * fl; g.drawImage(warm, x - sz * .5, y - sz * .62, sz, sz);
-                g.globalAlpha = .35 * fl; g.drawImage(warm, x - sz * .16, y + sz * .1, sz * .32, sz * 1.1); // its reflection
-              }
+              for (const l of glints) { const a = Math.max(0, Math.sin(l.p + t * l.s)); if (a < .05) continue; const [x, y, ms] = P(.9, l.x / IW, l.y / IH); g.globalAlpha = a * .45; g.fillRect(x - l.l * ms / 2, y, l.l * ms, 1.2); }
               g.globalCompositeOperation = 'source-over';
-              for (const m of mist) { const [x, y, ms] = P(.5, ((m.x + t * m.v) % 1.4) - .2, m.y), mw = 700 * ms * m.s; g.globalAlpha = .22; g.drawImage(A.puffs[m.k], x - mw / 2, y - mw * .2, mw, mw * .4); }
             }
           }
-          // ---------- the dive through the clouds ----------
+          // ---------- thin cloud the camera passes through at the start ----------
           for (const c of dive) {
             const z = c.z0 - t * .42; if (z <= .08 || z > 3) continue;
-            const a = clamp((z - .1) / .35) * clamp((2.6 - z) / .8) * .7, sz = W * 1.1 / z;
+            const a = clamp((z - .1) / .35) * clamp((2.6 - z) / .8) * .38, sz = W * 1.1 / z;
             const x = W / 2 + c.x * W * .5 / z, y = H * .38 + c.y * H * .5 / z;
             g.globalAlpha = a; g.save(); g.translate(x, y); if (c.flip) g.scale(-1, 1); g.drawImage(A.puffs[c.k], -sz / 2, -sz * .26, sz, sz * .52); g.restore();
           }
           g.globalAlpha = 1;
-          // ---------- the owl ----------
+          // ---------- the owl: it glides across the sky past the moon, calm and unhurried, and out of frame ----------
           const ko = (t - OWL0) / (OWL1 - OWL0);
           if (ko > 0 && ko < 1) {
-            const [tx, ty] = P(PRO.castlePlane / (n - 1), PRO.tower.x, PRO.tower.y);
-            const grow = Math.pow(ko, 2.4), size = lerp(Math.min(W, H) * .05, Math.max(W, H) * 1.1, grow);
-            // keyframes: off the tower, a swoop down toward the middle of the frame as it comes at the camera,
-            // then up over the camera and out of the top
-            const K = [[0, tx, ty], [.5, W * .56, H * .4], [.78, W * .5, H * .36], [1, W * .5, -size * .55]];
-            let j = 0; while (j < K.length - 2 && ko > K[j + 1][0]) j++;
-            const u = (ko - K[j][0]) / (K[j + 1][0] - K[j][0]), su = u * u * (3 - 2 * u);
-            const x = lerp(K[j][1], K[j + 1][1], su) + Math.sin(ko * Math.PI * 2) * W * .05 * (1 - ko), y = lerp(K[j][2], K[j + 1][2], su);
-            const bank = Math.sin(ko * Math.PI * 2) * .18 * (1 - ko);
-            owlXY = [x, y + size * .32, size];
-            if (!inst.hoot && ko > .04) { inst.hoot = true; env.audio.sfx('owl', .55); }
-            if (!inst.swoop && t > DROP - .3) { inst.swoop = true; env.audio.sfx('whoosh', .7); }
-            drawOwl(g, x, y, size, t, bank, ko < DROP_K);
-          } else owlXY = null;
+            const ow = Math.min(W * (portrait ? .62 : .34), H * .5), oh = ow * A.owl.height / A.owl.width;
+            const e = ko, x = lerp(W + ow * .55, -ow * .6, e), y = H * lerp(.3, .21, e) + Math.sin(t * 2.1) * H * .008;
+            const lift = Math.sin(t * 2.1 + .6); // a glide, not a flap: the wings flex a little with the air
+            g.save(); g.translate(x, y); g.rotate(-.04 + Math.sin(t * 1.3) * .03); g.scale(1, 1 + lift * .025);
+            g.globalAlpha = clamp(ko * 8) * clamp((1 - ko) * 8); g.drawImage(A.owl, -ow / 2, -oh / 2, ow, oh); g.restore(); g.globalAlpha = 1;
+            if (!inst.hoot && ko > .25) { inst.hoot = true; env.audio.sfx('whoosh', .3); }
+          }
+          owlXY = [W * .14, -H * .04, 0]; // it let the letter go as it left the frame
         }
         // ---------- the letter falls and turns ----------
         const kf = (t - DROP) / (LAND - DROP);
@@ -271,60 +248,13 @@ export default {
             if (written % 4 === 0) { const r = sp.getBoundingClientRect(); fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.4, vy: -16, color: '140,220,170' }); }
           }
           if (written >= chars.length && !done) { done = true; doneAt = t; paper.classList.add('glow'); env.audio.sfx('sparkle', .6); }
-          if (done && t > doneAt + 1.7 && !leaving) { leaving = true; env.next({ transition: 'gold' }); }
+          if (done && t > doneAt + 1.7 && !leaving) { leaving = true; const r = paper.getBoundingClientRect(); env.next({ transition: 'bloom', at: [r.left + r.width / 2, r.top + r.height * .55] }); }
         }
         // a hush falls once the letter is in front of her
         const dim = between(t, LAND - 1.5, LAND + .5) * .45 + (opened ? between(t - openStart, 0, 2) * .25 : 0);
         if (dim > 0 && !covered) { g.fillStyle = `rgba(4,6,14,${dim.toFixed(3)})`; g.fillRect(0, 0, W, H); }
       },
     };
-    const DROP_K = (DROP - OWL0) / (OWL1 - OWL0);
-    // the owl: one painted body and wing (mirrored for the other side), wings beating about the shoulders
-    function drawOwl(g, x, y, size, t, bank, carrying) {
-      const B = A.owlBody, Wg = A.owlWing, k = size / PRO.owl.w, beat = Math.sin(t * TAU * 2.1), lift = beat * .5 - .05;
-      g.save(); g.translate(x, y); g.rotate(bank); g.scale(k, k);
-      for (const side of [-1, 1]) {
-        g.save(); g.translate(side * PRO.owl.sx, PRO.owl.sy); g.scale(side, 1); g.rotate(-lift);
-        g.scale(1, 1 - Math.abs(beat) * .18); // the wing foreshortens at the top and bottom of the beat
-        g.drawImage(Wg, -PRO.owl.wx, -PRO.owl.wy); g.restore();
-      }
-      g.drawImage(B, -B.width / 2, -PRO.owl.by);
-      if (carrying) { // the letter, held in its talons
-        const ty = PRO.owl.ty - PRO.owl.by; g.fillStyle = '#d9c39a'; g.fillRect(-PRO.owl.w * .07, ty - PRO.owl.w * .03, PRO.owl.w * .14, PRO.owl.w * .095);
-        g.fillStyle = '#8c1d1d'; g.beginPath(); g.arc(0, ty + PRO.owl.w * .018, PRO.owl.w * .018, 0, TAU); g.fill();
-      }
-      g.restore();
-    }
-    // ---------- the filmed opening ----------
-    function filmedFrame(t, W, H, portrait) {
-      g.globalAlpha = 1; g.fillStyle = '#05070d'; g.fillRect(0, 0, W, H);
-      // the castle clip is a tall frame: on wide screens the camera cranes down it, from the moon to the castle
-      const crane = easeInOut(clamp(t / DIVE)), lx = env.look.x * .015, ly = env.look.y * .015;
-      if (drawable(clipCastle)) drawCover(g, clipCastle, 0, 0, W, H, .5 + lx, portrait ? .5 + ly : lerp(.04, .5, crane) + ly, 1.04 + .04 * crane);
-      if (t > V.owlAt - .3 && !inst.owlStarted) { inst.owlStarted = true; play(clipOwl, V.owlRate, 0); }
-      // the owl comes in through a rush of cloud; as it lets go of the letter it swoops up over the camera
-      const ko = between(t, V.owlAt, V.owlAt + V.blend), up = easeIn(clamp((t - DROP + 1.2) / 1.1));
-      const near = 1.04 + .5 * easeIn(clamp((t - V.owlAt) / (DROP - 1.2 - V.owlAt))) + up * .8;
-      if (ko > 0 && up < 1 && drawable(clipOwl)) {
-        g.globalAlpha = ko; const m = drawCover(g, clipOwl, 0, -up * H * 1.3, W, H, .5 + lx, (portrait ? .5 : .36) + ly, near); g.globalAlpha = 1;
-      }
-      { const k = (t - V.owlAt + .5) / 1.6; // the cloud the cut hides in
-        if (k > 0 && k < 1) for (let i = 0; i < 4; i++) {
-          const z = 1.4 - k * 1.3 + i * .12, a = Math.sin(k * Math.PI) * .75, sz = W * 1.2 / Math.max(.15, z), x = W * (.5 + (i - 1.5) * .22 / z), y = H * (.45 + (i % 2 - .5) * .2 / z);
-          g.globalAlpha = a; g.drawImage(A.puffs[i % A.puffs.length], x - sz / 2, y - sz * .26, sz, sz * .52);
-        }
-        g.globalAlpha = 1; }
-      if (!inst.hoot && t > V.owlAt + .4) { inst.hoot = true; env.audio.sfx('owl', .5); }
-      if (!inst.swoop && t > DROP - .3) { inst.swoop = true; env.audio.sfx('whoosh', .55); }
-      // the dive through thin cloud over the first seconds
-      for (const c of dive) {
-        const z = c.z0 - t * .42; if (z <= .08 || z > 3) continue;
-        const a = clamp((z - .1) / .35) * clamp((2.6 - z) / .8) * .55, sz = W * 1.1 / z;
-        const x = W / 2 + c.x * W * .5 / z, y = H * .38 + c.y * H * .5 / z;
-        g.globalAlpha = a; g.save(); g.translate(x, y); if (c.flip) g.scale(-1, 1); g.drawImage(A.puffs[c.k], -sz / 2, -sz * .26, sz, sz * .52); g.restore();
-      }
-      g.globalAlpha = 1; owlXY = [W * .5, -H * .04, 0]; // it let the letter go just above, as it passed over
-    }
     // ---------- the opening, one frame at a time (seconds after she presses the seal) ----------
     let last = -1, flapUp = false;
     openRig = k => {

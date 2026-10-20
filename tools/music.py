@@ -129,21 +129,47 @@ CH = {  # chord voicings
     'Bm': ['B2', 'F#3', 'B3', 'D4'], 'A': ['A2', 'E3', 'A3', 'C#4'], 'F#m': ['F#2', 'C#3', 'F#3', 'A3'],
 }
 
+HB = [('C5', .75), ('C5', .25), ('D5', 1), ('C5', 1), ('F5', 1), ('E5', 2), ('C5', .75), ('C5', .25), ('D5', 1), ('C5', 1), ('G5', 1), ('F5', 2),
+      ('C5', .75), ('C5', .25), ('C6', 1), ('A5', 1), ('F5', 1), ('E5', 1), ('D5', 1), ('Bb5', .75), ('Bb5', .25), ('A5', 1), ('F5', 1), ('G5', 1), ('F5', 3)]
+HB_CH = [(0, 'F'), (3, 'F'), (6, 'C7'), (9, 'C7'), (12, 'F'), (15, 'F'), (18, 'Bb'), (21, 'F/C'), (24, 'C7'), (27, 'F')]
+
+# ---- the golden thread: "Happy Birthday" (public domain) returns in every chapter, in that chapter's key ----
+def triad(root, kind='', base=3):
+    r = m(root + str(base)) if isinstance(root, str) else root
+    third = 3 if kind == 'm' else 4
+    v = [r - 12, r, r + 7, r + 12 + third] if kind != '7' else [r - 12, r + 4, r + 10, r + 12 + 4]
+    return v
+def chord_of(name, semis):
+    """A chord name from HB_CH (in F), moved by semis, as a voicing."""
+    base = {'F': ('F', ''), 'C7': ('C', '7'), 'Bb': ('Bb', ''), 'F/C': ('F', '')}[name]
+    r = m(base[0] + '3') + semis
+    while r > m('B3'): r -= 12
+    while r < m('E3'): r += 12
+    return triad(r, base[1])
+def hb(T, start, semis, inst='celesta', vel=.5, acc='harp', acc_vel=.24, octave=0, strings=0):
+    """Plays the tune from `start` (its pickup) with its harmony, `semis` above F."""
+    T.melody(inst, start, [(m(p) + semis + octave, d) for p, d in HB], vel)
+    if strings: T.melody('strings', start, [(m(p) + semis + octave - 12, d) for p, d in HB], strings)
+    for b, c in HB_CH:
+        ch = chord_of(c, semis)
+        T.arp(acc, start + b + 1, 3, ch, step=.5 if acc == 'harp' else 1, vel=acc_vel, pattern=[0, 1, 2, 3, 2, 1])
+        T.chord('pad', start + b + 1, 3, ch[1:], .2)
+    return start + 31
+
 def prologue():
-    # a gentle, wondering waltz in D major (celesta, harp, music box): magical but warm, nothing that could startle
-    T = Track(80, 16 * 3)
-    prog = ['D', 'Bm', 'G', 'A', 'D', 'F#m', 'G', 'A', 'D', 'Bm', 'G', 'A', 'D', 'F#m', 'G', 'D']
+    # a gentle, wondering waltz in D major (celesta, harp, music box); at bar 9 the birthday tune arrives,
+    # just as the letter begins to write itself
+    T = Track(80, 18 * 3 + 1)
+    prog = ['D', 'Bm', 'G', 'A', 'D', 'F#m', 'G', 'A']
     for i, c in enumerate(prog):
-        T.chord('pad', i * 3, 3, [p for p in CH[c][:3]], .3 + (.08 if i >= 8 else 0))
+        T.chord('pad', i * 3, 3, [p for p in CH[c][:3]], .3)
         T.arp('harp', i * 3, 3, CH[c], step=.5, vel=.26, pattern=[0, 1, 2, 3, 2, 1])
     mel = [('F#5', 1), ('A5', 1), ('D6', 1), ('C#6', 1.5), ('B5', .5), ('F#5', 1), ('G5', 1), ('B5', 1), ('D6', 1), ('C#6', 2), ('A5', 1),
-           ('F#5', 1), ('A5', 1), ('D6', 1), ('E6', 1.5), ('C#6', .5), ('A5', 1), ('B5', 1), ('A5', 1), ('G5', 1), ('A5', 3),
-           ('F#5', 1), ('A5', 1), ('D6', 1), ('F#6', 1.5), ('E6', .5), ('D6', 1), ('B5', 1), ('D6', 1), ('G6', 1), ('F#6', 1.5), ('E6', .5), ('C#6', 1),
-           ('D6', 1), ('A5', 1), ('F#5', 1), ('A5', 1), ('C#6', 1), ('E6', 1), ('D6', 1.5), ('C#6', .5), ('B5', 1), ('A5', 1), ('C#6', 1), ('D6', 1)]
+           ('F#5', 1), ('A5', 1), ('D6', 1), ('E6', 1.5), ('C#6', .5), ('A5', 1), ('B5', 1), ('A5', 1), ('G5', 1), ('A5', 2)]
     T.melody('celesta', 0, mel, .5)
-    T.melody('musicbox', 24, [(p, d) for p, d in mel[22:]], .22, octave=12)
-    T.melody('strings', 24, [(p, d) for p, d in mel[22:]], .2, octave=-12)
-    for k in range(0, 48, 6): T.note('bell', k + 5, .5, 'A6' if k % 12 else 'F#6', .1)
+    hb(T, 23, -3, 'celesta', .5, acc_vel=.24, octave=12, strings=.16)
+    T.melody('musicbox', 23, [(m(p) - 3 + 24, d) for p, d in HB[:6]], .12)
+    for k in range(0, 54, 6): T.note('bell', k + 5, .5, 'A6' if k % 12 else 'F#6', .08)
     T.render('prologue', wet=.42, fade_in=1.2)
 
 BOOK_MEL = [('B5', 1.5), ('A5', .5), ('G5', 1), ('A5', 2), ('D5', 1), ('E5', 1), ('G5', 1), ('B5', 1), ('A5', 3),
@@ -152,33 +178,39 @@ BOOK_MEL = [('B5', 1.5), ('A5', .5), ('G5', 1), ('A5', 2), ('D5', 1), ('E5', 1),
             ('C6', 1.5), ('B5', .5), ('A5', 1), ('F#5', 1), ('G5', 1), ('A5', 1), ('G5', 3), (None, 3)]
 BOOK_CH = ['G', 'D/F#', 'Em', 'D', 'G/B', 'Am', 'D', 'D7', 'G', 'B7', 'Em', 'C', 'Am', 'D', 'G', 'G']
 def book():
-    T = Track(84, 32 * 3)
-    for rep in range(2):
-        for i, c in enumerate(BOOK_CH):
-            b = (rep * 16 + i) * 3
-            T.arp('harp', b, 3, CH[c], step=.5, vel=.34, pattern=[0, 1, 2, 3, 2, 1])
-            T.chord('pad', b, 3, CH[c][1:], .3 + rep * .1)
-    T.melody('celesta', 0, BOOK_MEL, .62)
-    T.melody('strings', 48, BOOK_MEL, .36, octave=-12)
-    T.melody('celesta', 48, BOOK_MEL[:10], .35, octave=12)
+    # the book's theme (8 bars), the birthday tune on a music box, then the theme in full with strings
+    T = Track(84, 8 * 3 + 31 + 16 * 3 + 2)
+    def split(mel, beats):
+        a, b, t = [], [], 0
+        for n in mel: (a if t < beats - 1e-6 else b).append(n); t += n[1]
+        return a, b
+    first, _ = split(BOOK_MEL, 24)
+    for i, c in enumerate(BOOK_CH[:8]):
+        T.arp('harp', i * 3, 3, CH[c], step=.5, vel=.34, pattern=[0, 1, 2, 3, 2, 1]); T.chord('pad', i * 3, 3, CH[c][1:], .3)
+    T.melody('celesta', 0, first, .62)
+    e = hb(T, 23, 2, 'musicbox', .55, acc_vel=.26, octave=12)
+    for i, c in enumerate(BOOK_CH):
+        b0 = e + i * 3
+        T.arp('harp', b0, 3, CH[c], step=.5, vel=.34, pattern=[0, 1, 2, 3, 2, 1]); T.chord('pad', b0, 3, CH[c][1:], .4)
+    T.melody('strings', e, BOOK_MEL, .36, octave=-12)
+    T.melody('celesta', e, BOOK_MEL, .5)
     T.render('book', wet=.38)
 
+JOURNEY_BPM = 108  # site/js/scenes/journey.js keeps time with this (a city every 3 bars)
 def journey():
-    T = Track(76, 32 * 4)
-    prog = ['Cc', 'G/B2', 'Am', 'F', 'C/E', 'F', 'Gc', 'Gc', 'Am', 'F', 'Cc', 'Gc', 'F', 'Gc', 'Cc', 'Cc']
-    mel = [('E5', 2), ('G5', 1), ('C6', 1), ('B5', 2), ('G5', 2), ('A5', 1.5), ('G5', .5), ('E5', 2), ('F5', 3), ('A5', 1),
-           ('G5', 2), ('E5', 1), ('C5', 1), ('D5', 1), ('E5', 1), ('F5', 1), ('A5', 1), ('G5', 4), (None, 2), ('G5', 1), ('C6', 1),
-           ('C6', 2), ('B5', 1), ('A5', 1), ('A5', 2), ('C6', 1), ('F5', 1), ('E5', 2), ('G5', 1), ('E5', 1), ('D5', 4),
-           ('F5', 2), ('A5', 1), ('C6', 1), ('B5', 2), ('D5', 1), ('G5', 1), ('E5', 1), ('D5', 1), ('C5', 2), ('C5', 4)]
+    # a light piano waltz in C with its own 8-bar tune, then the birthday tune; twice, the second time with strings
+    T = Track(JOURNEY_BPM, 2 * (8 * 3 + 31) + 2)
+    prog = ['Cc', 'G/B2', 'Am', 'F', 'Dm', 'C/E', 'Gc', 'Cc']
+    mel = [('E5', 1), ('G5', 1), ('C6', 1), ('B5', 2), ('G5', 1), ('A5', 1), ('G5', 1), ('E5', 1), ('F5', 3),
+           ('D5', 1), ('F5', 1), ('A5', 1), ('G5', 2), ('E5', 1), ('D5', 1), ('E5', 1), ('F5', 1), ('E5', 2)]
+    o = 0
     for rep in range(2):
         for i, c in enumerate(prog):
-            b = (rep * 16 + i) * 4
-            T.arp('piano', b, 4, CH[c], step=.5, vel=.28, pattern=[0, 1, 2, 3, 2, 1, 2, 3])
-            if rep: T.chord('pad', b, 4, CH[c][1:], .34)
-    T.melody('piano', 0, mel, .55)
-    T.melody('piano', 64, mel, .5)
-    T.melody('strings', 64, mel, .26, octave=-12)
-    for k in range(0, 128, 8): T.note('bell', k + 7.5, .5, 'G6' if k % 16 else 'E6', .18)
+            T.arp('piano', o + i * 3, 3, CH[c], step=.5, vel=.24, pattern=[0, 1, 2, 3, 2, 1]); T.chord('pad', o + i * 3, 3, CH[c][1:], .22 + rep * .1)
+        T.melody('piano', o, mel, .5 - rep * .05)
+        if rep: T.melody('strings', o, mel, .22, octave=-12)
+        o = hb(T, o + 23, -5, 'piano', .48, acc='piano', acc_vel=.2, octave=12, strings=.2 if rep else 0) - 1
+    for k in range(0, int(o), 12): T.note('bell', k + 11, .5, 'G6' if k % 24 else 'E6', .14)
     T.render('journey', wet=.33)
 
 def memories():
@@ -196,7 +228,7 @@ def memories():
     T.render('memories', wet=.36)
 
 def film():
-    T = Track(72, 14 * 4, tail=6)
+    T = Track(72, 16 * 4 + 2, tail=6)
     prog = ['Bm', 'G', 'D', 'A', 'Bm', 'G', 'D', 'A', 'G', 'A', 'F#m', 'Bm', 'G', 'A']
     for i, c in enumerate(prog):
         v = .3 + min(i, 7) * .04 - max(0, i - 8) * .03
@@ -204,16 +236,16 @@ def film():
         T.chord('strings', i * 4, 4, CH[c], v)
         if i < 8: T.note('piano', i * 4, 2, CH[c][0], .35)
     T.chord('strings', 56, 8, ['D3', 'A3', 'D4', 'F#4', 'A4'], .4)
-    T.arp('celesta', 56, 6, ['D5', 'F#5', 'A5', 'D6'], step=.5, vel=.3)
+    T.arp('celesta', 56, 6, ['D5', 'F#5', 'A5', 'D6'], step=.5, vel=.22)
+    # the birthday tune's first line, slow, as the brightest star falls toward her cake
+    T.melody('celesta', 57, [(m(p) - 3 + 12, d * 1.5) for p, d in HB[:6]], .34)
+    T.chord('strings', 64, 4, ['D3', 'A3', 'D4', 'F#4'], .3)
     mel = [('F#5', 2), ('A5', 2), ('B5', 3), ('A5', 1), ('F#5', 2), ('E5', 2), ('C#5', 4), ('D5', 2), ('F#5', 2), ('G5', 3), ('F#5', 1), ('A5', 4), ('E5', 4),
            ('B5', 2), ('A5', 1), ('G5', 1), ('F#5', 2), ('E5', 2), ('D5', 2), ('C#5', 2), ('D5', 4), ('E5', 2), ('C#5', 2)]
     T.melody('strings', 0, mel, .5)
     T.melody('celesta', 32, mel[13:], .35)
     T.render('film', wet=.42, fade_out=4)
 
-HB = [('C5', .75), ('C5', .25), ('D5', 1), ('C5', 1), ('F5', 1), ('E5', 2), ('C5', .75), ('C5', .25), ('D5', 1), ('C5', 1), ('G5', 1), ('F5', 2),
-      ('C5', .75), ('C5', .25), ('C6', 1), ('A5', 1), ('F5', 1), ('E5', 1), ('D5', 1), ('Bb5', .75), ('Bb5', .25), ('A5', 1), ('F5', 1), ('G5', 1), ('F5', 3)]
-HB_CH = [(0, 'F'), (3, 'F'), (6, 'C7'), (9, 'C7'), (12, 'F'), (15, 'F'), (18, 'Bb'), (21, 'F/C'), (24, 'C7'), (27, 'F')]
 def wish():
     T = Track(84, 2 * 30 + 6)
     for rep in range(2):

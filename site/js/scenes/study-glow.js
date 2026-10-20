@@ -5,7 +5,10 @@ import { LIGHTS } from './study-lights.js';
 
 const glass = {};
 export const loadGlass = name => glass[name] || (glass[name] = loadImage(asset(`img/${name}-glass.png`)));
-let bulbS, fireS;
+let bulbS, fireS, steamS, roomS;
+// hand-placed in each painting (pixels): the hearth whose light dances over the room, and the cup of tea
+const HEARTH = { 'study-land': [785, 520, 620], 'study-port': [384, 850, 520] };
+const CUP = { 'study-land': [1086, 628], 'study-port': [528, 1062] };
 
 /** Draws the lights of painting `name` with g's transform set to painting pixels (on the plane they sit on). */
 export function studyLights(g, name, t, k = 1) {
@@ -21,6 +24,25 @@ export function studyLights(g, name, t, k = 1) {
     const f = .7 + .2 * noise1(t * 3.1 + i * 5) + .1 * noise1(t * 9.3 + i), r = Math.max(w, h) * 2.4 + 40;
     g.globalAlpha = k * .35 * f; g.drawImage(fireS, x + w / 2 - r, y + h / 2 - r, r * 2, r * 2);
   });
+  // the hearth's light flickering over the walls, the floor and the chair
+  const hz = HEARTH[name];
+  if (hz) {
+    roomS = roomS || glowSprite('255,140,60', 128, 1.15);
+    const f = .75 + .15 * noise1(t * 4.3) + .1 * noise1(t * 11.7 + 3), r = hz[2] * (1 + .04 * noise1(t * 2.1 + 9));
+    g.globalAlpha = k * .22 * f; g.drawImage(roomS, hz[0] - r, hz[1] - r * .75, r * 2, r * 1.5);
+  }
+  g.restore();
+}
+
+/** Steam curling up from the cup of tea (painting pixels, like studyLights). */
+export function studySteam(g, name, t, k = 1) {
+  const c = CUP[name]; if (!c || k <= .01) return;
+  steamS = steamS || glowSprite('255,240,225', 32, 1.3);
+  g.save(); g.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 9; i++) {
+    const u = ((t * .28 + i / 9) % 1), sway = Math.sin(t * 1.3 + i * 1.7 + u * 4) * 10 * u, r = 7 + u * 20;
+    g.globalAlpha = k * .2 * Math.sin(u * Math.PI); g.drawImage(steamS, c[0] + sway - r, c[1] - u * 95 - r, r * 2, r * 2);
+  }
   g.restore();
 }
 

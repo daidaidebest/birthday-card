@@ -17,7 +17,7 @@ const PLACES = {
   shenzhenHis: { region: '', city: '深圳', line: '我的路，也终于写到了深圳。', art: 'shenzhen' },
 };
 const HER = ['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhenHer'], HIS = ['wuhan', 'nanjing', 'shanghai', 'shenzhenHis'];
-const MAP_LEN = 9;
+const MAP_LEN = 7.5;
 const SAND = [44, 26, 12];
 const MAP_OFF = [-12, 6]; // centres China + Japan inside the light table
 const mxy = c => { const [x, y] = mapXY(c); return [x + MAP_OFF[0], y + MAP_OFF[1]]; };
@@ -172,10 +172,10 @@ export default {
       s.textContent = text; s.style.left = (x / 1280 * 100) + '%'; s.style.top = (y / 850 * 100) + '%'; labels.appendChild(s); return { id, s };
     });
     const progressFor = (k, id) => { const route = k ? HIS_ROUTE : HER_ROUTE, i = route.indexOf(id); if (i < 0) return 9; let d = 0; for (let j = 1; j <= i; j++) d += lens[k].seg[j - 1]; return d / lens[k].L; };
-    let heart = 0, met = false;
+    let heart = 0, met = false, heartAt = null;
     function mapFrame(t) {
       const lane = lanes[0], g = lane.g, gg = lane.gg;
-      const fh = between(t, 1.6, 5.2), fm = between(t, 1.8, 5.2);
+      const fh = between(t, 1.1, 4.1), fm = between(t, 1.3, 4.1);
       // carve both paths through the sand
       g.save(); g.globalCompositeOperation = 'destination-out'; g.lineCap = g.lineJoin = 'round';
       [fh, fm].forEach((f, k) => {
@@ -189,7 +189,7 @@ export default {
       [fh, fm].forEach((f, k) => { if (f <= 0) return; gg.beginPath(); const N = 80; for (let i = 0; i <= N; i++) { const [x, y] = at(k, f * i / N); i ? gg.lineTo(x, y) : gg.moveTo(x, y); } gg.stroke(); });
       gg.restore();
       [fh, fm].forEach((f, k) => { if (f <= 0 || f >= 1) return; const [x, y] = at(k, f), s = W / 14; gg.globalAlpha = .9; gg.drawImage(spark, x - s / 2, y - s / 2, s, s); });
-      if (fh >= 1 && fm >= 1 && !met) { met = true; env.audio.sfx('chime', .8); const r = lane.glow.getBoundingClientRect(), [x, y] = mxy(CITIES.tokyo); fx.burst(r.left + x / 1280 * r.width, r.top + y / 850 * r.height, { n: 90, speed: 160, life: 2.2, size: 2.2 }); }
+      if (fh >= 1 && fm >= 1 && !met) { met = true; env.audio.sfx('chime', .8); const r = lane.glow.getBoundingClientRect(), [x, y] = mxy(CITIES.tokyo); heartAt = [r.left + x / 1280 * r.width, r.top + y / 850 * r.height]; fx.burst(heartAt[0], heartAt[1], { n: 90, speed: 160, life: 2.2, size: 2.2 }); }
       if (met) {
         heart = Math.min(1, heart + 1 / 60); const [x, y] = mxy(CITIES.tokyo).map(v => v * W / 1280), s = W / 26;
         const pulse = 1;
@@ -208,9 +208,9 @@ export default {
 
     // ---------- her hands in the sand ----------
     // a finger drawn across a lightbox carves a trail the light shines through; a sweep (or a tap) walks on to
-    // the next stop sooner. Left alone, the stops follow the music: both tables move on together, every two bars,
-    // each new city settling on the downbeat (the score is 76 bpm in 4/4, tools/music.py journey()).
-    const BAR = 240 / 76, STEP = 2 * BAR, PAN = 2.4, AUTO_END = 9;
+    // the next stop sooner. Left alone, the stops follow the music: both tables move on together, every three bars,
+    // each new city settling on the downbeat (the score is a 108 bpm waltz, tools/music.py journey()).
+    const BAR = 180 / 108, STEP = 3 * BAR, PAN = 1.8, AUTO_END = 6.5;
     const HIS_AT = [0, 1, 2, 2, 3]; // his road has one stop fewer: he waits in Shanghai while she crosses to Hong Kong
     const hintEl = document.createElement('p'); hintEl.className = 'jr-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
@@ -249,7 +249,7 @@ export default {
     // ---------- clock ----------
     let T = 0, mode = 'routes', ended = false, cardShown = false, mapT = 0;
     let mapStart = 1e9;
-    const cuesMap = env.cues([[.6, 4.6, '各自走来的路，在东京写下同一页。'], [5, MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
+    const cuesMap = env.cues([[.5, 4, '各自走来的路，在东京写下同一页。'], [4.3, MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
     function resize() {
       const Wv = env.W, Hv = env.H, portrait = env.portrait;
       el.classList.toggle('portrait', portrait);
@@ -279,13 +279,13 @@ export default {
         // the music's own clock (the scene clock until the track is playing), so the sand keeps time with it
         mt += dt; { const at = env.audio.time('journey'); if (at != null) { if (Math.abs(at - mt) > .5) mt = at; else mt += (at - mt) * .1; } }
         const rt = t - 1.7; // the chapter card
-        if (mt < BAR - 1.95) { el.classList.remove('lit'); return; }
+        if (mt < .3) { el.classList.remove('lit'); return; }
         el.classList.add('lit');
         cuesMap(rt - mapStart);
         if (mode === 'routes') {
           // a sweep brings the next stop forward to the next downbeat it can reach
           if (wantNext) { wantNext = false; if (step >= 0 && lanes.every(l => l.pan < 0)) nextAt = Math.min(nextAt, Math.ceil((mt + PAN) / BAR - .02) * BAR); }
-          if (step < 0) { step = 0; lanes.forEach((l, k) => { l.idx = 0; setPlace(l, (k ? HIS : HER)[0]); }); nextAt = BAR + STEP; }
+          if (step < 0) { step = 0; lanes.forEach((l, k) => { l.idx = 0; setPlace(l, (k ? HIS : HER)[0]); }); nextAt = 2 * BAR + STEP; }
           else if (step < HER.length - 1 && mt >= nextAt - PAN) {
             step++; nextAt += STEP;
             lanes.forEach((l, k) => { const i = k ? HIS_AT[step] : step; if (i !== l.idx) { l.idx = i; setPlace(l, (k ? HIS : HER)[i], 'pan'); } });
@@ -296,7 +296,7 @@ export default {
             if (l.pan >= 0) {
               l.pan = Math.min(1, l.pan + dt / PAN); compose(l);
               if (l.pan >= 1) { l.doff = (l.doff + W * 1.3) % ART.ground.SW; l.pan = -1; l.old = null; compose(l); }
-            } else if (l.p < 1.25) l.p += dt / 1.6, compose(l);
+            } else if (l.p < 1.25) l.p += dt / 1.25, compose(l);
             pour(l, dt);
             // a gentle step in the walk while the camera pans; the sand sits a little deeper than the frame
             const bob = l.pan >= 0 ? Math.sin(l.pan * Math.PI * 4) * Math.sin(l.pan * Math.PI) * 2.2 : 0;
@@ -316,7 +316,7 @@ export default {
           if (l.p < 1.25) { l.p += dt / 1.5; compose(l); }
           else mapFrame(mapT); // the carving accumulates on the finished sand, no per-frame recompose
           if (met && !endAsked) { endAsked = mapT; setTimeout(() => { if (!ended) hint('轻触，翻到下一章'); }, 2600); }
-          if (!ended && met && (wantEnd || mapT - endAsked > AUTO_END)) { ended = true; hint(null); env.next({ transition: 'gold' }); }
+          if (!ended && met && (wantEnd || mapT - endAsked > AUTO_END)) { ended = true; hint(null); env.next({ transition: 'bloom', at: heartAt }); }
         }
       },
     };

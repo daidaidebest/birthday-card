@@ -4,7 +4,7 @@ import { canvas, glowSprite, sparkleSprite, TAU, rng, clamp } from './util.js';
 export class FX {
   constructor(el, env) {
     this.el = el; this.env = env; this.ctx = el.getContext('2d');
-    this.parts = []; this.swirl = 0; this.rand = rng(7);
+    this.parts = []; this.conf = []; this.swirl = 0; this.rand = rng(7);
     this.glow = glowSprite('255,214,150', 64, 2);
     this.spark = sparkleSprite('255,236,190', 48);
     this.resize();
@@ -30,9 +30,16 @@ export class FX {
       life: (o.life ?? 1.2) * (.6 + R() * .6), age: 0, size: (o.size ?? 1.6) * (.6 + R()), drag: .8, g: o.gravity ?? 0, kind: R() < .2 ? 1 : 0, tw: R() * 10 });
   }
   goldSwirl() { this.swirl = .001; }
+  /** A soft shower of paper confetti (gold, blush, ivory) drifting down from above the screen. */
+  confetti(n = 110) {
+    const R = this.rand, W = this.env.W, cols = ['#e9c77b', '#f3dca2', '#f2b8b0', '#fff4e2', '#d9a65a', '#f6cfc4'];
+    n = Math.round(n * (this.env.q * .6 + .4));
+    for (let i = 0; i < n; i++) this.conf.push({ x: R() * W, y: -20 - R() * this.env.H * .9, vy: 40 + R() * 50, sway: 20 + R() * 40, ph: R() * TAU, sp: 1.5 + R() * 2.5,
+      w: 5 + R() * 5, h: 8 + R() * 6, rot: R() * TAU, vr: (R() - .5) * 5, flip: R() * TAU, vf: 4 + R() * 6, c: cols[(R() * cols.length) | 0], age: 0, life: 7 + R() * 4 });
+  }
   update(dt) {
     const { ctx, env } = this; const W = env.W, H = env.H;
-    if (!this.parts.length && !this.swirl) { if (this.dirty) { ctx.clearRect(0, 0, W, H); this.dirty = false; this.el.style.visibility = 'hidden'; } return; }
+    if (!this.parts.length && !this.swirl && !this.conf.length) { if (this.dirty) { ctx.clearRect(0, 0, W, H); this.dirty = false; this.el.style.visibility = 'hidden'; } return; }
     if (!this.dirty) this.el.style.visibility = 'visible';
     this.dirty = true;
     ctx.clearRect(0, 0, W, H);
@@ -59,5 +66,16 @@ export class FX {
       ctx.drawImage(p.kind ? this.spark : this.glow, p.x - s / 2, p.y - s / 2, s, s);
     }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    const C = this.conf;
+    for (let i = C.length - 1; i >= 0; i--) {
+      const c = C[i]; c.age += dt;
+      if (c.age >= c.life || c.y > H + 30) { C[i] = C[C.length - 1]; C.pop(); continue; }
+      c.y += c.vy * dt; c.rot += c.vr * dt; c.flip += c.vf * dt;
+      const x = c.x + Math.sin(c.ph + c.age * c.sp) * c.sway;
+      ctx.globalAlpha = clamp(Math.min(c.age * 2, 1) * Math.min(1, (c.life - c.age) * .8)) * .9;
+      ctx.save(); ctx.translate(x, c.y); ctx.rotate(c.rot); ctx.scale(1, Math.cos(c.flip));
+      ctx.fillStyle = c.c; ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h); ctx.restore();
+    }
+    ctx.globalAlpha = 1;
   }
 }

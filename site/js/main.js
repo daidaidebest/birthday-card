@@ -104,6 +104,8 @@ env.chapterCard = async (ch, hold = 2000) => {
   card.querySelector('small').textContent = 'CHAPTER ' + c.n;
   card.querySelector('b').textContent = c.title;
   card.querySelector('span').textContent = c.sub;
+  // six little candles, one more lit with every chapter, on the way to the six on her cake
+  const n = CHAPTERS.indexOf(c) + 1; card.querySelectorAll('.cc-candles i').forEach((e, k) => { e.classList.toggle('lit', k < n); e.classList.toggle('new', k === n - 1); });
   card.classList.add('on'); env.audio.sfx('chime');
   await wait(hold / SPEED); card.classList.remove('on');
 };
@@ -131,10 +133,11 @@ function preload(i) {
 }
 env.next = opts => go(currentIndex + 1, opts);
 /** Scenes crossfade: the outgoing frame freezes while the next one fades in over it. */
-async function go(i, { transition = 'cross', fast = false } = {}) {
+async function go(i, { transition = 'cross', fast = false, at = null } = {}) {
   if (switching || i < 0 || i >= SCENES.length) return;
   switching = true; env.offerNext(null); env.say(null);
   const old = current;
+  if (transition === 'bloom' && (fast || env.reduced)) transition = 'cross';
   if (transition === 'gold') { env.fx.goldSwirl(); env.veil(.55, 650, '#fff1d0'); }
   else if (transition === 'white') env.veil(.7, 650, '#fff4dc');
   else if (transition === 'amber') env.veil(.85, 700, '#f2c27e');
@@ -147,20 +150,22 @@ async function go(i, { transition = 'cross', fast = false } = {}) {
   const el = document.createElement('div'); el.className = 'scene scene-' + S.id; el.style.opacity = old && !fast && transition !== 'black' ? 0 : 1;
   if (transition === 'moon') setTimeout(() => env.veil(0, 2200, '#eef1ff'), 300); stage.appendChild(el);
   env.letterbox(false);
+  env.handoff = transition === 'bloom' && !fast && !env.reduced ? (at || [env.W / 2, env.H / 2]) : null;
   current = S.create({ ...env, el }); settle = performance.now() + 1600; gaps.length = 0;
   current.el = el; current.t = 0;
   env.audio.cue(S.music, 1.6);
   for (let k = i + 1; k < Math.min(SCENES.length, i + 3); k++) preload(k);
   history.replaceState(null, '', '#' + S.id);
-  const fade = transition === 'gold' ? 1500 : transition === 'moon' ? 600 : 1300;
+  const fade = transition === 'gold' ? 1500 : transition === 'moon' ? 600 : transition === 'bloom' ? 2300 : 1300;
+  if (transition === 'bloom') { el.style.opacity = 1; bloom(el, old, env.handoff, fade / SPEED); }
   // a lens pulling focus: the old shot drifts forward and softens while the new one resolves out of a blur
-  const soft = !env.software && !env.reduced && !film.classList.contains('low-power') && old && !fast && transition !== 'black';
+  const soft = !env.software && !env.reduced && !film.classList.contains('low-power') && old && !fast && transition !== 'black' && transition !== 'bloom';
   if (soft) {
     el.classList.add('entering');
     old.el.style.transition = `transform ${fade * 1.2 / SPEED}ms cubic-bezier(.4,0,.2,1), filter ${fade / SPEED}ms ease`;
     old.el.classList.add('leaving');
   }
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  if (transition !== 'bloom') requestAnimationFrame(() => requestAnimationFrame(() => {
     el.style.transition = `opacity ${fade / SPEED}ms ease, transform ${fade * 1.4 / SPEED}ms cubic-bezier(.2,.7,.2,1), filter ${fade * 1.1 / SPEED}ms ease`;
     el.style.opacity = 1; el.classList.remove('entering');
   }));
@@ -170,6 +175,26 @@ async function go(i, { transition = 'cross', fast = false } = {}) {
   switching = false;
 }
 env.go = go;
+
+/** The golden thread: each chapter ends in a point of light, and the next one opens out of it — a soft circle of
+ *  light grows from that point, its rim glowing gold, while the old chapter drifts back and softens behind. */
+function bloom(el, old, [bx, by], ms) {
+  const ring = document.createElement('i'); ring.className = 'bloom-ring'; film.appendChild(ring);
+  const far = Math.max(Math.hypot(bx, by), Math.hypot(env.W - bx, by), Math.hypot(bx, env.H - by), Math.hypot(env.W - bx, env.H - by)) + 140;
+  const t0 = performance.now(), ease = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  env.fx.burst(bx, by, { n: 60, speed: 150, life: 1.6, size: 2, color: '255,224,160' }); env.audio.sfx('light', .6);
+  if (old?.el) { old.el.style.transition = `transform ${ms * 1.2}ms cubic-bezier(.4,0,.2,1), filter ${ms}ms ease`; old.el.style.transform = 'scale(1.06)'; old.el.style.filter = 'blur(6px) brightness(1.15)'; }
+  const step = now => {
+    const k = Math.min(1, (now - t0) / ms), r = 30 + ease(k) * far, f = 70 + 90 * k;
+    const m = `radial-gradient(circle at ${bx}px ${by}px, #000 ${Math.max(0, r - f)}px, rgba(0,0,0,.6) ${r - f * .4}px, transparent ${r}px)`;
+    el.style.webkitMaskImage = el.style.maskImage = m;
+    ring.style.background = `radial-gradient(circle at ${bx}px ${by}px, rgba(255,236,190,${(.55 * (1 - k)).toFixed(3)}) 0, rgba(255,236,190,0) ${Math.max(1, r * .35)}px, rgba(255,214,140,0) ${Math.max(0, r - f * 1.1)}px, rgba(255,214,150,${(.5 * (1 - k * .8)).toFixed(3)}) ${r - f * .45}px, rgba(255,200,120,0) ${r + 30}px)`;
+    if (k < .85 && Math.random() < .7) { const a = Math.random() * Math.PI * 2, rr = r - f * .45; env.fx.trail(bx + Math.cos(a) * rr, by + Math.sin(a) * rr, { life: 1, size: 1.5, vy: -12 }); }
+    if (k < 1) requestAnimationFrame(step);
+    else { el.style.webkitMaskImage = el.style.maskImage = ''; ring.remove(); }
+  };
+  requestAnimationFrame(step);
+}
 
 // ---------- loop ----------
 let last = performance.now(), frameAvg = 16, work = 8, half = false, probeAt = 0, settle = 0; const gaps = [];

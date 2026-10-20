@@ -5,10 +5,17 @@ import { PHOTOS, LETTER } from '../content-shim.js';
 import { loadDepth, depthNameFor, DepthView, wander } from '../depth.js';
 
 const DROP = 3.0;
-const DEPTHS = {};
+const DEPTHS = {}, ROOM = {};
 export default {
   id: 'memories', music: 'memories',
-  async load() { await Promise.all(PHOTOS.map(p => Promise.all([loadImage(p.src).catch(() => null), loadDepth(depthNameFor(p.src)).then(d => { DEPTHS[p.src] = d; }).catch(() => null)]))); },
+  async load() {
+    // the photos hang in the same cozy study as the book and the cake, its lights and fire far out of focus behind them
+    if (!ROOM.land) await Promise.all(['land', 'port'].map(async k => {
+      const img = await loadImage(asset(`img/study-${k}.webp`)), w = k === 'land' ? 480 : 270, h = Math.round(w * img.height / img.width), c = canvas(w, h), cg = c.getContext('2d');
+      cg.filter = 'blur(9px) saturate(1.15)'; cg.drawImage(img, -12, -12, w + 24, h + 24); cg.filter = 'none';
+      cg.fillStyle = 'rgba(14,8,10,.36)'; cg.fillRect(0, 0, w, h); ROOM[k] = c;
+    }));
+    await Promise.all(PHOTOS.map(p => Promise.all([loadImage(p.src).catch(() => null), loadDepth(depthNameFor(p.src)).then(d => { DEPTHS[p.src] = d; }).catch(() => null)]))); },
   create(env) {
     const { el, fx } = env;
     env.pups.set('memories');
@@ -16,7 +23,7 @@ export default {
       <div class="mm-quote"><small></small><b></b><span></span></div><div class="mm-letter"><div class="mm-paper"><div class="mm-text"></div></div></div>`;
     const bg = el.querySelector('.mm-bg'), g = bg.getContext('2d'), wall = el.querySelector('.mm-wall');
     const R = rng(31);
-    const bokeh = Array.from({ length: Math.round(18 + 18 * env.q) }, () => ({ x: R(), y: R(), r: 12 + R() * 60, s: .002 + R() * .008, p: R() * TAU, c: R() < .6 ? '255,196,120' : R() < .5 ? '255,160,170' : '200,190,255', a: .08 + R() * .2 }));
+    const bokeh = Array.from({ length: Math.round(18 + 18 * env.q) }, () => ({ x: R(), y: R(), r: 12 + R() * 60, s: .002 + R() * .008, p: R() * TAU, c: R() < .7 ? '255,196,120' : '255,170,150', a: .08 + R() * .2 }));
     const sprites = {}; const spr = c => sprites[c] || (sprites[c] = glowSprite(c, 128, 1.2));
     const bulb = glowSprite('255,214,150', 64, 2.2);
 
@@ -39,7 +46,7 @@ export default {
     let LETTER_AT = 1e9, WRITE_AT = 1e9, WRITE_END = 1e9;
     const openLetter = t => { if (LETTER_AT < 1e9) return; LETTER_AT = t + .3; WRITE_AT = LETTER_AT + 1.1; WRITE_END = WRITE_AT + at; env.offerNext(null); hint(null); };
     // ---------- looking at photos: tap one to take it down, tap again to hang it back ----------
-    const AUTO_IDLE = 7, HOLD_LOOK = 6.5;
+    const AUTO_IDLE = 4.5, HOLD_LOOK = 5;
     let focusIdx = -1, focusAt = 0, lastInput = 0, lookE = 0; const seen = new Set();
     const hintEl = document.createElement('p'); hintEl.className = 'mm-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
@@ -91,8 +98,10 @@ export default {
         cues(t);
         // ---------- background: bokeh and fairy lights ----------
         g.setTransform(rs, 0, 0, rs, 0, 0);
-        const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#0f0a16'); gr.addColorStop(.6, '#22121c'); gr.addColorStop(1, '#120a0c');
-        g.fillStyle = gr; g.fillRect(0, 0, W, H);
+        { const r = env.portrait ? ROOM.port : ROOM.land, k = 1.12, s = Math.max(W / r.width, H / r.height) * k; // the study, out of focus
+          g.drawImage(r, (W - r.width * s) / 2 - lx * .5, (H - r.height * s) / 2 - ly * .5, r.width * s, r.height * s);
+          const vg = g.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .2, W / 2, H * .5, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(20,10,8,0)'); vg.addColorStop(1, 'rgba(10,5,6,.6)');
+          g.fillStyle = vg; g.fillRect(0, 0, W, H); }
         g.globalCompositeOperation = 'lighter';
         bokeh.forEach(b => { const dz = b.r / 40 - .6, x = ((b.x + t * b.s) % 1.2 - .1) * W - lx * dz * 1.6, y = (b.y + Math.sin(t * .3 + b.p) * .02) * H - ly * dz * 1.6; g.globalAlpha = b.a * (.7 + .3 * Math.sin(t + b.p)); g.drawImage(spr(b.c), x - b.r, y - b.r, b.r * 2, b.r * 2); });
         g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
@@ -159,8 +168,8 @@ export default {
             if (r.bottom > pr.bottom - pr.height * .22) paper.scrollTop += r.bottom - (pr.bottom - pr.height * .22);
             if (written % 4 === 0) fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.3, vy: -14 });
           }
-          if (written >= chars.length && !folded) { folded = true; env.offerNext('收好这封信', () => { ended = true; env.next({ transition: 'black' }); }); }
-          if (folded && !ended && t > WRITE_END + 25) { ended = true; env.offerNext(null); env.next({ transition: 'black' }); }
+          if (written >= chars.length && !folded) { folded = true; env.offerNext('收好这封信', () => { ended = true; env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45] }); }); }
+          if (folded && !ended && t > WRITE_END + 25) { ended = true; env.offerNext(null); env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45] }); }
         }
       },
       destroy() { env.offerNext(null); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },

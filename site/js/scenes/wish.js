@@ -5,6 +5,7 @@ import { asset, loadImage, canvas, clamp, lerp, between, win, easeInOut, easeOut
 import { loadCake, CANDLES, CAKE_W, CAKE_H, FLAME } from './cake.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 import { studyLights, studySteam, behindGlass, loadGlass, glassRect } from './study-glow.js';
+import { loadClip, play, stop, drawable } from '../video.js';
 
 const A = {};
 const glassBox = name => { const [x0, y0, x1, y1] = glassRect(name); return { x0, y0, x1, y1 }; };
@@ -25,7 +26,8 @@ function lanternSprite(h) {
 
 export default {
   id: 'wish', music: 'wish',
-  async load() {
+  async load(env) {
+    if (!env.reduced && A.room === undefined) A.room = await loadClip(env.portrait ? 'studyp' : 'study'); // the same filmed room as the book
     const [land, port, glassL, glassP] = await Promise.all([loadImage(asset('img/study-land.webp')), loadImage(asset('img/study-port.webp')), loadGlass('study-land'), loadGlass('study-port')]);
     Object.assign(A, { land, port, glassL, glassP }); if (!A.cake) A.cake = gradeCake(await loadCake());
     [A.dLand, A.dPort] = await Promise.all([loadDepth('study-land'), loadDepth('study-port')]);
@@ -59,6 +61,8 @@ export default {
     const fxg = () => tg;
     const glowW = glowSprite('255,196,120', 256, 1.5), glowSm = glowSprite('255,220,160', 64, 2), spark = sparkleSprite('255,236,190', 48), smokeS = glowSprite('200,196,205', 64, 1.4);
     const lanterns = [lanternSprite(40), lanternSprite(26), lanternSprite(72)];
+    const room0 = A.room && !A.room.failed ? A.room : null;
+    if (room0) { room0.v.loop = true; room0.portrait = env.portrait; play(room0, .5); }
     let WINDOW = glassBox('study-land'), portrait = false, rs = 1;
     const flames = CANDLES.map((_, i) => ({ lit: 0, out: 0, seed: R() * 40 }));
     const flights = []; const smoke = []; const lamps = [];
@@ -158,7 +162,11 @@ export default {
         const paintRoom = t - (room._at ?? -1) >= 1 / 31 || room._w !== room.width; if (paintRoom) { room._at = t; room._w = room.width; }
         if (paintRoom) {
         sg.setTransform(rr, 0, 0, rr, -map.x * rr, -map.y * rr); sg.globalAlpha = 1;
-        view.draw(sg);
+        // the filmed room breathing with firelight; once the candles are out it gives way to the still painting,
+        // so the lanterns beyond the glass line up with the window exactly
+        const filmK = room0 && drawable(room0) && room0.portrait === portrait ? 1 - (phase === 'blown' ? between(t - blowAt, 0, 1.4) : 0) : 0;
+        if (filmK < 1) view.draw(sg);
+        if (filmK > 0) { const pm = view.at(.55, tmp), img = portrait ? A.port : A.land; sg.globalAlpha = filmK; sg.drawImage(room0.v, pm.x, pm.y, img.width * pm.s, img.height * pm.s); sg.globalAlpha = 1; }
         // ---------- the room's own lights, and lanterns drifting up beyond the window glass (far plane) ----------
         const name = portrait ? 'study-port' : 'study-land';
         sg.setTransform(rr * T0.s, 0, 0, rr * T0.s, rr * (T0.x - map.x), rr * (T0.y - map.y));
@@ -173,8 +181,8 @@ export default {
             gw.globalAlpha = 1;
           });
         }
-        { const pm = view.at(.4, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studyLights(sg, name, t, phase === 'blown' ? .6 : 1); }
-        { const pm = view.at(.75, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studySteam(sg, name, t, .8); }
+        { const pm = view.at(.4, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studyLights(sg, name, t, (phase === 'blown' ? .6 : 1) * (1 - filmK * .8)); }
+        { const pm = view.at(.75, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); if (filmK < 1) studySteam(sg, name, t, .8 * (1 - filmK)); }
         }
         // the cake stands on the desk, so it moves with the desk's plane
         { const pm = view.at(view.focus, tmp), k = pm.s / map.s; cake = { s: cake0.s * k, x: pm.x + (cake0.x - map.x) * k, y: pm.y + (cake0.y - map.y) * k }; }
@@ -275,7 +283,7 @@ export default {
           }
         }
       },
-      destroy() { stopMic(); removeEventListener('pointerup', drop); removeEventListener('pointercancel', drop); },
+      destroy() { stopMic(); removeEventListener('pointerup', drop); removeEventListener('pointercancel', drop); stop(room0); },
     };
 
     function drawArc(g, box, k, t) {

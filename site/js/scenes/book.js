@@ -67,7 +67,7 @@ export default {
     let portrait = env.portrait, cover = null;
     const R = rng(5);
     const room = A.room && !A.room.failed ? A.room : null;
-    if (room) { room.v.loop = true; room.portrait = env.portrait; play(room, 1); }
+    if (room) { room.v.loop = true; room.portrait = env.portrait; play(room, .5); } // a 5 s in-and-out loop, played slow
 
     // ---------------- warm light: soft bokeh drifting in the lamplight, a hearth glow that breathes ----------------
     const glowW = glowSprite('255,190,110', 128, 1.8), sparkle = sparkleSprite('255,230,180', 48), bokehS = glowSprite('255,214,150', 64, 1.25);
@@ -226,8 +226,8 @@ export default {
         } else view.draw(lg);
         // the lamps and the fire come up as the book wakes, then breathe gently
         const warm = between(t, .2, 2.4) * (.9 + Math.sin(t * 2.3) * .04 + Math.sin(t * 5.1) * .03 + Math.sin(t * 9.7) * .02);
-        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm * (filmed ? .35 : 1)); }
-        { const pm = view.at(.75, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studySteam(lg, portrait ? 'study-port' : 'study-land', t, warm * (1 - rise * .6)); lg.setTransform(rs, 0, 0, rs, 0, 0); }
+        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm * (filmed ? .2 : 1)); }
+        { const pm = view.at(.75, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); if (!filmed) studySteam(lg, portrait ? 'study-port' : 'study-land', t, warm * (1 - rise * .6)); lg.setTransform(rs, 0, 0, rs, 0, 0); } // the film has its own steam
         lg.globalCompositeOperation = 'lighter';
         bokeh.forEach(b => {
           const pm = view.at(.9, tmp), k = pm.s / map.s, x = pm.x + (((b.x + t * b.v) % 1.1 - .05) * W - map.x) * k, y = pm.y + ((b.y + Math.sin(t * .4 + b.p) * .02) * H - map.y) * k, r = b.r * Math.min(W, H) * 1.6;

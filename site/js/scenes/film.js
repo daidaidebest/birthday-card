@@ -10,13 +10,15 @@ import { loadHorse, Horse } from './horses.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 import { loadClip, play, stop, setRate, progress as clipAt, drawable, drawCover } from '../video.js';
 
-let prairie, prairieDepth, horseMeta, kiss, lionsDay, lionsNight, clips = null;
+let prairie, prairieDepth, horseMeta, kiss, lionsDay, lionsNight, clips = null, lionClip = null;
 // where things sit in the paintings, as fractions of the image
 const NOSE = { x: .553, y: .55 };                // where the two muzzles meet in the close-up
 const LIONS = { x: .53, y: .33 };                // the pair on the rock
 const HORIZON = .6;                              // the stars stay above this line
 const HEART = { x: .24, y: .2 };                 // the constellation, in the open sky (wide screens)
 const TS = 1.15;
+// the filmed savanna (tools/video/, Wan2.2 from lions.webp): how a clip's pixels map back onto the painting
+const LIONCLIP = { lions: { s: 1280 / 1536, ox: 0, oy: 8 }, lionsp: { s: 1280 / 864, ox: 853.6, oy: 0 } };
 const B_LEN = 27;       // shot B runs this long once it starts
 const AUTO_AFTER = 4.5; // if nobody touches the screen, the horses set off on their own
 
@@ -28,6 +30,7 @@ export default {
       clips = await Promise.all([loadClip(env.portrait ? 'runp' : 'run'), loadClip('kiss')]);
       if (clips[0].failed && env.portrait) clips[0] = await loadClip('run');
     }
+    if (!env.reduced && !lionClip) { lionClip = await loadClip(env.portrait ? 'lionsp' : 'lions'); if (lionClip.failed) lionClip = null; else lionClip.v.loop = true; }
     [prairie, prairieDepth, kiss, lionsDay, lionsNight, ...horseMeta] = await Promise.all([loadImage(asset('img/prairie-gold.webp')), loadDepth('prairie-gold'), loadDepth('horses-kiss'), loadDepth('lions'), loadDepth('lions-night'), loadHorse('horse-buckskin'), loadHorse('horse-paint')]);
   },
   create(env) {
@@ -223,7 +226,13 @@ export default {
       viewD.frame(base, cam, pivot); viewN.frame(base, cam, pivot);
       // the sunset, then the night composited on its own and dissolved over it; the night sky's stars and
       // heart live on its farthest plane, behind the rock
-      if (night < 1) { g.globalAlpha = alpha; viewD.draw(g); }
+      if (night < 1) {
+        g.globalAlpha = alpha; const nl = lionsDay.layers.length;
+        if (lionClip && drawable(lionClip)) { drawLions(g, W, H, base, cam, pivot); }
+        else { viewD.draw(g, 0, nl - 1); viewD.drawWind(g, nl - 1, t, 9, gust); }
+        birds(g, k, t, W, H, alpha * (1 - night));
+        motes(g, t, W, H, alpha * (1 - night * .7));
+      }
       if (night > 0) {
         ng.setTransform(rs, 0, 0, rs, 0, 0); ng.globalAlpha = 1; viewN.draw(ng, 0, 1);
         sky(ng, k, t, W, H, viewN.T[0], iw, ih);
@@ -233,6 +242,38 @@ export default {
       // fireflies over the grass
       g.globalCompositeOperation = 'lighter';
       flies.forEach(f => { const a = night * (.5 + .5 * Math.sin(t * 3 * f.s + f.p)); if (a < .05) return; const x = (f.x + Math.sin(t * .2 + f.p) * .03) * W, y = (f.y + Math.sin(t * .5 * f.s + f.p) * .02) * H; g.globalAlpha = alpha * a; g.drawImage(glowS, x - 5, y - 5, 10, 10); });
+      g.globalCompositeOperation = 'source-over';
+    }
+    // the filmed lions, laid exactly over the painting (mid-depth plane), looping forward and back
+    function drawLions(g, W, H, base, cam, pivot) {
+      if (!lionClip.wanted) play(lionClip, 1, 0);
+      const M = LIONCLIP[lionClip.name], P = viewD.at(.62, {}), v = lionClip.v;
+      g.drawImage(v, P.x - P.s * M.ox / M.s, P.y - P.s * M.oy / M.s, v.videoWidth * P.s / M.s, v.videoHeight * P.s / M.s);
+    }
+    // wind through the grass: slow travelling gusts
+    const gust = (x, t) => Math.sin(t * 1.3 - x * 9) * .6 + Math.sin(t * 2.7 - x * 23 + 1.3) * .3 + Math.sin(t * .6 + x * 4) * .3;
+    // a few birds heading home across the sunset, wings beating then gliding
+    const flock = Array.from({ length: 7 }, (_, i) => ({ dx: (R() - .5) * .16 - i * .02, dy: (R() - .5) * .07, ph: R() * TAU, s: .7 + R() * .5, delay: R() * .6 }));
+    function birds(g, k, t, W, H, a) {
+      if (a < .02) return;
+      g.save(); g.strokeStyle = 'rgba(48,22,18,.85)'; g.lineCap = 'round'; g.lineJoin = 'round';
+      for (const [k0, dur, y0, dir] of [[1, 11, .2, -1], [7.5, 9, .12, 1]]) {
+        const u = (k - k0) / dur; if (u < -.2 || u > 1.3) continue;
+        flock.forEach((b, i) => {
+          if (i > (dir > 0 ? 3 : 6)) return;
+          const v = u - b.delay * .1, x = (dir < 0 ? lerp(1.12, -.15, v) : lerp(-.15, 1.12, v)) * W + b.dx * W, y = (y0 + b.dy + Math.sin(v * 3 + b.ph) * .01) * H;
+          const sz = Math.min(W, H) * .016 * b.s, beat = (t * 1.1 + b.ph) % 3 < 1.6 ? Math.sin(t * 11 + b.ph) : .25;
+          g.globalAlpha = a * clamp(v * 8) * clamp((1.1 - v) * 8); g.lineWidth = Math.max(1, sz * .16);
+          g.beginPath(); g.moveTo(x - sz, y - sz * .5 * beat); g.quadraticCurveTo(x - sz * .4, y - sz * .35 * beat - sz * .1, x, y); g.quadraticCurveTo(x + sz * .4, y - sz * .35 * beat - sz * .1, x + sz, y - sz * .5 * beat); g.stroke();
+        });
+      }
+      g.restore();
+    }
+    // warm specks of dust and pollen drifting in the low sun
+    const specks = Array.from({ length: Math.round(40 * env.q + 14) }, () => ({ x: R(), y: R(), v: .006 + R() * .012, p: R() * TAU, s: .5 + R() }));
+    function motes(g, t, W, H, a) {
+      g.globalCompositeOperation = 'lighter';
+      specks.forEach(m => { const x = ((m.x + t * m.v) % 1.1 - .05) * W, y = (m.y + Math.sin(t * .4 + m.p) * .03) * H, tw = .4 + .6 * Math.sin(t * 1.3 * m.s + m.p) ** 2; g.globalAlpha = a * tw * .5; const sz = 5 * m.s; g.drawImage(dustS, x - sz, y - sz, sz * 2, sz * 2); });
       g.globalCompositeOperation = 'source-over';
     }
     function sky(g, k, t, W, H, P, iw, ih) {
@@ -273,6 +314,7 @@ export default {
         g.setTransform(rs, 0, 0, rs, 0, 0);
         const t2 = Math.max(0, t - 1);
         g.globalAlpha = 1; g.fillStyle = '#05060c'; g.fillRect(0, 0, W, H);
+        if (SHOT_B && !A.bAt) A.bAt = Math.max(.01, t2); // ?shot=b: straight to the savanna (testing)
         const tB = A.bAt ? t2 - A.bAt : -1, mixAB = tB < 0 ? 0 : between(tB, 0, 2.4);
         if (filmed && t2 > 1.2 && !A.started && !drawable(clipRun)) filmed = false; // no picture: the painted version
         if (mixAB < 1) (filmed ? shotAFilmed : shotA)(t2, dt, W, H, 1);
@@ -287,9 +329,10 @@ export default {
           if (k >= 1 && !ended) { ended = true; env.letterbox(false); env.next({ transition: 'bloom', at: [x, y] }); }
         }
       },
-      destroy() { env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (clipRun) { stop(clipRun); stop(clipKiss); } },
+      destroy() { env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (clipRun) { stop(clipRun); stop(clipKiss); } if (lionClip) stop(lionClip); },
     };
   },
 };
 const B_START = 0;
+const SHOT_B = new URLSearchParams(location.search).get('shot') === 'b';
 const easeIn2 = t => t * t;

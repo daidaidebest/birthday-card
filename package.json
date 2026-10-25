@@ -3,7 +3,7 @@
   "version": "13.0.0",
   "private": true,
   "type": "module",
-  "description": "写给师宝宝的一场梦 — a static, dependency-free birthday site. The existing GitHub Pages workflow runs npm ci → lint → build and publishes dist/.",
+  "description": "师宝宝的生日童话 — a static, dependency-free birthday site. The existing GitHub Pages workflow runs npm ci → lint → build and publishes dist/.",
   "scripts": {
     "lint": "node scripts/lint.mjs",
     "build": "node scripts/build.mjs",

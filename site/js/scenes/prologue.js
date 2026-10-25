@@ -1,8 +1,9 @@
 // Prologue, after the films' owl post: from high above, the camera glides down past the moon toward a castle
 // on a cliff over a misty lake (a photograph in depth planes; candlelight breathing in its windows). A snowy owl
 // glides across the sky and lets go of a letter as it leaves the frame; the heavy parchment envelope tumbles down
-// in 3D and lands addressed in emerald ink. She turns it over, breaks the crimson wax seal, and the letter slides
-// out, unfolds and writes itself while the birthday tune plays.
+// in 3D and lands addressed in emerald ink. She turns it over and touches the little gold-foil star on its flap:
+// two threads of light run along the flap's seams, it springs open, and the letter slides out, unfolds and writes
+// itself while the birthday tune plays.
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeIn, rng, fbm, noise1, glowSprite, sparkleSprite, TAU } from '../util.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 import { PRO } from './prologue-art.js';
@@ -11,7 +12,7 @@ const LETTER = [
   '亲爱的师宝宝：', '',
   '我们很高兴地通知你——',
   '你已被月光魔法书院录取。', '',
-  '开学日期：你的生日，就是今晚。',
+  '开学日期：十一月三日，你的生日——就是今晚。',
   '所需物品：好奇心，和一点点勇气，',
   '以及，允许自己被好好地爱着。', '',
   '请跟着烛光，去书房找那本魔法书。',
@@ -24,26 +25,20 @@ const A = {};
 const DIVE = 7.2;                         // the crane from the moon down to the castle
 const OWL0 = 4.4, OWL1 = 9.6;             // the owl's glide across the sky
 const DROP = 9.5, LAND = 13.4;            // the letter falls from its talons and settles in front of her
-const FLIP_AUTO = 2.8, OPEN_AUTO = 6;     // she may turn it / break the seal herself; otherwise it happens
-// the opening, in seconds after the seal is pressed
-const O = { burst: .62, flap: .8, rise: 1.4, away: 2.45, forward: 2.6, unfold: 3.05, write: 4.5, covered: 4.4 };
+const FLIP_AUTO = 2.8, OPEN_AUTO = 6;     // she may turn it / open it herself; otherwise it happens
+// the opening, in seconds after she touches the star
+const O = { burst: .78, flap: .86, rise: 1.45, away: 2.5, forward: 2.65, unfold: 3.1, write: 4.55, covered: 4.45 };
+// the flap's seams in envelope units (100 wide): from its point out to the two top corners (tools/parchment.py)
+const SEAM = { tip: [50, 45.2], l: [1.6, .9], r: [98.4, .9] };
 
-// Where the seal cracks: a few jagged rays from a point near its centre (seal.webp percent units), and the
-// wedges between them, which fly apart as shards.
-function sealCracks(R) {
-  const c = [47 + R() * 6, 44 + R() * 6], n = 7, ang = [];
-  for (let i = 0; i < n; i++) ang.push((i + .2 + R() * .6) / n * TAU);
-  const at = (a, r) => [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r];
-  const rays = ang.map(a => [c, at(a + (R() - .5) * .35, 12 + R() * 8), at(a + (R() - .5) * .3, 30 + R() * 6), at(a, 47)]);
-  const wedges = ang.map((a, i) => {
-    const b = ang[(i + 1) % n] + (i === n - 1 ? TAU : 0), arc = [];
-    for (let k = 0; k <= 4; k++) arc.push(at(a + (b - a) * k / 4, 70));
-    const nx = rays[(i + 1) % n], poly = [...rays[i], ...arc, ...nx.slice().reverse()];
-    const m = at((a + b) / 2, 26);
-    return { poly, c: m };
-  });
-  return { c, rays, wedges };
-}
+const STAR = `<svg class="pro-star-svg" viewBox="-50 -50 100 100" aria-hidden="true"><defs>
+  <radialGradient id="psg" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#fff6cf"/><stop offset=".35" stop-color="#f1cf7a"/><stop offset=".75" stop-color="#b98a2e"/><stop offset="1" stop-color="#7d5a17"/></radialGradient>
+  <linearGradient id="psh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+  <circle r="44" fill="#6e4f14" opacity=".18"/>
+  <path d="${starPath(36, 15)}" fill="url(#psg)" stroke="#8a6420" stroke-width="1.4"/>
+  <path d="${starPath(36, 15)}" fill="url(#psh)" transform="scale(.82)"/>
+  <path d="${starPath(10, 4.2)}" fill="#fff8de" opacity=".9"/></svg>`;
+function starPath(R, r) { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r : R; d += (i ? 'L' : 'M') + (Math.cos(a) * q).toFixed(2) + ' ' + (Math.sin(a) * q).toFixed(2); } return d + 'Z'; }
 
 function puff(seed, w = 420, h = 220) {   // a soft moonlit cloud
   const c = canvas(w, h), g = c.getContext('2d'), d = g.createImageData(w, h);
@@ -79,7 +74,7 @@ export default {
   id: 'prologue', music: 'prologue',
   async load(env) {
     const [castle, owl] = await Promise.all([loadImage(asset('img/castle.webp')), loadImage(asset('img/owl-glide.webp')),
-      ...['letter', 'env-front', 'env-back', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in', 'seal'].map(n => loadImage(asset(`img/${n}.webp`)))]);
+      ...['letter', 'env-front', 'env-back', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in'].map(n => loadImage(asset(`img/${n}.webp`)))]);
     Object.assign(A, { castle, owl }); A.depth = await loadDepth('castle');
     if (!A.puffs) A.puffs = [puff(1.3), puff(4.1), puff(7.9), puff(11.2)];
     if (!A.lights) A.lights = windowLights(castle);
@@ -104,7 +99,7 @@ export default {
     wrap.innerHTML = `
       <div class="pro-card">
         <div class="pro-face pro-front"><img src="${asset('img/env-front.webp')}" alt=""><div class="pro-addr">${ADDRESS.map((l, i) => `<p class="a${i}">${l}</p>`).join('')}</div></div>
-        <div class="pro-face pro-back"><img src="${asset('img/env-back.webp')}" alt=""><img class="pro-seal-img" src="${asset('img/seal.webp')}" alt=""></div>
+        <div class="pro-face pro-back"><img src="${asset('img/env-back.webp')}" alt=""><span class="pro-star-img">${STAR}</span></div>
       </div>
       <div class="pro-env">
         <i class="pro-env-shadow"></i>
@@ -112,17 +107,16 @@ export default {
         <div class="pro-paper"><div class="pro-fold f1"><b></b><u></u><i></i></div><div class="pro-fold f2"><b></b><u></u><i></i></div><div class="pro-fold f0"><b></b><u></u><i></i></div><div class="pro-paper-inner"></div></div>
         <img class="pro-env-pocket" src="${asset('img/env-pocket.webp')}" alt="">
         <div class="pro-env-flap"><img class="out" src="${asset('img/env-flap.webp')}" alt=""><img class="in" src="${asset('img/env-flap-in.webp')}" alt=""><i></i></div>
-        <button class="pro-seal" type="button" aria-label="打开火漆，拆开这封信"><img src="${asset('img/seal.webp')}" alt=""><svg viewBox="0 0 100 100" aria-hidden="true"></svg></button>
+        <svg class="pro-seam" viewBox="0 0 100 ${(100 / PRO.envAspect).toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">${['l', 'r'].map(k => `<path d="M${SEAM.tip} L${SEAM[k]}" pathLength="1"/>`).join('')}</svg>
+        <button class="pro-seal" type="button" aria-label="轻触金色的星星，拆开这封信">${STAR}</button>
         <i class="pro-flash"></i>
       </div>
       <p class="pro-hint"></p>`;
     const $ = s => wrap.querySelector(s);
     const card = $('.pro-card'), envEl = $('.pro-env'), paper = $('.pro-paper'), inner = $('.pro-paper-inner'), seal = $('.pro-seal'), hint = $('.pro-hint');
     const flap = $('.pro-env-flap'), flash = $('.pro-flash'), envParts = ['.pro-env-shadow', '.pro-env-inside', '.pro-env-pocket'].map($);
-    const folds = [0, 1, 2].map(k => $('.pro-fold.f' + k)), crack = sealCracks(R), cracks = seal.querySelector('svg');
-    cracks.innerHTML = crack.rays.map(r => `<path d="M${r.map(p => p.map(v => v.toFixed(1)).join(' ')).join(' L')}" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>`).join('');
-    const crackPaths = [...cracks.children];
-    let shards = null, openRig = null;
+    const folds = [0, 1, 2].map(k => $('.pro-fold.f' + k)), seams = [...wrap.querySelectorAll('.pro-seam path')];
+    let openRig = null, seamDone = false;
     for (const k in PRO.seal) wrap.style.setProperty('--seal-' + k, PRO.seal[k] * 100 + '%');
     const chars = [];
     LETTER.forEach(line => {
@@ -144,7 +138,7 @@ export default {
     let drag = null;
     card.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; });
     addEventListener('pointerup', e => { if (drag && landed && flipAt === Infinity) { flipAt = T; env.audio.sfx('page', .5); say(''); } drag = null; });
-    seal.addEventListener('click', () => { if (flipped && !opened && T > flipAt + 1.1) openAt = T; });
+    envEl.addEventListener('click', () => { if (flipped && !opened && T > flipAt + 1.1) openAt = T; }); // the star, or anywhere on the envelope
     const cues = env.cues([[.6, 4.8, '有一封信，在月光下飞了很远的路。'], [5.6, 9.4, '雪白的猫头鹰，替一个人把它送来。']]);
 
     const inst = {
@@ -235,10 +229,10 @@ export default {
             if (t > LAND + 1.2 && !inst.h1) { inst.h1 = true; say('轻触信封，把它翻过来'); }
             if (t > LAND + FLIP_AUTO + 1.5) { flipAt = t; say(''); env.audio.sfx('page', .5); }
           }
-          if (flipped) { card.style.opacity = 0; envEl.classList.add('on'); inst.flipDone = t; say('轻触火漆，拆开这封信'); }
+          if (flipped) { card.style.opacity = 0; envEl.classList.add('on'); inst.flipDone = t; say('轻触金色的星星，拆开这封信'); }
         }
         if (flipped && !opened && openAt === Infinity && t > inst.flipDone + OPEN_AUTO) openAt = t; // once: it would otherwise keep postponing itself
-        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('seal', .8); }
+        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('seal', .7); }
         if (opened) {
           const k2 = t - openStart;
           openRig(k2);
@@ -255,24 +249,26 @@ export default {
         if (dim > 0 && !covered) { g.fillStyle = `rgba(4,6,14,${dim.toFixed(3)})`; g.fillRect(0, 0, W, H); }
       },
     };
-    // ---------- the opening, one frame at a time (seconds after she presses the seal) ----------
+    // ---------- the opening, one frame at a time (seconds after she touches the star) ----------
     let last = -1, flapUp = false;
     openRig = k => {
       const W = env.W, ew = Math.min(520, W * .86), eh = ew / PRO.envAspect, lw = parseFloat(wrap.style.getPropertyValue('--lw')), lh = parseFloat(wrap.style.getPropertyValue('--lh'));
-      // the seal: pressed, light cracks through it, then it bursts
-      const press = k < O.burst ? Math.sin(clamp(k / O.burst) * Math.PI) * .07 : 0;
-      if (k < O.burst + .1) {
-        seal.style.transform = `translate(-50%,-50%) scale(${(1 - press).toFixed(3)})`;
-        crackPaths.forEach((p, i) => { const u = clamp((k - .04 - i * .025) / (O.burst - .12)); p.style.strokeDashoffset = (1 - easeOut(u)).toFixed(3); p.style.strokeWidth = (1.2 + 1.6 * u).toFixed(2); });
+      // the star: pressed, it spins and flares; then two threads of light run along the flap's seams to its corners
+      const er = envEl.getBoundingClientRect(), ux = er.width / 100, toPx = q => [er.left + q[0] * ux, er.top + q[1] * ux];
+      const press = k < .3 ? Math.sin(clamp(k / .3) * Math.PI) * .12 : 0, gone = easeIn(clamp((k - .18) / .4));
+      seal.style.transform = `translate(-50%,-50%) scale(${(1 - press + gone * .5).toFixed(3)}) rotate(${(easeOut(clamp(k / .6)) * 144).toFixed(1)}deg)`;
+      seal.style.opacity = (1 - gone).toFixed(3);
+      const run = easeInOut(clamp((k - .12) / (O.burst - .12)));
+      seams.forEach((p, i) => {
+        p.style.strokeDashoffset = (1 - run).toFixed(3); p.style.opacity = (k < O.burst + .9 ? 1 : clamp(1 - (k - O.burst - .9) / .6)).toFixed(3);
+        if (run > 0 && run < 1) { const end = i ? SEAM.r : SEAM.l, q = [lerp(SEAM.tip[0], end[0], run), lerp(SEAM.tip[1], end[1], run)], [x, y] = toPx(q); fx.trail(x, y, { life: .9, size: 1.6, vy: -14, spread: 3, color: '255,226,150' }); }
+      });
+      if (k >= O.burst && !seamDone) {
+        seamDone = true; env.audio.sfx('sparkle', .6);
+        // golden dust spills out of the mouth of the envelope as it opens
+        for (let i = 0; i <= 8; i++) { const [x, y] = toPx([lerp(8, 92, i / 8), 2]); fx.burst(x, y, { n: 8, speed: 70, life: 1.6, size: 1.5, color: '255,220,150' }); }
       }
-      if (k >= O.burst && !shards) {
-        seal.style.visibility = 'hidden'; shards = burstSeal(); env.audio.sfx('sparkle', .55);
-        const r = seal.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        fx.burst(cx, cy, { n: 46, speed: 190, life: 1.3, size: 1.7, color: '255,214,140' });
-        fx.burst(cx, cy, { n: 18, speed: 120, life: .9, size: 1.2, color: '170,30,35' });
-      }
-      if (shards) stepShards(k - O.burst);
-      { const u = clamp((k - O.burst) / .55); flash.style.opacity = (u > 0 && u < 1 ? Math.sin(u * Math.PI) * (1 - u * .4) : 0).toFixed(3); flash.style.transform = `translate(-50%,-50%) scale(${(.3 + 1.5 * easeOut(u)).toFixed(3)})`; }
+      { const u = clamp((k - O.burst + .2) / .7); flash.style.opacity = (u > 0 && u < 1 ? Math.sin(u * Math.PI) * .55 : 0).toFixed(3); flash.style.transform = `translate(-50%,-50%) scale(${(.4 + 1.3 * easeOut(u)).toFixed(3)})`; }
       // the flap swings up on its hinge; past upright it is behind the letter
       const fa = 178 * easeInOut(clamp((k - O.flap) / .8)), drop = easeIn(clamp((k - O.away) / .75)), dy = drop * eh * .8, fade = (1 - drop).toFixed(3);
       if (fa > 90 !== flapUp) { flapUp = fa > 90; flap.style.zIndex = flapUp ? 1 : 4; }
@@ -297,27 +293,6 @@ export default {
       if (u0 >= 1 && !paper.classList.contains('lifted')) { paper.classList.add('lifted'); paper.style.transformStyle = 'flat'; }
       if (!inst.paperSnd && k > O.unfold) { inst.paperSnd = true; env.audio.sfx('page', .7); }
     };
-    // the wax shards: each a wedge of the seal's own picture, thrown out from where it cracked
-    function burstSeal() {
-      const sw = seal.offsetWidth;
-      return crack.wedges.map(w => {
-        const el = document.createElement('div'); el.className = 'pro-shard';
-        el.innerHTML = `<img src="${asset('img/seal.webp')}" alt="">`; el.firstChild.style.clipPath = `polygon(${w.poly.map(p => p[0].toFixed(1) + '% ' + p[1].toFixed(1) + '%').join(',')})`;
-        el.style.transformOrigin = `${w.c[0].toFixed(1)}% ${w.c[1].toFixed(1)}%`; envEl.appendChild(el);
-        const dx = w.c[0] - crack.c[0], dy = w.c[1] - crack.c[1], d = Math.hypot(dx, dy) || 1, sp = sw * (2.2 + R() * 1.6);
-        return { el, x: 0, y: 0, vx: dx / d * sp, vy: dy / d * sp - sw * 2.4, r: 0, vr: (R() - .5) * 900, rx: 0, vrx: (R() - .5) * 700, g: sw * 16 };
-      });
-    }
-    let shardT = 0;
-    function stepShards(k) {
-      const dt = Math.max(0, k - shardT); shardT = k;
-      for (const p of shards) {
-        p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt; p.rx += p.vrx * dt;
-        p.el.style.transform = `translate(-50%,-50%) translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px) rotate(${p.r.toFixed(1)}deg) rotateX(${p.rx.toFixed(1)}deg)`;
-        p.el.style.opacity = clamp(1.4 - k * 1.1).toFixed(3);
-      }
-      if (k > 1.4) { shards.forEach(p => p.el.remove()); shards.length = 0; }
-    }
     inst.resize();
     return inst;
   },

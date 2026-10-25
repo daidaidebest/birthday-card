@@ -208,13 +208,13 @@ export default {
 
     // ---------- her hands in the sand ----------
     // a finger drawn across a lightbox carves a trail the light shines through; a sweep (or a tap) walks on to
-    // the next stop sooner. Left alone, the stops follow the music: both tables move on together, every three bars,
-    // each new city settling on the downbeat (the score is a 108 bpm waltz, tools/music.py journey()).
-    const BAR = 180 / 108, STEP = 3 * BAR, PAN = 1.8, AUTO_END = 6.5;
+    // the next stop sooner. Left alone, the stops follow the music: both tables move on together, every two bars,
+    // each new city settling on the downbeat (the score is a 116 bpm pop groove in 4/4, tools/music.py journey()).
+    const BAR = 240 / 116, STEP = 2 * BAR, PAN = 1.15, AUTO_END = 5;
     const HIS_AT = [0, 1, 2, 2, 3]; // his road has one stop fewer: he waits in Shanghai while she crosses to Hong Kong
     const hintEl = document.createElement('p'); hintEl.className = 'jr-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
-    let touchAny = false, endAsked = 0, wantNext = false, wantEnd = false, step = -1, nextAt = BAR, mt = 0;
+    let lastAt = null, touchAny = false, endAsked = 0, wantNext = false, wantEnd = false, step = -1, nextAt = BAR, mt = 0;
     const laneAt = (x, y) => lanes.find(l => { const r = l.sand.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && r.width > 0; });
     let stroke = null;
     el.addEventListener('pointerdown', e => {
@@ -276,10 +276,13 @@ export default {
           set(room, `translate(${(cx * .6).toFixed(1)}px,${(cy * .6).toFixed(1)}px)`);
           par = [cx, cy];
           metas.forEach(m => set(m, `translate(${(-cx * 1.1).toFixed(1)}px,${(-cy * 1.1).toFixed(1)}px)`)); }
-        // the music's own clock (the scene clock until the track is playing), so the sand keeps time with it
-        mt += dt; { const at = env.audio.time('journey'); if (at != null) { if (Math.abs(at - mt) > .5) mt = at; else mt += (at - mt) * .1; } }
+        // the music's own clock, so the sand keeps time with it — but only while the track is really advancing:
+        // a stalled or blocked track (iOS can hold it at 0 until the next tap) must never hold the scene still
+        mt += dt;
+        { const at = env.audio.time('journey'); const moving = at != null && lastAt != null && at > lastAt; lastAt = at;
+          if (moving) { if (Math.abs(at - mt) > .5 && at > mt - 2) mt = at; else mt += (at - mt) * .1; } }
         const rt = t - 1.7; // the chapter card
-        if (mt < .3) { el.classList.remove('lit'); return; }
+        if (t < 1.2) { el.classList.remove('lit'); return; }
         el.classList.add('lit');
         cuesMap(rt - mapStart);
         if (mode === 'routes') {
@@ -296,7 +299,7 @@ export default {
             if (l.pan >= 0) {
               l.pan = Math.min(1, l.pan + dt / PAN); compose(l);
               if (l.pan >= 1) { l.doff = (l.doff + W * 1.3) % ART.ground.SW; l.pan = -1; l.old = null; compose(l); }
-            } else if (l.p < 1.25) l.p += dt / 1.25, compose(l);
+            } else if (l.p < 1.25) l.p += dt / .8, compose(l);
             pour(l, dt);
             // a gentle step in the walk while the camera pans; the sand sits a little deeper than the frame
             const bob = l.pan >= 0 ? Math.sin(l.pan * Math.PI * 4) * Math.sin(l.pan * Math.PI) * 2.2 : 0;
@@ -313,7 +316,7 @@ export default {
           }
         } else {
           mapT += dt; const l = lanes[0];
-          if (l.p < 1.25) { l.p += dt / 1.5; compose(l); }
+          if (l.p < 1.25) { l.p += dt / 1.1; compose(l); }
           else mapFrame(mapT); // the carving accumulates on the finished sand, no per-frame recompose
           if (met && !endAsked) { endAsked = mapT; setTimeout(() => { if (!ended) hint('轻触，翻到下一章'); }, 2600); }
           if (!ended && met && (wantEnd || mapT - endAsked > AUTO_END)) { ended = true; hint(null); env.next({ transition: 'bloom', at: heartAt }); }

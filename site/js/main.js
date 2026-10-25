@@ -54,6 +54,7 @@ film.classList.toggle('portrait', env.portrait);
 env.fx = new FX($('#fx'), env);
 env.audio = new Audio(env);
 env.pups = new Pups($('#pups'), env);
+{ const sfx0 = env.audio.sfx.bind(env.audio); env.audio.sfx = (name, vol) => { env.pups.hear?.(name); return sfx0(name, vol); }; } // the puppies hear the story
 
 // ---------- look: the 2.5D camera leans toward the pointer or follows the phone's tilt ----------
 const lookTarget = { x: 0, y: 0 }; let tilt0 = null;

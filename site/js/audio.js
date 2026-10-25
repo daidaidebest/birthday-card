@@ -8,7 +8,7 @@ const CUES = {
   wish: 'assets/audio/wish.mp3',
   finale: 'assets/audio/finale.mp3',
 };
-const SFX = ['seal', 'chime', 'page', 'whoosh', 'sparkle', 'blow', 'owl', 'light'];
+const SFX = ['seal', 'chime', 'page', 'whoosh', 'sparkle', 'blow', 'owl', 'light', 'pop', 'yip'];
 
 export class Audio {
   constructor(env) {

@@ -26,21 +26,36 @@ const EARS = [
   [[.62, .3, .66, .82], [.2, .3, .12, .7]],
   [[.2, .3, .1, .82], [.8, .3, .9, .82]],
 ];
+// Teddies are busy little dogs: the routine keeps them pottering, and every so often they do one of their tricks
+// on their own (a bark, a sneeze, chasing their tail, standing up to 作揖, zoomies, a visit to the other one).
 const ROUTINES = [
-  [['watch', 2.6], ['walk', 3.6], ['lookback', 2.4], ['trot', 2.6], ['greet', 2.6], ['bow', 2.2], ['watch', 3.5], ['hop', 1.6], ['sniff', 2.6], ['sit', 5], ['scratch', 2.2], ['sit', 3], ['rest', 9]],
-  [['greet', 2.4], ['watch', 4.5], ['walk', 3.6], ['shake', 1.4], ['lookback', 2.6], ['trot', 2.6], ['sit', 6], ['hop', 1.6], ['watch', 3], ['bow', 2.2], ['rest', 10]],
+  [['watch', 2.2], ['walk', 3], ['bark', 1.4], ['lookback', 2], ['trot', 2.2], ['greet', 2.2], ['bow', 2.2], ['chase', 2.4], ['watch', 2.5], ['sniff', 2.4], ['beg', 3.2], ['sit', 3], ['scratch', 2], ['zoom', 3.2], ['sneeze', 1.6], ['sit', 2.5], ['rest', 5]],
+  [['greet', 2.2], ['watch', 3], ['walk', 3], ['shake', 1.4], ['visit', 6], ['trot', 2.2], ['beg', 3.2], ['sit', 3], ['hop', 1.6], ['bark', 1.4], ['watch', 2.5], ['chase', 2.4], ['bow', 2.2], ['sneeze', 1.6], ['zoom', 3.2], ['rest', 5.5]],
 ];
+// What they say now and then, by scene (and when she plays with them)
+const CHATTER = {
+  book: ['这本书闻起来甜甜的', '快翻开看看嘛', '我也想听故事', '汪？下一页呢'],
+  journey: ['沙子沙沙的～', '我也想去东京！', '这里我认识！', '走呀走呀～'],
+  memories: ['这张我最喜欢！', '照片里的你在发光', '把我也拍进去嘛', '好看好看！'],
+  party: ['好香的蛋糕', '许愿要闭上眼睛哦', '我们安静陪着你', '生日快乐呀'],
+  tender: ['生日快乐 ♡', '今晚真美', '愿望一定会实现', '一直陪着你 ♡'],
+};
+const TRICKS = { bark: ['汪！', '汪汪！', '嗷呜～'], sneeze: ['阿嚏！', '哈啾～'], beg: ['作揖～', '恭喜恭喜！', '给寿星作揖～'], ball: ['陪我玩球？', '扔球球！'], fetch: ['再来一次！', '我捡到啦！', '还要玩！'] };
+// interactive things the puppies must never sit in front of
+const AVOID = '#btn-next.on, .jr-hint.on, .pro-letter-wrap.hinted .pro-hint, .pup-avoid, .ws-hint.on, .bk-hint.on, .mm-hint.on';
 const MODES = {
   book: { y: [.95, .965], zones: [[.04, .27], [.73, .96]] },
   journey: { y: [.975, .985], zones: [[.03, .17], [.83, .97]], small: .85 },
   memories: { y: [.97, .98], zones: [[.04, .24], [.76, .96]] },
-  party: { y: [.93, .93], zones: [[.06, .26], [.74, .94]] },
+  party: { y: [.93, .93], zones: [[.06, .26], [.74, .94]], calm: 1 },
   quiet: { y: [.93, .93], zones: [[.06, .26], [.74, .94]], rest: 1 },
   celebrate: { y: [.93, .93], zones: [[.06, .3], [.7, .94]], party: 1 },
+  tender: { y: [.93, .93], zones: [[.08, .22], [.78, .92]], calm: 1 },
 };
 const REPLIES = [['喜欢你的摸摸 ♡', '今天你最好看 ♡', '生日快乐呀 ♡', '再摸摸嘛 ♡'], ['也想靠近你一点 ♡', '要一直开心哦 ♡', '抱抱 ♡', '最喜欢你了 ♡']];
 
 const D2R = Math.PI / 180;
+const pick = a => a[Math.floor(Math.random() * a.length)];
 const ang = n => ((n + 180) % 360 + 360) % 360 - 180;
 const smooth = t => { t = clamp(t); return t * t * (3 - 2 * t); };
 const sstep = (a, b, x) => smooth((x - a) / (b - a));
@@ -89,11 +104,17 @@ export class Pups {
       color, i, x: i ? .85 : .15, tx: i ? .85 : .15, yaw: i ? -45 : 45, headYaw: i ? -45 : 45, phase: i * 2.7, gait: 0,
       mood: 'watch', moodAt: 0, next: i ? 4 : 2, beat: 0, hopAt: -20, sit: 0, rest: 0, sniff: 0, greet: 0, tilt: 0, bow: 0, scratch: 0, shake: 0,
       petAt: -99, pet: 0, nextBlink: 2 + i * 1.4, blinkUntil: 0, alpha: 0, hearts: [], lag: 0, hopping: -1, walking: false, closed: false,
-      spinAt: -99, gaze: 0, gazeY: 0, attn: 0, follow: false,
+      spinAt: -99, spin2At: -99, gaze: 0, gazeY: 0, attn: 0, follow: false, beg: 0, sneezeAt: -99, perkAt: -99, home: null,
       ear: [{ x: 0, v: 0 }, { x: 0, v: 0 }], tailS: { x: 0, v: 0 }, body: { x: 0, v: 0 }, vx: 0, lastVx: 0, lastY: 0, vy: 0,
     }));
     this.bubbles = this.dogs.map(() => { const b = document.createElement('span'); b.className = 'pup-bubble'; el.parentNode.appendChild(b); return b; });
     this.pointer = { x: -1, y: -1, at: -99, down: false, downAt: -99, sx: 0, sy: 0, moved: 0 };
+    this.ko = []; this.koAt = 0; this.chatAt = 14; this.ball = null; this.ballAt = 40;
+    // the ball is a real button: tapping it never reaches the scene underneath
+    const ball = this.ballEl = document.createElement('button'); ball.type = 'button'; ball.className = 'pup-ball'; ball.setAttribute('aria-label', '扔球');
+    ball.addEventListener('pointerdown', e => { e.stopPropagation(); this.kick(e.clientX); });
+    el.parentNode.appendChild(ball);
+    this.ballSh = document.createElement('i'); this.ballSh.className = 'pup-ball-sh'; el.parentNode.appendChild(this.ballSh);
     addEventListener('pointermove', e => this.move(e), { passive: true });
     addEventListener('pointerdown', e => this.down(e), { passive: true });
     addEventListener('pointerup', e => this.up(e), { passive: true });
@@ -132,7 +153,9 @@ export class Pups {
       d.beat = 0; d.next = this.t + 1 + d.i * 1.5; d.mood = M?.rest ? 'rest' : 'watch'; d.follow = false;
       if (M) { const z = M.zones[d.i]; if (d.alpha < .05) d.x = d.tx = lerp(z[0], z[1], d.i ? .7 : .3); else d.tx = clamp(d.x, z[0], z[1]); }
       if (M?.party) d.hopAt = this.t + d.i * .5;
+      d.home = null;
     });
+    if (!M && this.ball) this.dropBall(true);
   }
   size() { const { W, portrait } = this.env, M = MODES[this.mode]; return (W < 700 || portrait ? 104 : clamp(W * .13, 148, 186)) * (M?.small || 1); }
   ground() { const M = MODES[this.mode]; return this.env.H * (this.env.portrait ? M.y[1] : M.y[0]); }
@@ -168,10 +191,13 @@ export class Pups {
   tapped(d) {
     const t = this.t;
     d.taps = (d.taps || 0) + 1;
-    if (d.taps % 3 === 2) { d.spinAt = t; this.env.audio.sfx('sparkle', .25); } // every few taps, a happy spin
-    else { d.hopAt = t; }
+    // a tap: a little jump and a bark; every third, a happy spin; the fifth, it stands up to 作揖; sometimes it fetches its ball
     d.mood = 'watch'; d.next = t + 3; d.tx = d.x; d.greet = 1;
-    if (t - d.petAt > 2) this.petted(d, true);
+    if (d.taps % 5 === 0) { d.mood = 'beg'; d.moodAt = t; d.next = t + 3.2; this.say(d, pick(TRICKS.beg), 2400); }
+    else if (d.taps % 3 === 2) { d.spinAt = t; this.env.audio.sfx('sparkle', .25); this.say(d, pick(REPLIES[d.i]), 2000); }
+    else if (d.taps === 4 && !this.ball) { this.bringBall(d); }
+    else { d.hopAt = t; this.say(d, pick(TRICKS.bark), 1200); this.env.audio.sfx('yip', .3); }
+    if (t - d.petAt > 2) { d.petAt = t; for (let k = 0; k < 2; k++) d.hearts.push({ x: (Math.random() - .5) * .3, age: -k * .22 }); }
   }
   petted(d, quiet) {
     const t = this.t; d.petAt = t; d.pet = 0; d.mood = 'watch'; d.next = t + 4.5; d.tx = d.x;
@@ -182,51 +208,160 @@ export class Pups {
     clearTimeout(b.t); b.t = setTimeout(() => b.classList.remove('on'), 2600);
     if (!quiet) this.env.audio.sfx('sparkle', .3);
   }
+  // ---------- keeping clear of buttons, hints and the next arrow ----------
+  keepOut() {
+    if (this.t < this.koAt) return this.ko;
+    this.koAt = this.t + .25; const W = this.env.W, gy = this.ground(), S = this.size(), out = [];
+    document.querySelectorAll(AVOID).forEach(e => {
+      const r = e.getBoundingClientRect(); if (!r.width || r.bottom < gy - S * 1.1 || r.top > gy + 8) return;
+      if (+getComputedStyle(e).opacity < .05) return;
+      out.push([(r.left - S * .62) / W, (r.right + S * .62) / W]);
+    });
+    return this.ko = out;
+  }
+  free(x) { return !this.keepOut().some(([a, b]) => x > a && x < b); }
+  nearestFree(x, z) {
+    for (let k = 0; k < 60; k++) for (const sgn of [1, -1]) {
+      const c = x + sgn * k * .012; if (c < .03 || c > .97) continue;
+      if (this.free(c) && (k > 40 || (c >= z[0] - .1 && c <= z[1] + .1))) return c;
+    }
+    return x;
+  }
+  /** Things happening in the story: a chime or sparkle makes their ears go up; candles blown out, a happy hop. */
+  hear(name) {
+    if (!MODES[this.mode]) return;
+    const t = this.t;
+    this.dogs.forEach((d, i) => {
+      if (name === 'blow') d.hopAt = t + i * .25;
+      else if (name === 'chime' || name === 'sparkle' || name === 'light') d.perkAt = t + i * .15;
+      else if (name === 'page' && Math.random() < .5) d.perkAt = t;
+    });
+  }
+  say(d, text, ms = 2200) {
+    const S = this.size(), gy = this.ground(), b = this.bubbles[d.i];
+    b.textContent = text; b.style.left = d.x * this.env.W + 'px'; b.style.top = (gy - S * .86) + 'px';
+    b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
+    clearTimeout(b.t); b.t = setTimeout(() => b.classList.remove('on'), ms); d.saidAt = this.t;
+  }
+  // ---------- the ball ----------
+  bringBall(d) {
+    if (this.ball || !MODES[this.mode] || MODES[this.mode].rest) return;
+    this.ball = { x: d.x, h: 0, vx: 0, vh: 0, rot: 0, state: 'carried', owner: d, at: this.t };
+    d.mood = 'watch'; d.next = this.t + 1.2; this.ballDropAt = this.t + .9; this.say(d, pick(TRICKS.ball));
+  }
+  dropBall(away) {
+    if (!this.ball) return;
+    if (away) { this.ball = null; this.ballEl.classList.remove('on'); return; }
+    const b = this.ball, d = b.owner; b.state = 'idle'; b.owner = null; b.at = this.t;
+    const dir = d ? (d.x < .5 ? 1 : -1) : 1; b.vx = dir * .05; b.vh = 90; b.h = this.size() * .32;
+  }
+  kick(px) {
+    const b = this.ball; if (!b || b.state === 'carried') return;
+    const W = this.env.W, dir = px < b.x * W ? 1 : -1;
+    b.state = 'fly'; b.vx = dir * (.32 + Math.random() * .25); b.vh = 330 + Math.random() * 140; b.at = this.t;
+    this.env.audio.sfx('page', .25);
+    // the nearer puppy gives chase
+    const d = this.dogs.reduce((a, c) => Math.abs(a.x - b.x) < Math.abs(c.x - b.x) ? a : c);
+    d.mood = 'fetch'; d.next = this.t + 8; d.home = d.home ?? d.x; d.hopAt = this.t;
+  }
+  stepBall(dt) {
+    const b = this.ball, el = this.ballEl; if (!b) return;
+    const W = this.env.W, S = this.size(), gy = this.ground();
+    if (b.state === 'carried') {
+      const d = b.owner, face = Math.cos(d.yaw * D2R) >= 0 ? (d.yaw >= 0 ? 1 : -1) : 1;
+      b.x = d.x + Math.sign(Math.sin(d.yaw * D2R) || face) * S * .22 / W; b.h = S * .42 - d.rest * S * .2;
+      if (this.ballDropAt && this.t > this.ballDropAt && d.mood !== 'fetch') { this.ballDropAt = 0; this.dropBall(); }
+    } else {
+      b.vh -= 900 * dt; b.h += b.vh * dt; b.x += b.vx * dt;
+      if (b.h <= 0) { b.h = 0; if (Math.abs(b.vh) > 60) { b.vh = -b.vh * .5; b.vx *= .8; } else { b.vh = 0; b.vx *= Math.pow(.15, dt); } }
+      if (b.x < .03 || b.x > .97) { b.x = clamp(b.x, .03, .97); b.vx = -b.vx * .6; }
+      b.rot += b.vx * W * dt / (S * .09) * 57.3;
+      if (b.state === 'fly' && b.h === 0 && Math.abs(b.vx) < .02) b.state = 'idle';
+      // left alone for a while, it gets tidied away
+      if (b.state === 'idle' && this.t - b.at > 25) { const d = this.dogs[0]; this.dropBall(true); d.mood = 'watch'; }
+    }
+    const r = S * .085;
+    el.style.width = el.style.height = r * 2 + 'px';
+    el.style.transform = `translate(${(b.x * W - r).toFixed(1)}px,${(gy - r * 2 - b.h).toFixed(1)}px) rotate(${b.rot.toFixed(0)}deg)`;
+    const sh = this.ballSh, k = 1 - Math.min(1, b.h / (S * 1.5));
+    sh.style.width = r * 2.6 + 'px'; sh.style.height = r * .7 + 'px'; sh.style.opacity = (b.state === 'carried' ? 0 : k * .8).toFixed(2);
+    sh.style.transform = `translate(${(b.x * W - r * 1.3).toFixed(1)}px,${(gy - r * .45).toFixed(1)}px) scale(${(.6 + k * .4).toFixed(2)})`;
+    el.classList.add('on'); el.classList.toggle('held', b.state === 'carried');
+  }
   // ---------- brain ----------
   think(d, dt, M) {
     const t = this.t, env = this.env, W = env.W, S = this.size();
     const on = M && t > (this.showAt || 0);
     d.alpha = damp(d.alpha, on ? 1 : 0, dt, on ? 4 : 8);
     if (!M) return;
-    const z = M.zones[d.i], petT = t - d.petAt, petted = petT < 3.6, p = this.pointer;
+    let z = M.zones[d.i]; const petT = t - d.petAt, petted = petT < 3.6, p = this.pointer;
     d.pet = Math.max(0, d.pet - dt * .35);
     // attention: a recently moved pointer draws the eyes
     const fresh = t - p.at < 2.5 && p.x >= 0, px = p.x, dxp = px - d.x * W;
     d.attn = damp(d.attn, fresh && !d.follow && d.rest < .5 ? 1 : 0, dt, 3);
     if (d.follow && p.down) { d.tx = clamp(px / W, .03, .97); d.mood = Math.abs(d.tx - d.x) * W > S * .8 ? 'trot' : 'walk'; d.next = t + 2; }
     else if (!d.follow && (d.x < z[0] - .01 || d.x > z[1] + .01) && t > d.next - 1.5) { d.tx = clamp(d.x, z[0], z[1]); d.mood = 'walk'; } // wander home after following
-    if (!petted && !M.rest && t > d.next && !d.follow) {
-      if (M.party) { d.mood = Math.random() < .55 ? 'hop' : 'trot'; d.next = t + 1.2 + Math.random() * 1.2; }
+    // the ball: fetch it, carry it home, drop it for her again
+    const ball = this.ball;
+    if (d.mood === 'fetch' && ball) {
+      if (ball.state !== 'carried') {
+        d.tx = ball.x; d.next = t + 3;
+        if (Math.abs(ball.x - d.x) * W < S * .25 && ball.h < S * .2 && Math.abs(ball.vx) < .25) { ball.state = 'carried'; ball.owner = d; d.tx = d.home ?? lerp(z[0], z[1], .5); this.say(d, pick(TRICKS.fetch), 1800); }
+      } else if (Math.abs(d.tx - d.x) * W < 3) { d.mood = 'watch'; d.next = t + 2; d.greet = 1; d.home = null; this.dropBall(); for (let k = 0; k < 2; k++) d.hearts.push({ x: (Math.random() - .5) * .3, age: -k * .2 }); }
+    } else if (d.mood === 'fetch') d.mood = 'watch';
+    if (!petted && !M.rest && t > d.next && !d.follow && d.mood !== 'fetch') {
+      if (M.party) { d.mood = Math.random() < .55 ? 'hop' : Math.random() < .3 ? 'chase' : 'trot'; d.next = t + 1.2 + Math.random() * 1.2; }
+      else if (M.calm) { d.mood = ['sit', 'watch', 'greet', 'sit', 'lookback'][d.beat++ % 5]; d.next = t + 3 + Math.random() * 2; }
       else { const [mood, sec] = ROUTINES[d.i][d.beat++ % ROUTINES[d.i].length]; d.mood = mood; d.next = t + sec; }
       d.moodAt = t;
       if (d.mood === 'walk' || d.mood === 'trot') { let x = lerp(z[0], z[1], Math.random()); if (Math.abs(x - d.x) < .05) x = d.x < (z[0] + z[1]) / 2 ? z[1] - .02 : z[0] + .02; d.tx = x; }
+      if (d.mood === 'zoom') d.tx = d.x < (z[0] + z[1]) / 2 ? z[1] : z[0];
+      if (d.mood === 'visit') { const o = this.dogs[1 - d.i]; d.home = d.x; d.tx = clamp(o.x + (d.x < o.x ? -1 : 1) * S * .9 / W, .05, .95); if (!this.free(d.tx) || o.alpha < .5) { d.mood = 'watch'; d.home = null; } }
       if (d.mood === 'hop') d.hopAt = t;
+      if (d.mood === 'chase') { d.spinAt = t; d.spin2At = t + 1.05; }
+      if (d.mood === 'bark') { d.hopAt = t + .05; this.say(d, pick(TRICKS.bark), 1300); this.env.audio.sfx('yip', .3); }
+      if (d.mood === 'sneeze') { d.sneezeAt = t + .45; setTimeout(() => this.say(d, pick(TRICKS.sneeze), 1200), 450); }
+      if (d.mood === 'beg') this.say(d, pick(TRICKS.beg), 2400);
+      // now and then, a word about what is happening in the story; or the ball, brought over to play
+      if (t > this.chatAt && CHATTER[this.mode] && !(t - (d.saidAt || -9) < 4)) { this.chatAt = t + 16 + Math.random() * 12; this.say(d, pick(CHATTER[this.mode]), 2600); }
+      else if (t > this.ballAt && !this.ball && !M.party && !M.calm && Math.random() < .5) { this.ballAt = t + 45; this.bringBall(d); }
+    }
+    // a visit to the other puppy: a sniff, nose to nose, then back home
+    if (d.mood === 'visit' && d.home != null && Math.abs(d.tx - d.x) * W < 3 && t - d.moodAt > 2.4) { d.tx = d.home; d.home = null; d.mood = 'walk'; d.next = t + 3; }
+    if (d.mood === 'visit' || d.mood === 'fetch') z = [.03, .97];
+    // never in front of a button or a hint: step aside, to the nearest clear spot
+    if (!d.follow && (!this.free(d.x) || !this.free(d.tx))) {
+      const nx = this.nearestFree(this.free(d.tx) ? d.tx : d.x, z);
+      if (Math.abs(nx - d.tx) > .004) { d.tx = nx; if (d.mood !== 'fetch' && d.mood !== 'visit') { d.mood = 'trot'; d.next = t + 2.5; d.moodAt = t; } }
     }
     if (M.rest && !d.follow) d.mood = 'rest';
+    if (t > d.spin2At && t - d.spin2At < .1 && t - d.spinAt > 1) { d.spinAt = d.spin2At; d.spin2At = -99; } // chasing its tail: round twice
     const hopT = t - d.hopAt, hopping = hopT >= 0 && hopT < 1.2, spinT = t - d.spinAt, spinning = spinT >= 0 && spinT < 1.1;
     const busy = petted || hopping || spinning;
-    const resting = d.mood === 'rest' && !busy, sitting = (d.mood === 'sit' || d.mood === 'scratch') && !busy;
+    const resting = d.mood === 'rest' && !busy, sitting = (d.mood === 'sit' || d.mood === 'scratch' || d.mood === 'beg') && !busy;
+    d.beg = damp(d.beg, d.mood === 'beg' && !busy && t - d.moodAt > .5 ? 1 : 0, dt, 6);
     d.rest = damp(d.rest, resting ? 1 : 0, dt, 2.6); d.sit = damp(d.sit, sitting ? 1 : 0, dt, 4);
     d.sniff = damp(d.sniff, d.mood === 'sniff' && !busy ? 1 : 0, dt, 4);
     d.bow = damp(d.bow, d.mood === 'bow' && !busy ? pulse(t - d.moodAt, .1, 2) * 1.4 : 0, dt, 7);
     d.scratch = damp(d.scratch, d.mood === 'scratch' && !busy && t - d.moodAt > .5 ? 1 : 0, dt, 8);
     d.shake = d.mood === 'shake' && !busy ? pulse(t - d.moodAt, 0, 1.3) : 0;
     d.greet = damp(d.greet, d.rest < .1 && d.sit < .1 ? (petted ? pulse(petT, .5, 2) : d.mood === 'greet' ? pulse(t - d.moodAt, .3, 1.8) : 0) : 0, dt, 8);
-    d.tilt = damp(d.tilt, petted ? pulse(petT, .05, 3.4) : 0, dt, 5);
+    d.tilt = damp(d.tilt, petted ? pulse(petT, .05, 3.4) : pulse(t - d.perkAt, 0, 1.4) * .8, dt, 5);
     const dx = (d.tx - d.x) * W, dist = Math.abs(dx);
-    const walking = !busy && (d.mood === 'walk' || d.mood === 'trot' || M.party || d.follow) && dist > 2;
+    const walking = !busy && (d.mood === 'walk' || d.mood === 'trot' || d.mood === 'zoom' || d.mood === 'visit' || d.mood === 'fetch' || M.party || d.follow) && dist > 2;
     d.gait = damp(d.gait, walking && d.rest < .08 && d.sit < .1 ? 1 : 0, dt, 6);
-    const inward = d.i ? -1 : 1, trot = d.mood === 'trot' || M.party;
-    let want = d.mood === 'lookback' ? inward * 135 : d.mood === 'watch' || petted ? 0 : inward * 45;
+    const inward = d.i ? -1 : 1, trot = d.mood === 'trot' || d.mood === 'zoom' || d.mood === 'fetch' || M.party;
+    let want = d.mood === 'lookback' ? inward * 135 : d.mood === 'watch' || d.mood === 'beg' || d.mood === 'bark' || petted ? 0 : inward * 45;
     if (d.attn > .5 && !walking && !resting) want = Math.round(clamp(dxp / (S * 3), -1, 1) * .9) * 45; // face the visitor (on a drawn view)
     if (resting) want = inward * 45;
     const x0 = d.x;
     if (walking) {
       want = dx > 0 ? 90 : -90;
-      const speed = (trot ? 84 : 38) * (W < 700 ? .7 : 1) * smooth(d.gait);
+      const speed = (d.mood === 'zoom' || d.mood === 'fetch' ? 150 : trot ? 84 : 38) * (W < 700 ? .7 : 1) * smooth(d.gait);
       const step = Math.min(dist, speed * dt);
       d.x += Math.sign(dx) * step / W; d.phase += step / (trot ? 30 : 25) * Math.PI * 2;
     }
+    if (d.mood === 'zoom' && dist <= 2 && !d.zoomBack) { d.zoomBack = true; d.tx = d.x < (z[0] + z[1]) / 2 ? z[1] : z[0]; } else if (d.mood !== 'zoom') d.zoomBack = false;
     // a spin runs the yaw all the way round through every view of the turnaround
     if (spinning) d.yaw = ang(d.spinFrom + 360 * smooth(spinT / 1.1));
     else { d.yaw = ang(turnTo(d.yaw, want, dt, 5.2)); d.spinFrom = d.yaw; }
@@ -265,6 +400,7 @@ export class Pups {
     if (M) this.lastGround = gy;
     // draw the farther-forward puppy last
     this.dogs.forEach(d => this.think(d, dt, M));
+    if (this.ball) this.stepBall(dt); else { this.ballEl.classList.remove('on'); this.ballSh.style.opacity = 0; }
     gl.useProgram(this.prog); gl.uniform2f(this.loc.res, env.W, this.band);
     this.dogs.forEach(d => { if (d.alpha > .002) this.draw(d, S, gy); });
   }
@@ -336,12 +472,13 @@ export class Pups {
       const stride = (cycle < .61 ? lerp(-14, 14, cycle / .61) : lerp(14, -14, smooth(swing))) * gait;
       // the swing leg folds at the knee while it travels forward, then plants straight
       const fold = Math.sin(swing * Math.PI) * gait * (rear ? -24 : 30) * sv;
-      let top = stride * sv + (rear ? -d.sit * 34 - d.rest * 37 : -d.rest * 63 - offered * 35 - d.bow * 30 * sv);
-      let knee = fold + (rear ? d.sit * 52 + d.rest * 30 : d.rest * 40 + offered * 35 + d.bow * 50 * sv);
+      const begL = rear ? 0 : d.beg * (1 + Math.sin(t * 7 + i) * .12);  // 作揖: both front paws up, bobbing together
+      let top = stride * sv + (rear ? -d.sit * 34 - d.rest * 37 : -d.rest * 63 - offered * 35 - d.bow * 30 * sv - begL * 48);
+      let knee = fold + (rear ? d.sit * 52 + d.rest * 30 : d.rest * 40 + offered * 35 + d.bow * 50 * sv + begL * 70);
       // scratching: the near hind leg kicks rapidly at the ear
       if (i === 0 && d.scratch > .05) { top += d.scratch * (-40 + Math.sin(t * 34) * 12); knee += d.scratch * 30; }
       const lower = rear ? d.sit * 26 + d.rest * 30 : d.rest * 30 + d.bow * 14 * (1 - sv * .3);
-      const lift = Math.sin(swing * Math.PI) * gait * (trot ? 9 : 5) + offered * 9 + (i === 0 ? d.scratch * 10 : 0);
+      const lift = Math.sin(swing * Math.PI) * gait * (trot ? 9 : 5) + offered * 9 + (i === 0 ? d.scratch * 10 : 0) + (rear ? 0 : d.beg * (26 + Math.sin(t * 7) * 5));
       const squeeze = 1 - (rear ? d.sit * .28 + d.rest * .3 : d.rest * .08) - crouch * .14;
       const px = r[0] + r[2] * .5, py = r[1] + 13, kneeY = r[1] + r[3] * .52, ankY = r[1] + r[3] * .82;
       const lm = T(m, 0, lower - lift + crouch * 7);
@@ -367,7 +504,8 @@ export class Pups {
       });
     };
     const head = () => {
-      const r = pose.head, tilt = d.sniff * 18 + d.rest * 20 - d.tilt * 13 + Math.sin(d.phase - .8) * gait * 2.2 + Math.sin(t * .9) * 1.2 * (1 - gait) + d.gazeY * 7 + d.bow * 6 - d.scratch * 10;
+      const sn = t - d.sneezeAt, sneeze = sn > -.4 && sn < 0 ? -(sn + .4) / .4 * 10 : sn >= 0 && sn < .35 ? Math.sin(sn / .35 * Math.PI) * 26 : 0;
+      const r = pose.head, tilt = sneeze - d.beg * 8 + d.sniff * 18 + d.rest * 20 - d.tilt * 13 + Math.sin(d.phase - .8) * gait * 2.2 + Math.sin(t * .9) * 1.2 * (1 - gait) + d.gazeY * 7 + d.bow * 6 - d.scratch * 10;
       const hm0 = T(m, d.sniff * 8 + d.rest * 9 - d.lag * 2 + d.body.x * .04, d.sniff * 23 + d.rest * 46 - d.sit * 3 + breath * .3 - d.tilt * 2 + d.bow * 18 * sv + d.scratch * 4);
       const hm = about(hm0, pose.neck[0], pose.neck[1], q => R(q, (tilt + d.shake * Math.sin(t * 38) * 14) * D2R));
       // the head is drawn facing its own yaw; the face drifts a little toward the gaze within a view
@@ -392,7 +530,7 @@ export class Pups {
     const body = () => {
       const r = pose.body;
       const bm0 = T(m, -d.sit * 4 - d.greet, d.rest * 21 + crouch * 4 + d.sit * 6 * sv);
-      const bm = about(bm0, 140, 163, q => S_(R(q, (-d.sit * sv * 22 + d.bow * -4 * sv) * D2R), 1 - d.rest * .08, 1 - d.rest * .13));
+      const bm = about(bm0, 140, 163, q => S_(R(q, (-d.sit * sv * 22 - d.beg * sv * 14 + d.bow * -4 * sv) * D2R), 1 - d.rest * .08, 1 - d.rest * .13));
       this.part('body', yaw, r, bm, color, A, 6, 4, (p, u, v) => {
         const bump = Math.sin(u * Math.PI);
         p[1] -= bump * r[3] * (breath * .012 + (hop > 0 ? hop / 34 * .03 : 0) - crouch * .02); // breathing and the arch of a hop

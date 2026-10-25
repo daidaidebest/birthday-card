@@ -154,7 +154,7 @@ export function buildPages(assets) {
     } };
   });
   page('right', (g, w, h) => {
-    const T = layoutText(g, w, { lines: ['写给师宝宝的', '一场梦'], y: .36 * h / w, size: .078, weight: 600, lh: 1.6, start: .2, cps: 4.5, spacing: .14 });
+    const T = layoutText(g, w, { lines: ['师宝宝的', '生日童话'], y: .36 * h / w, size: .078, weight: 600, lh: 1.6, start: .2, cps: 4.5, spacing: .14 });
     const S = layoutText(g, w, { lines: ['今晚，这本书只为你打开。'], y: .66 * h / w, size: .04, color: SEPIA, start: T.end + .5, cps: 7 });
     return { dur: S.end + .5, draw(prog, time) {
       corners(g, w, h); latin(g, 'A BOOK THAT KNOWS ONLY YOU', w / 2, h * .2, w * .026);

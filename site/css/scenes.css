@@ -5,7 +5,8 @@
 .pro-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;filter:drop-shadow(0 18px 26px rgba(0,0,0,.55))}
 .pro-face>img{position:absolute;inset:0;width:100%;height:100%;display:block}
 .pro-back{transform:rotateY(180deg)}
-.pro-face>img.pro-seal-img{inset:auto;left:var(--seal-x);top:var(--seal-y);width:var(--seal-w);height:auto;transform:translate(-50%,-50%)}
+.pro-star-img{position:absolute;left:var(--seal-x);top:var(--seal-y);width:calc(var(--seal-w)*.5);aspect-ratio:1;transform:translate(-50%,-50%)}
+.pro-star-img svg,.pro-seal svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 2px 2px rgba(60,35,5,.45))}
 /* addressed in emerald ink, a little uneven as if by a quill */
 .pro-addr{position:absolute;left:30%;top:36%;color:#17583a;font-size:calc(var(--ew)*.052);line-height:1.75;letter-spacing:.08em;transform:rotate(-1.6deg);
   text-shadow:0 0 .6px rgba(10,60,35,.8),0 .5px 0 rgba(255,250,230,.25);opacity:.92}
@@ -26,16 +27,17 @@
 .pro-env-flap i{position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,18,6,.55),rgba(30,18,6,0) 60%);opacity:var(--shade,0);pointer-events:none;
   clip-path:polygon(0 0,100% 0,50% 72%);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 /* the crimson wax seal: she presses it, light cracks through it and it shatters */
-.pro-seal{position:absolute;left:var(--seal-x);top:var(--seal-y);width:var(--seal-w);aspect-ratio:1;transform:translate(-50%,-50%);z-index:6;pointer-events:auto;cursor:pointer;border-radius:50%;padding:0;border:0;background:none;-webkit-tap-highlight-color:transparent}
-.pro-seal>img{position:absolute;inset:0;width:100%;height:100%;display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
-.pro-seal svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.pro-seal svg path{fill:none;stroke:#fff3c4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 2px #ffd36b) drop-shadow(0 0 6px rgba(255,190,90,.9))}
-.pro-env.on .pro-seal{animation:sealglow 2.6s ease-in-out infinite}
-@keyframes sealglow{50%{filter:drop-shadow(0 0 14px rgba(255,170,120,.6))}}
-.low-power .pro-env.on .pro-seal{animation:none}
-.pro-letter-wrap.open .pro-seal{animation:none;pointer-events:none}
-.pro-shard{position:absolute;left:var(--seal-x);top:var(--seal-y);width:var(--seal-w);aspect-ratio:1;margin-left:calc(var(--seal-w)/-2);z-index:7;pointer-events:none;will-change:transform,opacity}
-.pro-shard img{position:absolute;inset:0;width:100%;height:100%;display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.pro-seal{position:absolute;left:var(--seal-x);top:var(--seal-y);width:calc(var(--seal-w)*.5);aspect-ratio:1;transform:translate(-50%,-50%);z-index:6;pointer-events:auto;cursor:pointer;border-radius:50%;padding:0;border:0;background:none;-webkit-tap-highlight-color:transparent}
+.pro-seal::before{content:'';position:absolute;inset:-60%;border-radius:50%;background:radial-gradient(circle,rgba(255,226,150,.45),rgba(255,200,110,0) 62%);animation:starhalo 2.4s ease-in-out infinite;pointer-events:none}
+@keyframes starhalo{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.08)}}
+.pro-env.on .pro-seal svg{animation:startwinkle 2.4s ease-in-out infinite}
+@keyframes startwinkle{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(8deg) scale(1.07)}}
+.low-power .pro-env.on .pro-seal svg,.low-power .pro-seal::before{animation:none}
+.pro-letter-wrap.open .pro-seal{pointer-events:none}.pro-letter-wrap.open .pro-seal::before,.pro-letter-wrap.open .pro-seal svg{animation:none}
+.pro-env{cursor:pointer}
+.pro-seam{position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible}
+.pro-seam path{fill:none;stroke:#fff1c2;stroke-width:.9;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;stroke-width:.55;filter:drop-shadow(0 0 2px #ffd36b) drop-shadow(0 0 7px rgba(255,190,90,.95))}
+.pro-seam{opacity:0}.pro-letter-wrap.open .pro-seam{opacity:1}
 .pro-flash{position:absolute;left:var(--seal-x);top:var(--seal-y);width:calc(var(--seal-w)*3.2);aspect-ratio:1;transform:translate(-50%,-50%) scale(.2);z-index:8;pointer-events:none;opacity:0;border-radius:50%;
   background:radial-gradient(circle,rgba(255,250,225,.95) 0,rgba(255,214,140,.55) 22%,rgba(255,170,90,.18) 45%,transparent 68%);mix-blend-mode:screen}
 .pro-hint{position:absolute;left:0;right:0;top:calc(50% + var(--eh)*.66);text-align:center;font-size:14px;letter-spacing:.32em;color:#e8d8b8cc;opacity:0;transition:opacity 1.2s ease;text-shadow:0 0 12px #000}

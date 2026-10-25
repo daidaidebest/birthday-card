@@ -56,6 +56,19 @@ export class DepthView {
       g.drawImage(l.img, T.x + T.s * l.x, T.y + T.s * l.y, l.w * T.s, l.h * T.s);
     }
   }
+  /** Draws plane i in small cells, each nudged sideways by wind: the higher in the plane, the further it sways
+   *  (for grass in the foreground). gust(x, t) -> -1..1 */
+  drawWind(g, i, t, amp, gust, cw = 22, ch = 7) {
+    const l = this.m.layers[i], T = this.T[i], img = l.img;
+    const nx = Math.ceil(l.w / cw), ny = Math.ceil(l.h / ch);
+    for (let r = 0; r < ny; r++) {
+      const sy = r * ch, h = Math.min(ch, l.h - sy), lift = Math.pow(1 - (sy + h / 2) / l.h, 1.6);
+      for (let c = 0; c < nx; c++) {
+        const sx = c * cw, w = Math.min(cw, l.w - sx), dx = amp * lift * gust(sx / l.w, t);
+        g.drawImage(img, sx, sy, w, h, T.x + T.s * (l.x + sx + dx) - .5, T.y + T.s * (l.y + sy), w * T.s + 1, h * T.s + .6);
+      }
+    }
+  }
   /** Creates one <img> per plane inside parent (absolutely placed, moved by transforms only). */
   mount(parent, cls = 'dp-layer') {
     this.els = this.m.layers.map((l, i) => {

@@ -30,7 +30,7 @@ export default {
       clips = await Promise.all([loadClip(env.portrait ? 'runp' : 'run'), loadClip('kiss')]);
       if (clips[0].failed && env.portrait) clips[0] = await loadClip('run');
     }
-    if (!env.reduced && !lionClip) { lionClip = await loadClip(env.portrait ? 'lionsp' : 'lions'); if (lionClip.failed) lionClip = null; else lionClip.v.loop = true; }
+    if (!env.reduced && !lionClip) { lionClip = await loadClip(env.portrait ? 'lionsp' : 'lions'); if (lionClip.failed) lionClip = null; } // plays once, forward and back: it ends on the painting's own pose
     [prairie, prairieDepth, kiss, lionsDay, lionsNight, ...horseMeta] = await Promise.all([loadImage(asset('img/prairie-gold.webp')), loadDepth('prairie-gold'), loadDepth('horses-kiss'), loadDepth('lions'), loadDepth('lions-night'), loadHorse('horse-buckskin'), loadHorse('horse-paint')]);
   },
   create(env) {
@@ -218,7 +218,7 @@ export default {
     }
     // ---------- shot B: the painted savanna, sunset dissolving into night ----------
     function shotB(t, dt, W, H, alpha) {
-      const k = t - B_START, portrait = env.portrait, night = easeInOut(between(k, 3, 13));
+      const k = t - B_START, portrait = env.portrait, night = easeInOut(between(k, lionClip ? 6 : 3, 14));
       // phones keep the pair in frame; wide screens see the whole vista
       const iw = lionsDay.w, ih = lionsDay.h, base = fit(iw, ih, LIONS.x, LIONS.y, .4, portrait ? 1 : 1.03), s = base.s;
       const wd = wander(k, 5.2, .7), cam = { x: wd.x * .8 + env.look.x * .8, y: wd.y * .45 + env.look.y * .5, zoom: .07 * easeInOut(between(k, 0, 26)), focus: .62 };
@@ -248,7 +248,7 @@ export default {
     function drawLions(g, W, H, base, cam, pivot) {
       if (!lionClip.wanted) play(lionClip, 1, 0);
       const M = LIONCLIP[lionClip.name], P = viewD.at(.62, {}), v = lionClip.v;
-      g.drawImage(v, P.x - P.s * M.ox / M.s, P.y - P.s * M.oy / M.s, v.videoWidth * P.s / M.s, v.videoHeight * P.s / M.s);
+      g.drawImage(v, P.x + P.s * M.ox / M.s, P.y + P.s * M.oy / M.s, v.videoWidth * P.s / M.s, v.videoHeight * P.s / M.s);
     }
     // wind through the grass: slow travelling gusts
     const gust = (x, t) => Math.sin(t * 1.3 - x * 9) * .6 + Math.sin(t * 2.7 - x * 23 + 1.3) * .3 + Math.sin(t * .6 + x * 4) * .3;

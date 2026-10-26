@@ -7,6 +7,7 @@
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeIn, rng, fbm, noise1, glowSprite, sparkleSprite, TAU } from '../util.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 import { PRO } from './prologue-art.js';
+import { loadClip, play, stop, drawable, drawCover } from '../video.js';
 
 const LETTER = [
   '亲爱的师宝宝：', '',
@@ -20,6 +21,8 @@ const LETTER = [
 const SIGN = '—— 一个在远方，很想你的人';
 const ADDRESS = ['师宝宝 收', '月光湖畔 · 最高的塔楼', '朝东的那扇窗'];
 const A = {};
+// The castle is a real 3D scene now (tools/blender/castle.py, rendered in Cycles): a 14 s drone flight from the moon
+// down to the castle with the snowy owl crossing the moon, then a slow drift that loops (forward and back).
 
 // timeline (seconds)
 const DIVE = 7.2;                         // the crane from the moon down to the castle
@@ -76,6 +79,11 @@ export default {
     const [castle, owl] = await Promise.all([loadImage(asset('img/castle.webp')), loadImage(asset('img/owl-glide.webp')),
       ...['letter', 'env-front', 'env-back', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in'].map(n => loadImage(asset(`img/${n}.webp`)))]);
     Object.assign(A, { castle, owl }); A.depth = await loadDepth('castle');
+    if (!env.reduced && A.film === undefined) {
+      const k = env.portrait ? 'p' : '';
+      [A.film, A.hold] = await Promise.all([loadClip('castle' + k), loadClip('castle-hold' + k)]);
+      if (A.film.failed) A.film = null; if (A.hold?.failed) A.hold = null;
+    }
     if (!A.puffs) A.puffs = [puff(1.3), puff(4.1), puff(7.9), puff(11.2)];
     if (!A.lights) A.lights = windowLights(castle);
   },
@@ -143,6 +151,7 @@ export default {
 
     const inst = {
       progress: () => clamp(T / (LAND + 6 + WRITE_LEN + 3)),
+      destroy() { if (A.film) stop(A.film); if (A.hold) stop(A.hold); },
       resize() {
         res = env.res(true);
         cv.width = Math.round(env.W * res); cv.height = Math.round(env.H * res);
@@ -158,7 +167,18 @@ export default {
         T = t; cues(t);
         const W = env.W, H = env.H, portrait = env.portrait; g.setTransform(res, 0, 0, res, 0, 0);
         const covered = opened && t - openStart > O.covered;
-        if (!covered) {
+        const film = A.film && drawable(A.film) ? A.film : null;
+        if (film && !covered) {
+          // ---------- the filmed flight; once it lands, the slow drift loops underneath the letter ----------
+          if (!inst.filmOn) { inst.filmOn = true; play(film, 1, 0); }
+          const done = film.v.ended || (film.v.duration && film.v.currentTime >= film.v.duration - .06);
+          if (done && A.hold && !inst.holdOn) { inst.holdOn = true; A.hold.v.loop = true; play(A.hold, 1, 0); }
+          const src = inst.holdOn && drawable(A.hold) ? A.hold : film;
+          g.globalAlpha = 1; drawCover(g, src, 0, 0, W, H, .5 + env.look.x * .015, .5 + env.look.y * .01, 1.03);
+          if (!inst.hoot && t > 6) { inst.hoot = true; env.audio.sfx('whoosh', .3); }
+          owlXY = [W * .14, -H * .04, 0];
+        }
+        if (!film && !covered) {
           // ---------- the castle, from the air: a slow drone glide forward and down, from the moon to the castle ----------
           // (a photograph split into depth planes: the near forest, the cliff, the castle and the mountains each move at
           // their own speed as the camera travels, which is what makes it read as a real place)

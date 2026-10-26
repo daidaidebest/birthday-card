@@ -9,6 +9,13 @@ import { studyLights, studySteam, behindGlass, loadGlass, glassRect } from './st
 import { loadClip, play, stop, drawable } from '../video.js';
 
 const A = {};
+// The 3D cake in the study (tools/blender/study.py, Cycles): three lighting states rendered from one camera — the
+// room waiting in the dark, the six candles burning, and the lamps come up after the wish — plus a mask of the window
+// glass. Wick tips and the glass are in render pixels (the scene script exports them with the renders).
+const C3 = {
+  p: { w: 1080, h: 1920, wicks: [[.4202, .50027], [.45328, .50043], [.48229, .50068], [.5176, .50052], [.55444, .50045], [.57082, .50007]], glass: [902, 145, 1080, 937] },
+  l: { w: 1440, h: 810, wicks: [[.45035, .40413], [.47137, .40457], [.48993, .40535], [.5118, .40458], [.53469, .40415], [.54422, .40265]], glass: [933, 0, 1262, 305] },
+};
 const glassBox = name => { const [x0, y0, x1, y1] = glassRect(name); return { x0, y0, x1, y1 }; };
 const N = CANDLES.length, FIRST = Math.floor((N - 1) / 2); // the star lights a middle candle first
 const WHISPERS = ['这一支，为你走过的那些路。', '这一支，为我们相遇的那座城。', '这一支，为隔着山海的想念。', '这一支，为一起看过的星星。', '这一支，为往后的每一天。', '最后这一支，为你。'];
@@ -31,7 +38,12 @@ const FW = ['255,226,170', '255,214,150', '255,236,205', '250,200,175'];
 export default {
   id: 'wish', music: 'wish',
   async load(env) {
-    if (!env.reduced && A.room === undefined) A.room = await loadClip(env.portrait ? 'studyp' : 'study'); // the same filmed room as the book
+    if (A.c3 === undefined) {
+      const k = env.portrait ? 'p' : 'l';
+      try { const [unlit, lit, after, mask] = await Promise.all(['unlit', 'lit', 'after', 'mask'].map(n => loadImage(asset(`img/cake3d-${n}-${k}.webp`)))); A.c3 = { k, unlit, lit, after, mask, ...C3[k] }; }
+      catch { A.c3 = null; }
+    }
+    if (!A.c3 && !env.reduced && A.room === undefined) A.room = await loadClip(env.portrait ? 'studyp' : 'study'); // the same filmed room as the book
     const [land, port, glassL, glassP] = await Promise.all([loadImage(asset('img/study-land.webp')), loadImage(asset('img/study-port.webp')), loadGlass('study-land'), loadGlass('study-port')]);
     Object.assign(A, { land, port, glassL, glassP }); if (!A.cake) A.cake = gradeCake(await loadCake());
     [A.dLand, A.dPort] = await Promise.all([loadDepth('study-land'), loadDepth('study-port')]);
@@ -69,7 +81,8 @@ export default {
     const motes = Array.from({ length: 34 }, () => ({ x: R(), y: R(), v: .012 + R() * .02, p: R() * TAU, s: .5 + R() }));
     // fireworks beyond the glass (painting units of the far plane): shells rise, burst, and their sparks fall
     const shells = [], sparks = [], fwGlow = Object.fromEntries(FW.map(c => [c, glowSprite(c, 32, 2.6)])); fwGlow['255,230,190'] = glowSprite('255,230,190', 32, 2.6); let flashA = 0, flashC = FW[0], nextShell = 0;
-    const room0 = A.room && !A.room.failed ? A.room : null;
+    const c3 = A.c3; let cur = { s: 1, x: 0, y: 0 };
+    const room0 = !c3 && A.room && !A.room.failed ? A.room : null;
     if (room0) { room0.v.loop = true; room0.portrait = env.portrait; play(room0, .5); }
     let WINDOW = glassBox('study-land'), portrait = false, rs = 1;
     const flames = CANDLES.map((_, i) => ({ lit: 0, out: 0, seed: R() * 40 }));
@@ -108,17 +121,19 @@ export default {
       const W = env.W, H = env.H; portrait = env.portrait;
       rs = env.res(true); top.width = Math.round(W * rs); top.height = Math.round(H * rs); cv.width = Math.round(W * env.dpr); cv.height = Math.round(H * env.dpr);
       room._r = env.res(true); room._at = -1; // a resized canvas is blank: repaint on the next frame
-      const img = portrait ? A.port : A.land; WINDOW = glassBox(portrait ? 'study-port' : 'study-land');
-      const s = Math.max(W / img.width, H / img.height), fy = portrait ? .7 : .78;
+      const img = c3 ? { width: c3.w, height: c3.h } : portrait ? A.port : A.land;
+      WINDOW = c3 ? { x0: c3.glass[0], y0: c3.glass[1], x1: c3.glass[2], y1: c3.glass[3] } : glassBox(portrait ? 'study-port' : 'study-land');
+      const s = Math.max(W / img.width, H / img.height), fy = c3 ? .5 : portrait ? .7 : .78;
       map = { s, x: (W - img.width * s) / 2, y: (H - img.height * s) * fy };
       // the room canvas spans the whole painting (wider than the screen) so the zoom toward the window never shows an edge
       { const rw = img.width * s, rh = img.height * s, rr = room._r; room.width = Math.round(rw * rr); room.height = Math.round(rh * rr);
         Object.assign(room.style, { position: 'absolute', left: map.x + 'px', top: map.y + 'px', width: rw + 'px', height: rh + 'px' }); }
-      const dm = portrait ? A.dPort : A.dLand; if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .04, focus: portrait ? .73 : .8 }); }
+      const dm = portrait ? A.dPort : A.dLand; if (!c3 && viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .04, focus: portrait ? .73 : .8 }); }
       el.classList.toggle('land', !portrait);
       // the cake stands on the desk: in front of the window on wide screens, centred on phones
       const cs = (portrait ? 760 : 500) / CAKE_H * s, baseY = portrait ? 1330 : 800, cx = portrait ? W / 2 : map.x + 800 * s; // in front of the fire, under the window
       cake = cake0 = { s: cs, x: cx - CAKE_W * cs / 2, y: map.y + baseY * s - (CAKE_H - 6) * cs };
+      if (c3) { cur = { ...map }; cake = cake0 = { s: .0185 * c3.h * s / FLAME, x: 0, y: 0 }; } // flames sized to the rendered candles
       const wcx = map.x + (WINDOW.x0 + WINDOW.x1) / 2 * s, wcy = map.y + (WINDOW.y0 + WINDOW.y1) / 2 * s;
       const z = portrait ? 1.35 : Math.min(2.2, H * .9 / ((WINDOW.y1 - WINDOW.y0) * s));
       // look toward the window, but never so far that the room's edge comes into view
@@ -130,7 +145,7 @@ export default {
     }
     layout();
     const P = (x, y) => [map.x + x * map.s, map.y + y * map.s];
-    const tip = i => [cake.x + CANDLES[i][0] * cake.s, cake.y + CANDLES[i][1] * cake.s];
+    const tip = i => c3 ? [cur.x + c3.wicks[i][0] * c3.w * cur.s, cur.y + c3.wicks[i][1] * c3.h * cur.s] : [cake.x + CANDLES[i][0] * cake.s, cake.y + CANDLES[i][1] * cake.s];
 
     function startWish() { if (phase !== 'ask') return; phase = 'wish'; phaseAt = T; el.classList.add('wishing'); el.classList.remove('asking'); env.audio.duck(.4, 2.5); env.pups.set('quiet'); }
     function blow() {
@@ -158,6 +173,54 @@ export default {
     });
     $('[data-replay]').addEventListener('click', () => { location.hash = ''; location.search = ''; location.reload(); });
 
+    // fireworks: shells rise beyond the glass and open into slow willows (window units = painting/render pixels)
+    function stepFireworks(t, k, sdt) {
+      const wx = WINDOW.x0, wy = WINDOW.y0, ww = WINDOW.x1 - WINDOW.x0, wh = WINDOW.y1 - WINDOW.y0;
+      if (k > 1.8 && t > nextShell && k < 40) {
+        shells.push({ x: wx + ww * (.2 + R() * .6), y: wy + wh * 1.05, ty: wy + wh * (.16 + R() * .28), v: 0, col: FW[(R() * FW.length) | 0], heart: false, up: true });
+        nextShell = t + 2.2 + R() * 2.6;
+      }
+      for (let i = shells.length - 1; i >= 0; i--) {
+        const sh = shells[i]; sh.y += (sh.ty - sh.y) * Math.min(1, sdt * 2.6); sparks.push({ x: sh.x, y: sh.y, vx: 0, vy: 0, life: .5, max: .5, col: '255,230,190', tr: true });
+        if (sh.y - sh.ty < 2) {
+          shells.splice(i, 1); const n = 64, r = Math.max(ww, wh * .6) * (.22 + R() * .08);
+          for (let j = 0; j < n; j++) { const a = j / n * TAU, q = .75 + R() * .25; sparks.push({ x: sh.x, y: sh.y, vx: Math.cos(a) * q * r * 1.5, vy: Math.sin(a) * q * r * 1.5, life: 2.8 + R() * 1.2, max: 3.6, col: sh.col }); }
+          flashA = .45; flashC = sh.col; env.audio.sfx('pop', .18);
+        }
+      }
+    }
+    function drawSparks(gw, t, sdt, unit = 1) {
+      gw.globalCompositeOperation = 'lighter';
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const p = sparks[i]; p.life -= sdt; if (p.life <= 0) { sparks.splice(i, 1); continue; }
+        p.vx *= Math.pow(.3, sdt); p.vy = p.vy * Math.pow(.3, sdt) + 14 * unit * sdt; p.x += p.vx * sdt; p.y += p.vy * sdt;
+        const u = p.life / p.max, sz = (p.tr ? 5 : 9) * unit * (.45 + u), tw = p.tr ? 1 : .6 + .4 * Math.sin(t * 30 + i);
+        gw.globalAlpha = Math.min(1, u * 1.6) * tw; gw.drawImage(fwGlow[p.col] || glowSm, p.x - sz, p.y - sz, sz * 2, sz * 2);
+        gw.fillStyle = '#fff8e8'; const c = sz * .16; gw.fillRect(p.x - c, p.y - c, c * 2, c * 2);
+      }
+      gw.globalAlpha = 1; gw.globalCompositeOperation = 'source-over';
+    }
+    // the 3D room: the three renders cross-fade with the candles and the lamps; fireworks live behind the glass mask
+    const glassCv = canvas(1, 1), glassG = glassCv.getContext('2d');
+    function paint3d(t, rr) {
+      const w = c3.w, h = c3.h, iw = w * cur.s, ih = h * cur.s;
+      sg.setTransform(rr, 0, 0, rr, -map.x * rr, -map.y * rr); sg.globalAlpha = 1;
+      const litK = flames.reduce((a, f) => a + f.lit * (1 - f.out), 0) / flames.length, afterK = phase === 'blown' ? between(t - blowAt, 1.2, 4.5) : 0;
+      sg.drawImage(c3.unlit, cur.x, cur.y, iw, ih);
+      if (litK > .005) { sg.globalAlpha = litK * (1 - afterK); sg.drawImage(c3.lit, cur.x, cur.y, iw, ih); }
+      if (afterK > 0) { sg.globalAlpha = afterK; sg.drawImage(c3.after, cur.x, cur.y, iw, ih); }
+      sg.globalAlpha = 1;
+      if (phase === 'blown') {
+        const sdt = Math.min(.1, t - (room._fwAt ?? t)); room._fwAt = t; stepFireworks(t, t - blowAt, sdt);
+        const [x0, y0, x1, y1] = c3.glass, sc = rr * cur.s, gw = Math.max(2, Math.ceil((x1 - x0) * sc)), gh = Math.max(2, Math.ceil((y1 - y0) * sc));
+        if (glassCv.width !== gw || glassCv.height !== gh) { glassCv.width = gw; glassCv.height = gh; }
+        glassG.setTransform(1, 0, 0, 1, 0, 0); glassG.globalCompositeOperation = 'source-over'; glassG.clearRect(0, 0, gw, gh);
+        glassG.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc); drawSparks(glassG, t, sdt, c3.h / 1300);
+        glassG.setTransform(1, 0, 0, 1, 0, 0); glassG.globalCompositeOperation = 'destination-in';
+        glassG.drawImage(c3.mask, x0 * c3.mask.width / w, y0 * c3.mask.height / h, (x1 - x0) * c3.mask.width / w, (y1 - y0) * c3.mask.height / h, 0, 0, gw, gh);
+        sg.drawImage(glassCv, cur.x + x0 * cur.s, cur.y + y0 * cur.s, (x1 - x0) * cur.s, (y1 - y0) * cur.s);
+      }
+    }
     return {
       resize: layout,
       debug: () => ({ phase, lit, shells: shells.length, sparks: sparks.length, win: WINDOW, tips: flames.map((f, i) => [...tip(i), +f.lit.toFixed(2)]) }),
@@ -168,6 +231,13 @@ export default {
         // ---------- sky through the window ----------
         // ---------- 2.5D camera ----------
         const wd = wander(t, 2.3, .8), calm = phase === 'wish' ? .35 : 1;
+        if (c3) {
+          // a slow push toward the cake, leaning a little with her
+          const z = 1 + .035 * easeInOut(between(t, 0, 24)) + (phase === 'wish' ? .03 * between(t - phaseAt, 0, 6) : 0), [fx0, fy0] = [W / 2, H * .5];
+          cur = { s: map.s * z, x: fx0 - (fx0 - map.x) * z + (wd.x * 4 + env.look.x * 7) * calm, y: fy0 - (fy0 - map.y) * z + (wd.y * 3 + env.look.y * 5) * calm };
+          const rr = room._r, due = t - (room._at ?? -1) >= 1 / 31 || room._w !== room.width;
+          if (due) { room._at = t; room._w = room.width; paint3d(t, rr); }
+        } else {
         view.frame(map, { x: (wd.x * .7 + env.look.x * .8) * calm, y: (wd.y * .45 + env.look.y * .5) * calm, zoom: .04 * between(t, 0, 9) + (phase === 'wish' ? .04 * between(t - phaseAt, 0, 6) : 0), focus: view.focus }, [W / 2, H * .55]);
         const rr = room._r, T0 = view.T[0];
         // the room's camera moves well under a pixel per frame, so its planes repaint at ~30 fps while cake and flames stay at full rate
@@ -183,57 +253,35 @@ export default {
         const name = portrait ? 'study-port' : 'study-land';
         sg.setTransform(rr * T0.s, 0, 0, rr * T0.s, rr * (T0.x - map.x), rr * (T0.y - map.y));
         if (phase === 'blown') {
-          const k = t - blowAt, wx = WINDOW.x0, wy = WINDOW.y0, ww = WINDOW.x1 - WINDOW.x0, wh = WINDOW.y1 - WINDOW.y0, sdt = Math.min(.1, t - (room._fwAt ?? t)); room._fwAt = t;
-          if (k > 1.8 && t > nextShell && k < 40) { // a volley, then a pause; the big heart once
-            shells.push({ x: wx + ww * (.2 + R() * .6), y: wy + wh * 1.05, ty: wy + wh * (.16 + R() * .28), v: 0, col: FW[(R() * FW.length) | 0], heart: false, up: true });
-            nextShell = t + 2.2 + R() * 2.6;
-          }
-          for (let i = shells.length - 1; i >= 0; i--) {
-            const sh = shells[i]; sh.y += (sh.ty - sh.y) * Math.min(1, sdt * 2.6); sparks.push({ x: sh.x, y: sh.y, vx: 0, vy: 0, life: .5, max: .5, col: '255,230,190', tr: true });
-            if (sh.y - sh.ty < 2) { // burst
-              shells.splice(i, 1); const n = 64, r = ww * (.22 + R() * .08);
-              for (let j = 0; j < n; j++) {
-                const a = j / n * TAU; let vx, vy;
-                if (sh.heart) { vx = 16 * Math.pow(Math.sin(a), 3) / 16; vy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 16; }
-                else { const q = .75 + R() * .25; vx = Math.cos(a) * q; vy = Math.sin(a) * q; }
-                sparks.push({ x: sh.x, y: sh.y, vx: vx * r * 1.5, vy: vy * r * 1.5, life: 2.8 + R() * 1.2, max: 3.6, col: sh.col });
-              }
-              flashA = .45; flashC = sh.col; env.audio.sfx('pop', .18);
-            }
-          }
-          behindGlass(sg, name, portrait ? A.glassP : A.glassL, rr * T0.s, gw => {
-            gw.globalCompositeOperation = 'lighter';
-            for (let i = sparks.length - 1; i >= 0; i--) {
-              const p = sparks[i]; p.life -= sdt; if (p.life <= 0) { sparks.splice(i, 1); continue; }
-              p.vx *= Math.pow(.3, sdt); p.vy = p.vy * Math.pow(.3, sdt) + 14 * sdt; p.x += p.vx * sdt; p.y += p.vy * sdt;
-              const u = p.life / p.max, sz = (p.tr ? 5 : 9) * (.45 + u), tw = p.tr ? 1 : .6 + .4 * Math.sin(t * 30 + i);
-              gw.globalAlpha = Math.min(1, u * 1.6) * tw; gw.drawImage(fwGlow[p.col] || glowSm, p.x - sz, p.y - sz, sz * 2, sz * 2);
-              gw.fillStyle = '#fff8e8'; const c = sz * .16; gw.fillRect(p.x - c, p.y - c, c * 2, c * 2);
-            }
-            gw.globalAlpha = 1; gw.globalCompositeOperation = 'source-over';
-          });
+          const sdt = Math.min(.1, t - (room._fwAt ?? t)); room._fwAt = t; stepFireworks(t, t - blowAt, sdt);
+          behindGlass(sg, name, portrait ? A.glassP : A.glassL, rr * T0.s, gw => drawSparks(gw, t, sdt));
         }
         { const pm = view.at(.4, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); studyLights(sg, name, t, (phase === 'blown' ? lerp(.3, 1.35, between(t - blowAt, 1.5, 5)) : 1) * (1 - filmK * .8)); } // the lights come up after the wish
         { const pm = view.at(.75, tmp); sg.setTransform(rr * pm.s, 0, 0, rr * pm.s, rr * (pm.x - map.x), rr * (pm.y - map.y)); if (filmK < 1) studySteam(sg, name, t, .8 * (1 - filmK)); }
         }
         // the cake stands on the desk, so it moves with the desk's plane
         { const pm = view.at(view.focus, tmp), k = pm.s / map.s; cake = { s: cake0.s * k, x: pm.x + (cake0.x - map.x) * k, y: pm.y + (cake0.y - map.y) * k }; }
+        }
+        if (c3) cake = { s: cake0.s * cur.s / map.s, x: 0, y: 0 };
 
         // ---------- the cake and its candles ----------
         g.setTransform(env.dpr, 0, 0, env.dpr, 0, 0); g.clearRect(0, 0, W, H);
         tg.setTransform(rs, 0, 0, rs, 0, 0); if (topDirty || phase === 'blown') { tg.clearRect(0, 0, W, H); topDirty = phase === 'blown'; }
         const warm = flames.reduce((a, f) => a + f.lit * (1 - f.out), 0) / flames.length;
-        const darkness = phase === 'wish' ? .45 + between(t - phaseAt, 0, 2.5) * .4 : phase === 'blown' ? lerp(.8, .22, between(t - blowAt, 1.5, 6)) : .62 - warm * .3;
+        const darkness = (c3 ? .55 : 1) * (phase === 'wish' ? .45 + between(t - phaseAt, 0, 2.5) * .4 : phase === 'blown' ? lerp(.8, .22, between(t - blowAt, 1.5, 6)) : .62 - warm * .3);
         const cw = CAKE_W * cake.s, ch = CAKE_H * cake.s;
         // warm pool of light around the cake
         g.globalCompositeOperation = 'lighter'; g.globalAlpha = warm * .55 * (.92 + Math.sin(t * 9) * .05);
-        g.drawImage(glowW, W / 2 - cw * 1.1, cake.y - ch * .15, cw * 2.2, ch * 1.4);
+        if (!c3) g.drawImage(glowW, W / 2 - cw * 1.1, cake.y - ch * .15, cw * 2.2, ch * 1.4);
+        else { const [mx, my] = tip(FIRST), r = FLAME * cake.s * 9; g.globalAlpha *= .5; g.drawImage(glowW, mx - r, my - r * .7, r * 2, r * 1.6); }
         g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+        if (!c3) {
         // a soft contact shadow where the stand meets the desk
         { const sx = cake.x + cw / 2, sy = cake.y + ch * .99, sh = g.createRadialGradient(sx, sy, 0, sx, sy, cw * .5);
           sh.addColorStop(0, 'rgba(8,4,2,.6)'); sh.addColorStop(1, 'rgba(8,4,2,0)');
           g.save(); g.translate(sx, sy); g.scale(1, .12); g.translate(-sx, -sy); g.fillStyle = sh; g.fillRect(sx - cw * .5, sy - cw * .5, cw, cw); g.restore(); }
         g.drawImage(A.cake, cake.x, cake.y, cw, ch);
+        }
         // the room falls into shadow except where the candles reach
         const [lx, ly] = tip(FIRST), reach = Math.max(W, H) * (.25 + warm * .45);
         const dg = g.createRadialGradient(lx, ly, 0, lx, ly, reach);

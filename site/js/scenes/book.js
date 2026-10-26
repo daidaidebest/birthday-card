@@ -226,7 +226,7 @@ export default {
         } else view.draw(lg);
         // the lamps and the fire come up as the book wakes, then breathe gently
         const warm = between(t, .2, 2.4) * (.9 + Math.sin(t * 2.3) * .04 + Math.sin(t * 5.1) * .03 + Math.sin(t * 9.7) * .02);
-        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm * (filmed ? .2 : 1)); }
+        { const pm = view.at(.4, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); studyLights(lg, portrait ? 'study-port' : 'study-land', t, warm * (filmed ? 0 : 1)); } // the 3D film has its own lights
         { const pm = view.at(.75, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); if (!filmed) studySteam(lg, portrait ? 'study-port' : 'study-land', t, warm * (1 - rise * .6)); lg.setTransform(rs, 0, 0, rs, 0, 0); } // the film has its own steam
         lg.globalCompositeOperation = 'lighter';
         bokeh.forEach(b => {

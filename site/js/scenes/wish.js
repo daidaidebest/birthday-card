@@ -13,8 +13,8 @@ const A = {};
 // room waiting in the dark, the six candles burning, and the lamps come up after the wish — plus a mask of the window
 // glass. Wick tips and the glass are in render pixels (the scene script exports them with the renders).
 const C3 = {
-  p: { w: 1080, h: 1920, wicks: [[.4202, .50027], [.45328, .50043], [.48229, .50068], [.5176, .50052], [.55444, .50045], [.57082, .50007]], glass: [902, 145, 1080, 937] },
-  l: { w: 1440, h: 810, wicks: [[.45035, .40413], [.47137, .40457], [.48993, .40535], [.5118, .40458], [.53469, .40415], [.54422, .40265]], glass: [933, 0, 1262, 305] },
+  p: { w: 1080, h: 1920, wicks: [[.4202, .50027], [.45328, .50043], [.48229, .50068], [.5176, .50052], [.55444, .50045], [.57082, .50007]], glass: [897, 139, 1080, 944] },
+  l: { w: 1440, h: 810, wicks: [[.45035, .40413], [.47137, .40457], [.48993, .40535], [.5118, .40458], [.53469, .40415], [.54422, .40265]], glass: [928, 0, 1267, 315] },
 };
 const glassBox = name => { const [x0, y0, x1, y1] = glassRect(name); return { x0, y0, x1, y1 }; };
 const N = CANDLES.length, FIRST = Math.floor((N - 1) / 2); // the star lights a middle candle first
@@ -135,7 +135,7 @@ export default {
       cake = cake0 = { s: cs, x: cx - CAKE_W * cs / 2, y: map.y + baseY * s - (CAKE_H - 6) * cs };
       if (c3) { cur = { ...map }; cake = cake0 = { s: .0185 * c3.h * s / FLAME, x: 0, y: 0 }; } // flames sized to the rendered candles
       const wcx = map.x + (WINDOW.x0 + WINDOW.x1) / 2 * s, wcy = map.y + (WINDOW.y0 + WINDOW.y1) / 2 * s;
-      const z = portrait ? 1.35 : Math.min(2.2, H * .9 / ((WINDOW.y1 - WINDOW.y0) * s));
+      const z = c3 ? 1.18 : portrait ? 1.35 : Math.min(2.2, H * .9 / ((WINDOW.y1 - WINDOW.y0) * s)); // the 3D room: a gentle lean toward the window
       // look toward the window, but never so far that the room's edge comes into view
       const rw = img.width * s, rh = img.height * s;
       const fit = (want, o, z, lo, len, view) => { const a = view - o - z * (lo + len - o), b = -o - z * (lo - o); return a > b ? (a + b) / 2 : clamp(want, a, b); };

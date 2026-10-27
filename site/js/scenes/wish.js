@@ -5,7 +5,7 @@
 // champagne-gold fireworks open slowly far beyond the window, rose petals and motes of golden light drift down, and the
 // last letter appears. After the credits, a postcard to keep (../keepsake.js); then the screen goes dark and a real
 // night sky closes the story.
-import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, rng, glowSprite, sparkleSprite, TAU } from '../util.js';
+import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, rng, glowSprite, sparkleSprite, TAU, noise1 } from '../util.js';
 import { wander } from '../depth.js';
 import { Hearth, drawFire } from '../hearth.js';
 import { Keepsake, Closing, alphaMask } from '../keepsake.js';
@@ -79,6 +79,8 @@ export default {
     const k = env.portrait ? 'p' : 'l';
     const img = await Promise.all(['unlit', 'after', 'mask', 'close-unlit', 'close-lit'].map(n => loadImage(asset(`img/cake3d-${n}-${k}.webp`))))
       .then(([unlit, after, mask, cu, cl]) => ({ unlit, after, mask, cu, cl })).catch(e => { console.warn(e); return null; }); // without them: flames in a warm dark
+    // each candle's own light on the cake (rendered alone): added one by one as she lights them, flickering with its flame
+    if (img) { const passes = await Promise.all(Array.from({ length: N }, (_, i) => loadImage(asset(`img/cake3d-close-light${i}-${k}.webp`)).catch(() => null))); if (passes.every(Boolean)) img.passes = passes; }
     A.c3 = { k, ...C3[k], M: fitWicks(C3[k]), mid: mean(px(C3[k], C3[k].wide)), img };
   },
   create(env) {
@@ -279,7 +281,11 @@ export default {
       if (I && closeA > 0) {
         if (plainA < 1 && soft) blit(soft, cT, closeA);
         blit(I.cu, cT, closeA * (soft ? plainA : 1));
-        blit(I.cl, cT, closeA * litK);
+        if (I.passes) { // candlelight, candle by candle: each flame's light on the icing, the roses and the wax breathes with it
+          sg.globalCompositeOperation = 'lighter';
+          flames.forEach((f, i) => { const a = f.lit * (1 - f.out); if (a > .004) blit(I.passes[i], cT, closeA * a * (.8 + .14 * (.5 + .5 * noise1(t * 6.3 + f.seed)) + .06 * noise1(t * 1.4 + f.seed * 2))); });
+          sg.globalCompositeOperation = 'source-over';
+        } else blit(I.cl, cT, closeA * litK);
       }
       sg.globalAlpha = 1;
       // the hearth: living flame over the rendered fire (as each camera sees it), and its light breathing over the room
@@ -330,7 +336,7 @@ export default {
         const warm = flames.reduce((a, f) => a + f.lit * (1 - f.out), 0) / N, fs = flameSize(), sp = spacing();
         const darkness = .55 * (phase === 'wish' ? .45 + between(t - phaseAt, 0, 2.5) * .4 : phase === 'blown' ? lerp(.8, .22, between(t - blowAt, LAMPS - .3, LAMPS + 3.7)) : .62 - warm * .3);
         // warm pool of light around the candles
-        { const [mx, my] = tip(FIRST), r = sp * 4.6; g.globalCompositeOperation = 'lighter'; g.globalAlpha = warm * .28 * (.92 + Math.sin(t * 9) * .05); g.drawImage(glowW, mx - r, my - r * .7, r * 2, r * 1.6); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
+        { const [mx, my] = tip(FIRST), r = sp * 4.6; g.globalCompositeOperation = 'lighter'; g.globalAlpha = warm * (I?.passes ? .12 : .28) * (.92 + Math.sin(t * 9) * .05); g.drawImage(glowW, mx - r, my - r * .7, r * 2, r * 1.6); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
         // the room falls into shadow except where the candles reach
         if (phase === 'blown') { tg.fillStyle = `rgba(5,5,14,${darkness.toFixed(3)})`; tg.fillRect(0, 0, W, H); } // the leaning world no longer covers the screen edges
         else {
@@ -479,7 +485,7 @@ function drawFlame(g, x, y, s, t, seed, lean, a) {
   const f = 1 + Math.sin(t * 13 + seed) * .07 + Math.sin(t * 7.1 + seed * 3) * .05, sway = Math.sin(t * 3.3 + seed) * s * .07 + lean * s * .06;
   g.save(); g.translate(x, y); g.globalAlpha = a;
   g.globalCompositeOperation = 'lighter';
-  const halo = g.createRadialGradient(0, -s * .5, 0, 0, -s * .5, s * 3.2); halo.addColorStop(0, 'rgba(255,200,120,.45)'); halo.addColorStop(1, 'rgba(255,160,80,0)');
+  const halo = g.createRadialGradient(0, -s * .5, 0, 0, -s * .5, s * 2.6); halo.addColorStop(0, 'rgba(255,200,120,.26)'); halo.addColorStop(1, 'rgba(255,160,80,0)');
   g.fillStyle = halo; g.fillRect(-s * 3.2, -s * 3.7, s * 6.4, s * 6.4);
   const gr = g.createRadialGradient(0, -s * .38, 0, 0, -s * .5, s * .95);
   gr.addColorStop(0, 'rgba(255,253,235,1)'); gr.addColorStop(.3, 'rgba(255,214,130,.95)'); gr.addColorStop(.75, 'rgba(255,140,50,.55)'); gr.addColorStop(1, 'rgba(255,100,30,0)');

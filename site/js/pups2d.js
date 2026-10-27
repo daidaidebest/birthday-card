@@ -68,7 +68,7 @@ export class Pups2D {
     });
   }
   size() { const { W, portrait } = this.env, M = MODES[this.mode]; return (W < 700 || portrait ? 104 : clamp(W * .13, 148, 186)) * (M?.small || 1); }
-  ground() { const M = MODES[this.mode]; return this.env.H * (this.env.portrait ? M.y[1] : M.y[0]); }
+  ground() { const M = MODES[this.mode] || this.lastM || MODES.book; return this.env.H * (this.env.portrait ? M.y[1] : M.y[0]); } // between modes ('hidden', null) they stay where they last stood
   poke(e) {
     if (!MODES[this.mode] || this.env.film.classList.contains('paused')) return;
     const S = this.size(), gy = this.ground();

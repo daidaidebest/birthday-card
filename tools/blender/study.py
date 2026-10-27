@@ -7,6 +7,7 @@ blender -b --factory-startup --python study.py -- OUT.blend VARIANT ORIENT [prev
 import bpy, bmesh, math, random, sys, os, json
 from mathutils import Vector, Matrix, Euler, noise
 sys.path.insert(0, os.path.expanduser('~/projects/render-workspace/tools'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # cake.py, embers.py (v17)
 import blu
 from blu import mat, mat_ph, emission_mat, obj_from_bm, collection, link
 
@@ -27,6 +28,7 @@ BACK = 3.0
 FLOOR = mat_ph('floor', 'wood_floor_worn', scale=.5, tint=(.62, .5, .42), bump=.4, size=1024)
 PLASTER = mat_ph('plaster', 'plastered_wall_03', scale=.45, tint=(.78, .66, .54), bump=.3, size=1024)
 STONE = mat_ph('stone', 'stone_wall', scale=1.1, tint=(.42, .36, .31), bump=.8, size=1024)
+FBSTONE = mat_ph('fb_stone', 'stone_wall', scale=1.6, tint=(.12, .095, .08), bump=1.0, size=1024) if CAKE else None  # sooty firebox
 DARKWOOD = mat_ph('darkwood', 'dark_wood', scale=.8, tint=(.55, .38, .26), bump=.25, rough_mul=.8, size=1024)
 RUG = mat('rug', (.32, .07, .06), .9)
 GOLD = mat('gold', (1.0, .76, .38), .25, metal=1)
@@ -128,13 +130,18 @@ def fireplace():
     box('fp_back', (cx, y + .1, .62), (1.25, .1, 1.25), soot, ROOM); box('fp_in_l', (cx - .6, y - .05, .62), (.04, .5, 1.25), soot, ROOM); box('fp_in_r', (cx + .6, y - .05, .62), (.04, .5, 1.25), soot, ROOM); box('fp_in_t', (cx, y - .05, 1.26), (1.25, .5, .04), soot, ROOM)
     box('fp_hearth', (cx, y - .35, .04), (2.1, .9, .08), DARKWOOD, ROOM)
     box('fp_chimney', (cx, y + .05, 2.9), (1.6, .4, 2.6), STONE, ROOM)
-    # logs
-    logm = mat('log', (.06, .035, .02), .9)
-    for i, (dx, rz) in enumerate([(-.2, .25), (.18, -.3), (0, 1.57)]):
-        bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=10, radius1=.07, radius2=.06, depth=.6, matrix=Matrix.Translation((cx + dx, FIRE.y, .14 + i * .08)) @ Matrix.Rotation(rz, 4, 'Z') @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
-        obj_from_bm('log', bm, [logm], col=ROOM, smooth=True)
-    # embers
-    box('embers', (cx, FIRE.y, .1), (.7, .3, .04), emission_mat('embers', (1, .25, .04), 4), ROOM)
+    if CAKE:   # v17 cake stills: a glowing ember and log bed (the page paints the living flames over it)
+        import embers; embers.build(ROOM, cx, FIRE.y, .08)
+        for o in ROOM.objects:
+            if o.name.startswith(('fp_back', 'fp_in_')): o.data.materials[0] = FBSTONE
+    else:
+        # logs
+        logm = mat('log', (.06, .035, .02), .9)
+        for i, (dx, rz) in enumerate([(-.2, .25), (.18, -.3), (0, 1.57)]):
+            bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=10, radius1=.07, radius2=.06, depth=.6, matrix=Matrix.Translation((cx + dx, FIRE.y, .14 + i * .08)) @ Matrix.Rotation(rz, 4, 'Z') @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+            obj_from_bm('log', bm, [logm], col=ROOM, smooth=True)
+        # embers
+        box('embers', (cx, FIRE.y, .1), (.7, .3, .04), emission_mat('embers', (1, .25, .04), 4), ROOM)
     # flames: crossed cards with a rising, flickering emission (4D noise drifting upward)
     fm = bpy.data.materials.new('flame'); fm.use_nodes = True; nt = fm.node_tree; N = nt.nodes; N.remove(N['Principled BSDF'])
     tc = N.new('ShaderNodeTexCoord'); mp = N.new('ShaderNodeMapping'); link(nt, tc.outputs['Generated'], mp.inputs[0]); mp.inputs['Scale'].default_value = (3, 1, 2)
@@ -168,7 +175,7 @@ def fireplace():
     inv = N.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1; link(nt, fr.outputs['Facing'], inv.inputs[1])
     link(nt, inv.outputs[0], mx.inputs[0]); link(nt, tr.outputs[0], mx.inputs[1]); link(nt, em.outputs[0], mx.inputs[2]); link(nt, mx.outputs[0], N['Material Output'].inputs[0])
     rr = random.Random(5)
-    for i in range(13):
+    for i in range(0 if CAKE else 13):
         bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=10, radius=1)
         for v in bm.verts:
             z = (v.co.z + 1) / 2; k = (1 - z) ** .8 * (.35 + .65 * min(1, z * 4))
@@ -183,6 +190,7 @@ def fireplace():
     # a faint ember glow inside the firebox
     eg = bpy.data.objects.new('ember_glow', bpy.data.lights.new('ember_glow', 'POINT')); ROOM.objects.link(eg)
     eg.data.energy = 18; eg.data.color = (1, .3, .06); eg.data.shadow_soft_size = .2; eg.location = (cx, FIRE.y, .25); eg.visible_camera = False
+    if CAKE: eg.data.energy = 6; eg.location = (cx, FIRE.y - .38, .36)
     # firelight: two flickering points (baked keyframes)
     for i, (dx, e) in enumerate(((-.15, 170), (.2, 140))):
         L = bpy.data.objects.new('firelight', bpy.data.lights.new('firelight', 'POINT')); ROOM.objects.link(L)
@@ -190,6 +198,12 @@ def fireplace():
         for f in range(1, FRAMES + 1, 2):
             t = f / FPS; L.data.energy = e * (.75 + .18 * noise.noise(Vector((t * 3.1, i * 4.3, 0))) + .09 * noise.noise(Vector((t * 9.7, i, 2))))
             L.data.keyframe_insert('energy', frame=f)
+        if CAKE:   # the flames' room light passes the sooty inside of the firebox and the bed by (only the embers light those)
+            fbx = bpy.data.collections.new('firebox_dark')
+            for o in ROOM.objects:
+                if o.name.startswith(('fp_back', 'fp_in_', 'log', 'coals', 'ash_bed')): fbx.objects.link(o)
+            L.light_linking.receiver_collection = fbx
+            for co in fbx.collection_objects: co.light_linking.link_state = 'EXCLUDE'
 fireplace()
 
 # ------------------------------------------------------------------ shelves of books
@@ -314,88 +328,8 @@ if CAKE:
     CK = collection('Cake'); TABLE = Vector((.15, -.55, 0))
     place('round_wooden_table_01', (TABLE.x, TABLE.y, 0), 0, .78)
     lo, hi = blu.bbox(bpy.data.objects['round_wooden_table_01']); top = hi.z
-    cream = bpy.data.materials.new('buttercream'); cream.use_nodes = True; P = cream.node_tree.nodes['Principled BSDF']
-    P.inputs['Base Color'].default_value = (.93, .86, .76, 1); P.inputs['Roughness'].default_value = .45
-    P.inputs['Subsurface Weight'].default_value = .5; P.inputs['Subsurface Radius'].default_value = (.06, .03, .02); P.inputs['Subsurface Scale'].default_value = .02
-    nt = cream.node_tree; N = nt.nodes; tc = N.new('ShaderNodeTexCoord'); nz = N.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 60
-    link(nt, tc.outputs['Object'], nz.inputs['Vector']); b = N.new('ShaderNodeBump'); b.inputs['Strength'].default_value = .12; link(nt, nz.outputs['Fac'], b.inputs['Height']); link(nt, b.outputs[0], P.inputs['Normal'])
-    # blush ombré toward the bottom of the lower tier
-    sep = N.new('ShaderNodeSeparateXYZ'); link(nt, tc.outputs['Object'], sep.inputs[0])
-    blush = mat('blush', (.93, .66, .64), .45)
-    rose_m = bpy.data.materials.new('sugar_rose'); rose_m.use_nodes = True; P2 = rose_m.node_tree.nodes['Principled BSDF']
-    P2.inputs['Base Color'].default_value = (.92, .45, .5, 1); P2.inputs['Roughness'].default_value = .5; P2.inputs['Subsurface Weight'].default_value = .6; P2.inputs['Subsurface Radius'].default_value = (.08, .03, .03); P2.inputs['Subsurface Scale'].default_value = .01
-    leaf_m = mat('leaf', (.16, .28, .14), .5)
-    pearl = mat('pearl', (.95, .9, .82), .15, metal=.3)
-    wax = bpy.data.materials.new('wax'); wax.use_nodes = True; P3 = wax.node_tree.nodes['Principled BSDF']
-    P3.inputs['Base Color'].default_value = (.96, .92, .84, 1); P3.inputs['Roughness'].default_value = .35; P3.inputs['Subsurface Weight'].default_value = .8; P3.inputs['Subsurface Radius'].default_value = (.03, .02, .01); P3.inputs['Subsurface Scale'].default_value = .01
-    wick = mat('wick', (.03, .02, .015), .8)
-    z = top
-    # gold cake stand
-    bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=.09, radius2=.05, depth=.1, matrix=Matrix.Translation((TABLE.x, TABLE.y, z + .05)))
-    bmesh.ops.create_cone(bm, cap_ends=True, segments=64, radius1=.2, radius2=.21, depth=.015, matrix=Matrix.Translation((TABLE.x, TABLE.y, z + .107)))
-    obj_from_bm('stand', bm, [GOLD], col=CK, smooth=True)
-    z += .115
-    def tier(r, h, zb, name):
-        bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=96, radius1=r, radius2=r, depth=h, matrix=Matrix.Translation((TABLE.x, TABLE.y, zb + h / 2)))
-        o = obj_from_bm(name, bm, [cream], col=CK, smooth=True)
-        bev = o.modifiers.new('bev', 'BEVEL'); bev.width = .008; bev.segments = 4
-        # piped shell border at the base and the top edge
-        bm = bmesh.new(); n = int(2 * math.pi * r / .016)
-        for i in range(n):
-            a = i / n * 2 * math.pi
-            for (rr, zz, sz) in ((r + .004, zb + .008, .011), (r - .006, zb + h + .002, .008)):
-                bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=1, matrix=Matrix.Translation((TABLE.x + math.cos(a) * rr, TABLE.y + math.sin(a) * rr, zz)) @ Matrix.Rotation(a, 4, 'Z') @ Matrix.Diagonal((sz * .8, sz * 1.3, sz, 1)))
-        obj_from_bm(name + '_shells', bm, [cream], col=CK, smooth=True)
-        return zb + h
-    z1 = tier(.16, .13, z, 'tier1'); z2 = tier(.11, .11, z1, 'tier2')
-    # pearls at the base of the top tier
-    bm = bmesh.new()
-    for i in range(70):
-        a = i / 70 * 2 * math.pi; bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=.0045, matrix=Matrix.Translation((TABLE.x + math.cos(a) * .118, TABLE.y + math.sin(a) * .118, z1 + .02)))
-    obj_from_bm('pearls', bm, [pearl], col=CK, smooth=True)
-    # sugar roses: petals in a golden-angle spiral, opening outward
-    def rose(c, size, tilt=0, rz=0):
-        bm = bmesh.new(); n = 22
-        for i in range(n):
-            k = i / n; a = i * 2.39996; L = size * (.35 + .75 * k); open_ = .15 + 1.15 * k
-            grid = []
-            for u in range(5):
-                row = []
-                for v in range(4):
-                    uu = (u / 4 - .5) * 1.2; vv = v / 3
-                    # a cupped petal: curls inward at the base, flares at the rim
-                    x = uu * L * (.55 + .5 * vv); y0 = vv * L
-                    zc = -abs(uu) * L * .25 * (1 - vv) + (vv ** 2) * L * .15
-                    p = Vector((x, -zc, y0))
-                    p = Matrix.Rotation(-open_ * vv * .9 - open_ * .35, 3, 'X') @ p
-                    p = Matrix.Rotation(a, 3, 'Z') @ (p + Vector((0, size * .08 * k, 0)))
-                    row.append(bm.verts.new(p))
-                grid.append(row)
-            for u in range(4):
-                for v in range(3): bm.faces.new((grid[u][v], grid[u + 1][v], grid[u + 1][v + 1], grid[u][v + 1]))
-        bmesh.ops.transform(bm, matrix=Matrix.Translation(c) @ Matrix.Rotation(rz, 4, 'Z') @ Matrix.Rotation(tilt, 4, 'X'), verts=bm.verts)
-        o = obj_from_bm('rose', bm, [rose_m], col=CK, smooth=True); sol = o.modifiers.new('s', 'SOLIDIFY'); sol.thickness = .0015
-        return o
-    def leaf(c, a, size=.03):
-        bm = bmesh.new(); vs = [bm.verts.new(v) for v in [(0, 0, 0), (size * .35, size * .5, .002), (0, size, 0), (-size * .35, size * .5, .002)]]; bm.faces.new(vs)
-        bmesh.ops.transform(bm, matrix=Matrix.Translation(c) @ Matrix.Rotation(a, 4, 'Z') @ Matrix.Rotation(.5, 4, 'X'), verts=bm.verts)
-        obj_from_bm('leaf', bm, [leaf_m], col=CK)
-    # a cascade down the front-left of both tiers
-    for (ang, zz, sz, rr) in [(-2.0, z2 - .01, .032, .105), (-2.35, z2 - .045, .026, .11), (-2.15, z1 + .005, .034, .155), (-2.55, z1 - .03, .03, .162),
-                              (-2.3, z1 - .07, .028, .165), (-2.75, z1 - .1, .024, .165), (-1.75, z2 + .005, .022, .07)]:
-        c = Vector((TABLE.x + math.cos(ang) * rr, TABLE.y + math.sin(ang) * rr, zz))
-        rose(c, sz * 1.45, tilt=-1.1, rz=ang + math.pi / 2)
-        leaf(c + Vector((math.cos(ang + .4) * .02, math.sin(ang + .4) * .02, -.01)), ang - .8)
-    # six slim candles in one gentle arc right across the top tier (wide apart, so each is easy to touch on a phone)
-    for i in range(6):
-        u = (i - 2.5) / 2.5
-        x, y = TABLE.x + u * .084, TABLE.y + .006 + .034 * (1 - u * u)
-        hgt = .085
-        bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=16, radius1=.0055, radius2=.0055, depth=hgt, matrix=Matrix.Translation((x, y, z2 + hgt / 2)))
-        o = obj_from_bm('candle', bm, [wax], col=CK, smooth=True)
-        bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=.0008, radius2=.0006, depth=.009, matrix=Matrix.Translation((x, y, z2 + hgt + .0045)))
-        obj_from_bm('wick', bm, [wick], col=CK)
-        CANDLES.append(Vector((x, y, z2 + hgt + .009)))
+    import cake   # v17: the believable cake (tools/blender/cake.py), same dimensions and wick tips as v16
+    CANDLES[:] = cake.build(CK, TABLE, top)
     # candle light (shown only in the lit stills)
     for i, c in enumerate(CANDLES): point(f'flame{i}', c + Vector((0, 0, .014)), 2.2, (1, .6, .25), .006).hide_render = True
     # a soft warm key over the table so the cake reads (its strength is set per still)
@@ -474,6 +408,9 @@ if CAKE:
     out = {'res': res}
     for k, c_ in (('wicks', cam), ('wicks_close', bpy.data.objects['cam_close'])):
         pts = [world_to_camera_view(s, c_, c) for c in CANDLES]; out[k] = [[round(p.x, 5), round(1 - p.y, 5)] for p in pts]
+        # the hearth (for reference): the ember bed's centre at log-top height and the opening's inner width
+        fb = [world_to_camera_view(s, c_, Vector((FIRE.x + dx, FIRE.y, .2))) for dx in (0, -.6, .6)]
+        out[k.replace('wicks', 'fire')] = [round(fb[0].x, 4), round(1 - fb[0].y, 4), round(fb[2].x - fb[1].x, 4)]
     json.dump(out, open(OUT.replace('.blend', '.wicks.json'), 'w'))
 
 # ------------------------------------------------------------------ render settings

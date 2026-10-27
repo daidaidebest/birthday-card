@@ -148,6 +148,7 @@ export class Pups {
   }
   set(mode) {
     if (mode === this.mode) return;
+    if (MODES[this.mode]) this.lastM = MODES[this.mode];
     this.mode = mode; const M = MODES[mode]; this.showAt = this.t + 1;
     this.dogs.forEach(d => {
       d.beat = 0; d.next = this.t + 1 + d.i * 1.5; d.mood = M?.rest ? 'rest' : 'watch'; d.follow = false;
@@ -158,7 +159,7 @@ export class Pups {
     if (!M && this.ball) this.dropBall(true);
   }
   size() { const { W, portrait } = this.env, M = MODES[this.mode]; return (W < 700 || portrait ? 104 : clamp(W * .13, 148, 186)) * (M?.small || 1); }
-  ground() { const M = MODES[this.mode]; return this.env.H * (this.env.portrait ? M.y[1] : M.y[0]); }
+  ground() { const M = MODES[this.mode] || this.lastM || MODES.book; return this.env.H * (this.env.portrait ? M.y[1] : M.y[0]); } // between modes ('hidden', null) they stay where they last stood
   active() { return !!MODES[this.mode] && !this.env.film.classList.contains('paused'); }
   hit(d, x, y) { const S = this.size(), gy = this.ground(), dx = d.x * this.env.W; return Math.abs(x - dx) < S * .36 && y < gy + 6 && y > gy - S * .8; }
   // ---------- the visitor ----------

@@ -126,9 +126,9 @@ function postmark(R, d, wl = 2) {
   };
   arc('SPECIALLY DELIVERED', R * .72, -Math.PI / 2, 1, R * .13);
   arc("SHI BAOBAO'S FAIRY TALE", R * .86, Math.PI / 2, -1, R * .12);
-  star(g, ox - R * .8, oy, R * .07); star(g, ox + R * .8, oy, R * .07);
+  for (const sx of [-1, 1]) { g.beginPath(); g.arc(ox + sx * R * .8, oy, R * .035, 0, TAU); g.fill(); }   // two dots, and a crescent moon at the top
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  star(g, ox, oy - R * .4, R * .075);
+  g.beginPath(); g.arc(ox, oy - R * .4, R * .085, 0, TAU); g.arc(ox + R * .04, oy - R * .43, R * .072, 0, TAU, true); g.fill('evenodd');
   g.font = `${R * .19}px ${LATIN}`; spaced(g, `${MON[d.getMonth()]} ${pad2(d.getDate())} ${d.getFullYear()}`, ox, oy - R * .05, R * .025, 'center');
   g.fillRect(ox - R * .44, oy + R * .05, R * .88, R * .014);
   g.font = `${R * .26}px ${LATIN}`; spaced(g, `${pad2(d.getHours())}:${pad2(d.getMinutes())}`, ox, oy + R * .37, R * .03, 'center');
@@ -152,7 +152,7 @@ export class Keepsake {
     el.innerHTML = `
       <div class="ks-inner">
         <p class="ks-eyebrow"><small>A POSTCARD FOR YOU</small>寄给你的明信片</p>
-        <div class="ks-card"><canvas class="ks-cv" role="img" aria-label="明信片：To 师宝宝"></canvas>
+        <div class="ks-card"><canvas class="ks-cv" role="img" aria-label="明信片：To 师宝宝"></canvas><canvas class="ks-foil" aria-hidden="true"></canvas>
           <button type="button" class="ks-wish" aria-label="换一句每日心愿"><span>轻点，换一句心愿 ↻</span></button></div>
         <p class="ks-tip">轻点心愿换一句；选好了，就盖上邮戳。</p>
         <div class="ks-actions">
@@ -165,6 +165,8 @@ export class Keepsake {
     parent.appendChild(el);
     const $ = s => el.querySelector(s);
     this.cardEl = $('.ks-card'); this.cv = $('.ks-cv'); this.cv.width = L.w; this.cv.height = L.h; this.g = this.cv.getContext('2d');
+    // the foil: a slow metallic sheen over the gold only, for the eye (the saved card is the plain canvas underneath)
+    this.foil = $('.ks-foil'); this.foil.width = Math.round(L.w / 2); this.foil.height = Math.round(L.h / 2); this.fg = this.foil.getContext('2d');
     this.tipEl = $('.ks-tip'); this.sealBtn = $('[data-seal]'); this.saveBtn = $('[data-save]'); this.sheet = $('.ks-sheet');
     const [hx0, hy0, hx1, hy1] = L.hit; Object.assign($('.ks-wish').style, { left: hx0 / L.w * 100 + '%', top: hy0 / L.h * 100 + '%', width: (hx1 - hx0) / L.w * 100 + '%', height: (hy1 - hy0) / L.h * 100 + '%' });
     $('.ks-wish').addEventListener('click', () => this.next());
@@ -219,7 +221,35 @@ export class Keepsake {
     for (let i = 0; i < 3; i++) goldLine(g, L.x0, L.x1, L.wish[0] + 22 + i * L.wish[1], .42, 1.2);
     g.fillStyle = INK; g.globalAlpha = .82; g.font = `${fSign}px ${SERIF}`; spaced(g, '—— 一个在东京想你的人', L.x1, L.sign, fSign * .1, 'right'); g.globalAlpha = 1;
     g.fillStyle = GOLD; g.font = `${fFoot}px ${LATIN}`; spaced(g, 'FAIRY TALE POST  ·  Nº 1103', L.x0, L.foot, fFoot * .32);
+    this.goldMask = this.drawGold();
     return c;
+  }
+  /** Everything on the card printed in gold foil (the rules, "To", the label, the lines, the footer), as a half-size mask. */
+  drawGold() {
+    const L = this.L, c = canvas(L.w / 2, L.h / 2), g = c.getContext('2d'), [fTo, , fLabel, , , fFoot] = L.f, [px, py, pw, ph] = L.pic;
+    g.scale(.5, .5); g.fillStyle = g.strokeStyle = '#fff';
+    g.lineWidth = 3; g.strokeRect(24, 24, L.w - 48, L.h - 48); g.lineWidth = 1.2; g.strokeRect(34, 34, L.w - 68, L.h - 68);
+    g.lineWidth = 1; g.strokeRect(px - 10.5, py - 10.5, pw + 21, ph + 21);
+    g.textBaseline = 'alphabetic'; g.font = `${fTo}px ${SCRIPT}`; g.textAlign = 'left'; g.fillText('To', L.x0, L.to);
+    g.fillRect(L.x0, L.to + 22, (L.x1 - L.x0) * .55, 1.5);
+    g.font = `${fLabel}px ${SERIF}`; const lw = spaced(g, '每日心愿', L.x0, L.label, fLabel * .3);
+    g.font = `${fLabel * .82}px ${LATIN}`; spaced(g, '·  DAILY WISH', L.x0 + lw + fLabel * .7, L.label, fLabel * .22);
+    g.globalAlpha = .75; for (let i = 0; i < 3; i++) g.fillRect(L.x0, L.wish[0] + 22 + i * L.wish[1], L.x1 - L.x0, 1.2); g.globalAlpha = 1;
+    g.font = `${fFoot}px ${LATIN}`; spaced(g, 'FAIRY TALE POST  ·  Nº 1103', L.x0, L.foot, fFoot * .32);
+    return c;
+  }
+  /** The sheen: a soft band of light crossing the card every ten seconds or so, nudged by how she tilts the phone. */
+  drawFoil(t) {
+    const f = this.fg, w = this.foil.width, h = this.foil.height; if (!this.goldMask) return;
+    f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, w, h);
+    if (this.env.reduced) return;
+    const u = ((t / 10.5) % 1) * 1.9 - .45 + this.env.look.x * .2 + this.env.look.y * .08, cx = w * u, cy = h * u, L = Math.hypot(w, h) * .16;
+    for (const [k, a] of [[1, .62], [2.6, .16]]) {
+      const gr = f.createLinearGradient(cx - L * k * .7, cy - L * k * .7, cx + L * k * .7, cy + L * k * .7);
+      gr.addColorStop(0, 'rgba(255,244,214,0)'); gr.addColorStop(.5, `rgba(255,248,226,${a})`); gr.addColorStop(1, 'rgba(255,244,214,0)');
+      f.fillStyle = gr; f.fillRect(0, 0, w, h);
+    }
+    f.globalCompositeOperation = 'destination-in'; f.drawImage(this.goldMask, 0, 0, w, h); f.globalCompositeOperation = 'source-over';
   }
   wishText(g, i, a) {
     if (a <= 0) return; const L = this.L, fs = L.f[3], tr = fs * .06;
@@ -290,15 +320,17 @@ export class Keepsake {
   saved(text) { this.savedAt = this.t; this.touch(); this.tipEl.textContent = text; this.saveBtn.firstChild.textContent = '再存一张 '; }
   update(dt, t) {
     this.t = t; if (!this.el.classList.contains('on') || !this.base) return;
+    this.drawFoil(t);
     const m = this.mark, fading = this.fade && t - this.fade.at < .5;
     if (m && !m.hit && t - m.at >= (this.env.reduced ? 0 : .22)) { // contact
       m.hit = true; this.env.audio.sfx('seal', .9);
       if (!this.env.reduced) { this.cardEl.classList.remove('thump'); void this.cardEl.offsetWidth; this.cardEl.classList.add('thump'); }
-      const r = this.cv.getBoundingClientRect(); this.env.fx.burst(r.left + this.L.mark[0] / this.L.w * r.width, r.top + this.L.mark[1] / this.L.h * r.height, { n: 30, speed: 90, life: 1.4, size: 1.5, color: '255,220,150' });
+      const r = this.cv.getBoundingClientRect(); this.env.fx.burst(r.left + this.L.mark[0] / this.L.w * r.width, r.top + this.L.mark[1] / this.L.h * r.height, { n: 12, speed: 50, life: 1.6, size: 1.3, color: '255,222,160', sparkle: 0 });
     }
     if (fading || (m && !m.done)) this.compose();
     if (m && !m.done && t - m.at > 1.8) { // the ink has dried: the card is final, ready to keep
       m.done = true; this.compose();
+      if (this.goldMask) { const gm = this.goldMask.getContext('2d'), [cx, cy] = this.L.mark; gm.save(); gm.setTransform(.5, 0, 0, .5, 0, 0); gm.translate(cx, cy); gm.rotate(m.rot); gm.globalAlpha = .9; gm.drawImage(m.s.c, -m.s.ox, -m.s.oy); gm.restore(); } // the postmark's gold catches the light too
       this.cv.toBlob(b => { if (!b) return; this.file = new File([b], NAME, { type: 'image/png' }); this.saveBtn.hidden = false; requestAnimationFrame(() => this.saveBtn.classList.add('in')); }, 'image/png');
     }
   }

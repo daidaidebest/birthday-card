@@ -19,14 +19,16 @@ export class Hearth {
     before ? parent.insertBefore(this.el, before) : parent.appendChild(this.el);
     this.wash = wash; this.seed = Math.random() * 100;
   }
-  /** Breathing firelight at screen point (x, y) (the base of the flames), sized from the firebox width w (px). */
-  update(t, x, y, w, k = 1) {
+  /** Breathing firelight at screen point (x, y) (the base of the flames), sized from the firebox width w (px). drive (0..1,
+   *  from drawFire) is how high the flames are leaping right now: the light in the room swells and sinks with them. */
+  update(t, x, y, w, k = 1, drive = null) {
     const s = this.seed, n1 = noise1(t * .9 + s), n2 = noise1(t * 2.3 + s * 2), n3 = noise1(t * 5.1 + s * 3), n4 = noise1(t * .45 + s * 4);
-    const st = this.el.style;
+    const st = this.el.style, f = drive == null ? .5 + .5 * n1 : drive;
+    this.level = clamp(drive == null ? .72 + .18 * n1 + .1 * n2 + .05 * n3 : .5 + .42 * drive + .06 * n3) * k;
     st.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
     st.setProperty('--hw', w.toFixed(1) + 'px');
-    st.setProperty('--o1', clamp((.72 + .18 * n1 + .1 * n2 + .05 * n3) * k).toFixed(3));
-    st.setProperty('--s1', (1 + .05 * n1 + .025 * n3).toFixed(3));
+    st.setProperty('--o1', this.level.toFixed(3));
+    st.setProperty('--s1', (1 + .05 * (f - .5) * 2 + .025 * n3).toFixed(3));
     st.setProperty('--o2', clamp((.6 + .22 * n4 + .12 * n2) * k * this.wash).toFixed(3));
     st.setProperty('--s2', (1 + .04 * n4 + .02 * n2).toFixed(3));
   }
@@ -36,7 +38,7 @@ export class Hearth {
 
 /** Flame tongues over the filmed fire, drawn into a 2D context in screen pixels: base centre (x, y), firebox width w. */
 export function drawFire(g, x, y, w, t, k = 1, seed = 0) {
-  if (k <= .01) return;
+  if (k <= .01) return 0;
   const h = w * .62;
   g.save();
   // the pale cones take on the colour of fire
@@ -46,10 +48,10 @@ export function drawFire(g, x, y, w, t, k = 1, seed = 0) {
   g.fillStyle = gr; g.fillRect(x - w * .7, y - h * 1.2, w * 1.4, h * 1.4);
   // tongues of flame
   g.globalCompositeOperation = 'lighter';
-  const N = 9;
+  const N = 9; let sum = 0;
   for (let i = 0; i < N; i++) {
     const u = i / (N - 1) - .5, c = 1 - Math.abs(u) * 1.25;
-    const fl = .55 + .3 * noise1(t * 3.1 + i * 7.3 + seed) + .15 * noise1(t * 8.7 + i * 2.1 + seed);
+    const fl = .55 + .3 * noise1(t * 3.1 + i * 7.3 + seed) + .15 * noise1(t * 8.7 + i * 2.1 + seed); sum += fl * c;
     const th = h * (.45 + .75 * c) * fl, tw = w * (.09 + .06 * c) * (.85 + .2 * noise1(t * 4.3 + i));
     const bx = x + u * w * .78 + noise1(t * 1.3 + i * 3) * w * .02, sway = noise1(t * 2.2 + i * 5.7 + seed) * tw * 1.4;
     g.globalAlpha = (.42 + .3 * c) * k;
@@ -76,4 +78,5 @@ export function drawFire(g, x, y, w, t, k = 1, seed = 0) {
     g.fillStyle = `rgba(255,${(180 + 60 * (1 - ph)) | 0},120,${(.9 * (1 - ph)).toFixed(2)})`; g.fillRect(sx, sy, 1.6, 1.6);
   }
   g.restore();
+  return clamp((sum / 5.2 - .3) / .5);   // how high the flames leap this frame (0..1), to drive the light they throw
 }

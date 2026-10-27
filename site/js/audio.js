@@ -1,16 +1,21 @@
-// Sound, all through Web Audio (v16): music as decoded buffers, so loops are gapless and chapters hand over with long,
-// overlapping crossfades (the next chapter's music is decoded ahead of time, so there is never a silent gap); ambient beds
+// Sound, all through Web Audio (v16, v17 handoffs): music as decoded buffers, so loops are gapless and chapters hand over
+// with long, overlapping crossfades (the next chapter's music is decoded ahead of time, so there is never a silent gap).
+// v17: the new chapter comes in on a bar line of the old one (waiting up to ~2 s for it), and the old one recedes into
+// the distance as it fades (a low-pass closing down); keys of neighbouring chapters differ by one sharp at most; ambient beds
 // at ~15% under the music; soft effects with stereo position and a reverb send; ducking for the voice memo.
 // iPhone: the context is unlocked (and re-unlocked after calls, Siri or a trip to the home screen) from any touch, and the
 // audio session is set to 'playback' so the music plays even with the ringer switch on silent (older iOS: a silent media
 // element does the same job).
 import { asset } from './util.js';
 
-// loop length of each cue in seconds (exactly what tools/score.py rendered; 0 = plays once). The film's piece is rendered
-// to an end (70 s, then a 7 s tail that falls to digital silence): it comes round again after a two-beat rest, not 7 s.
-const MUSIC = { prologue: 62.368413, book: 70, journey: 70.344828, memories: 138.75, film: 71.25, wish: 42.857143, finale: 0 };
+// loop length of each cue in seconds (exactly what tools/score.py rendered; 0 = plays once)
+const MUSIC = { prologue: 63.157891, book: 76.190476, journey: 70.344828, memories: 80, film: 60, wish: 45, finale: 0 };
+// each cue's beat grid: [bpm, beats per bar, beat of the first bar line] (the wish's song starts on its pickup)
+const GRID = { prologue: [76, 4, 0], book: [63, 4, 0], journey: [116, 4, 0], memories: [66, 4, 0], film: [96, 4, 0], wish: [84, 3, 1], finale: [72, 4, 0] };
+// longer overlaps where the incoming music opens with a hush in the same key family
+const XF = { 'prologue>book': 1.1, 'journey>memories': 1.15, 'film>wish': 1.2, 'wish>finale': 1.3 };
 const AFTER = { wish: 'finale' };   // music a chapter moves on to by itself (decoded ahead like the next chapter's)
-const SFX = ['chime', 'light', 'sparkle', 'tap', 'seal', 'rustle', 'page', 'whoosh', 'wings', 'blow', 'bark1', 'bark2', 'yip', 'patter', 'wag', 'sneeze'];
+const SFX = ['chime', 'light', 'sparkle', 'tap', 'seal', 'rustle', 'page', 'whoosh', 'wings', 'blow', 'bark1', 'bark2', 'yip', 'patter', 'wag', 'sneeze', 'glint', 'shimmer', 'sand'];
 const ALIAS = { owl: 'wings', pop: 'fw-burst1' };
 const BEDS = { wind: ['amb-wind', .17], fire: ['amb-fire', .24] };
 const SILENT = 'data:audio/mpeg;base64,SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYyLjMuMTAwAAAAAAAAAAAAAAD/83DAAAAAAAAAAAAASW5mbwAAAA8AAAAZAAADQwA/Pz9ISEhIUFBQUFdXV1dfX19fZ2dnZ29vb293d3d3f39/f4iIiIiQkJCQmJiYmKCgoKCoqKior6+vr7e3t7e/v7+/yMjIyNDQ0NDY2NjY4ODg4Ojo6Ojw8PDw+Pj4+P////8AAAAATGF2YzYyLjExAAAAAAAAAAAAAAAAJAJSAAAAAAAAA0NUGuZAAAAAAAAAAAAAAAAAAP/zEMQAAAADSAAAAABMQU1FMy4xMExBTUUz//MSxA0AAANIAAAAAC4xMDEgKGJlTEFNRTMu//MQxBsAAANIAAAAADEwMSAoYmVMQU1FMy7/8xDEKAAAA0gAAAAAMTAxIChiZUxBTUUzLv/zEMQ1AAADSAAAAAAxMDEgKGJlTEFNRTMu//MQxEIAAANIAAAAADEwMSAoYmVMQU1FMy7/8xDETwAAA0gAAAAAMTAxIChiZXRhIDMpVf/zEMRcAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxGkAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xLEdgAAA0gAAAAAVVVVVVVVVVVVVVVVVVX/8xDEhAAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMSRAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxJ4AAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDEqwAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMS4AAADSAAAAABVVVVVVVVVVVVVVVVV//MQxMUAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDE0gAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEsTfAAADSAAAAABVVVVVVVVVVVVVVVVVVf/zEMTtAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxPIAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDE8gAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMTyAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxPIAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDE8gAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMTyAAADSAAAAABVVVVVVVVVVVVVVVVV';
@@ -102,7 +107,8 @@ export class Audio {
   evict(keep = [this.cur?.name, this.want, this.next]) { for (const k of [...this.music.keys()]) if (!keep.includes(k)) this.music.delete(k); }
   // ---------------------------------------------------------------- music
   /** Crossfades to a cue. The current music keeps playing until the new one is decoded, so there is never a gap; a cue
-   *  asked for before the context runs is scheduled anyway and starts the moment a touch unlocks it. */
+   *  asked for before the context runs is scheduled anyway and starts the moment a touch unlocks it. The new cue starts
+   *  on the old one's next bar line if that comes within ~2 s (else its next half bar or beat), so the two pulses meet. */
   async cue(name, sec = 3.2, { delay = .35 } = {}) {
     if (!name || !MUSIC.hasOwnProperty(name)) return;
     this.want = name;
@@ -112,23 +118,34 @@ export class Audio {
     const m = await this.decode(name);
     if (token !== this.token || !m) return;
     const c = this.ctx, now = c.currentTime, old = this.cur;
-    // source -> fade-in -> level (ducking, fade-out) -> music bus: the two fades never share an automation timeline
-    const src = c.createBufferSource(), gin = c.createGain(), g = c.createGain(); src.buffer = m.buf;
+    if (old) sec *= XF[old.name + '>' + name] || 1;
+    // source -> fade-in -> distance (a low-pass, open until it leaves) -> level (ducking, fade-out) -> music bus:
+    // the two fades never share an automation timeline
+    const src = c.createBufferSource(), gin = c.createGain(), lp = c.createBiquadFilter(), g = c.createGain(); src.buffer = m.buf;
+    lp.type = 'lowpass'; lp.frequency.value = Math.min(20000, c.sampleRate * .45); lp.Q.value = 0;
     if (m.len) { src.loop = true; src.loopStart = m.off; src.loopEnd = Math.min(m.buf.duration, m.off + m.len); }
-    src.connect(gin); gin.connect(g); g.connect(this.musicBus);
-    const fin = Math.max(.6, sec * .85), t0 = now + (old ? delay : .02);
+    src.connect(gin); gin.connect(lp); lp.connect(g); g.connect(this.musicBus);
+    const fin = Math.max(.6, sec * .85), t0 = old ? this.barLine(old, now + delay, Math.min(2, sec * .6)) : now + .02;
     gin.gain.setValueAtTime(0, now); gin.gain.setValueCurveAtTime(eqIn(64), t0, fin);
     src.start(t0, m.off);
-    const tr = this.cur = { name, src, g, t0, off: m.off, len: m.len || m.buf.duration };
+    const tr = this.cur = { name, src, g, lp, t0, off: m.off, len: m.len || m.buf.duration };
     src.onended = () => { this.fading.delete(tr); g.disconnect(); if (this.cur === tr) this.cur = null; };
-    if (old) this.release(old, sec * 1.15);
+    if (old) this.release(old, sec * 1.15, t0 - Math.min(.34, t0 - now));   // the old one starts to give way just before
     this.evict();
   }
-  release(tr, sec) {
-    const c = this.ctx, now = c.currentTime, g = tr.g.gain, v = Math.max(.0001, g.value);
-    try { g.cancelScheduledValues(now); g.setValueAtTime(v, now); g.setValueCurveAtTime(eqOut(64).map(x => x * v), now + .01, sec); }
-    catch { quiet(() => g.linearRampToValueAtTime(0, now + sec)); }
-    try { tr.src.stop(now + sec + .1); } catch { /* already stopped */ }
+  /** The first bar line (else half bar, else beat) of a playing cue at or after `at`, if it comes within `wait` s. */
+  barLine(tr, at, wait) {
+    const gr = GRID[tr.name]; if (!gr) return at;
+    const spb = 60 / gr[0], p = (at - tr.t0) / spb - gr[2]; if (p < 0) return at;
+    for (const n of [gr[1], gr[1] % 2 ? 1 : 2, 1]) { const w = (Math.ceil(p / n - 1e-6) * n - p) * spb; if (w <= wait) return at + w; }
+    return at;
+  }
+  release(tr, sec, at = 0) {
+    const c = this.ctx, now = c.currentTime, g = tr.g.gain, v = Math.max(.0001, g.value), s0 = Math.max(now + .01, at);
+    try { g.cancelScheduledValues(now); g.setValueAtTime(v, now); g.setValueAtTime(v, s0); g.setValueCurveAtTime(eqOut(64).map(x => x * v), s0, sec); }
+    catch { quiet(() => { g.setValueAtTime(v, s0); g.linearRampToValueAtTime(0, s0 + sec); }); }
+    if (tr.lp) try { const f = tr.lp.frequency; f.cancelScheduledValues(now); f.setValueAtTime(f.value, s0); f.exponentialRampToValueAtTime(900, s0 + sec * .9); } catch { /* the fade alone will do */ }
+    try { tr.src.stop(s0 + sec + .1); } catch { /* already stopped */ }
     // hurrying through the chapters: only the latest outgoing track keeps its long fade; older ones bow out in under a second
     for (const f of this.fading) if (!f.quick) {
       f.quick = true; const q = f.g.gain, w = q.value;

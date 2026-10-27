@@ -259,15 +259,15 @@ export default {
           const bob = k >= 1 ? Math.sin(t * 1.6) * 5 : 0, sc = lerp(.12, 1, e) * (1 + lift * .06);
           card.style.opacity = clamp(kf * 6).toFixed(3);
           card.style.transform = `translate(${(x - W / 2).toFixed(1)}px,${(y - H / 2 + bob).toFixed(1)}px) scale(${sc.toFixed(3)}) rotateX(${(tumble + lift * 8).toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${rz.toFixed(1)}deg)`;
-          if (k >= 1 && !landed) { landed = true; wrap.classList.add('landed'); env.audio.sfx('chime', .5); fx.burst(W / 2, H / 2, { n: 40, speed: 120, life: 1.4, size: 1.6 }); }
+          if (k >= 1 && !landed) { landed = true; wrap.classList.add('landed'); env.audio.sfx('chime', .4); fx.burst(W / 2, H / 2 + H * .06, { n: 12, speed: 46, life: 1.8, size: 1.3, sparkle: 0, color: '236,226,206', drag: 2 }); } // a breath of dust where it settles
           if (landed && flipAt === Infinity) {
             if (t > LAND + 1.2 && !inst.h1) { inst.h1 = true; say('轻触信封，把它翻过来'); }
-            if (t > LAND + FLIP_AUTO + 1.5) { flipAt = t; say(''); env.audio.sfx('page', .5); }
+            if (env.auto && t > LAND + FLIP_AUTO + 1.5) { flipAt = t; say(''); env.audio.sfx('page', .5); } // a visitor turns it over herself
           }
-          if (flipped) { card.style.opacity = 0; envEl.classList.add('on'); inst.flipDone = t; say('轻触金色的星星，拆开这封信'); }
+          if (flipped) { card.style.opacity = 0; card.style.visibility = 'hidden'; envEl.classList.add('on'); inst.flipDone = t; say('轻触金色的星星，拆开这封信'); }
         }
-        if (flipped && !opened && openAt === Infinity && t > inst.flipDone + OPEN_AUTO) openAt = t; // once: it would otherwise keep postponing itself
-        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('seal', .7); }
+        if (env.auto && flipped && !opened && openAt === Infinity && t > inst.flipDone + OPEN_AUTO) openAt = t; // test mode only: she touches the star herself
+        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('seal', .7); env.audio.sfx('glint', .3); }
         if (opened) {
           const k2 = t - openStart;
           openRig(k2);
@@ -282,8 +282,19 @@ export default {
           }
           if (t > memoAt && !memo.classList.contains('on')) memo.classList.add('on');
           // with a recording, the letter waits for her (and for the message to finish); left alone it moves on after a while
+          // the letter waits for her: once it has written itself (and after the recording, if she plays it) she is invited on
           const wait = memoState === 'off' ? doneAt + 1.7 : memoState === 'shown' ? doneAt + 14 : memoState === 'playing' ? Infinity : resumeAt;
-          if (done && t > wait && !leaving) { leaving = true; env.audio.stopVoice(); const r = paper.getBoundingClientRect(); env.next({ transition: 'bloom', at: [r.left + r.width / 2, r.top + r.height * .55] }); }
+          // the green ink lifts off the page as warm motes, and the study's lamplight opens out of the letter
+          const leave = () => {
+            if (leaving) return; leaving = true; env.offerNext(null); env.audio.stopVoice(); paper.classList.add('lift');
+            const on = chars.filter((_, i) => i < written && i % 3 === 0);
+            on.forEach((sp, i) => setTimeout(() => { const r = sp.getBoundingClientRect(); fx.trail(r.left + r.width / 2, r.top + r.height / 2, { life: 1.6, size: 1.2, vy: -22, spread: 4, color: '255,214,160' }); }, Math.random() * 600));
+            setTimeout(() => { const r = paper.getBoundingClientRect(); env.next({ transition: 'bloom', at: [r.left + r.width / 2, r.top + r.height * .55], tint: '255,198,128' }); }, 650);
+          };
+          if (done && !leaving) {
+            if (env.auto) { if (t > wait) leave(); }
+            else if (!inst.offered && memoState !== 'playing' && t > doneAt + (memoState === 'off' ? 1.8 : 3)) { inst.offered = true; env.offerNext('跟着烛光，去书房', leave); }
+          }
         }
         // a hush falls once the letter is in front of her
         const dim = between(t, LAND - 1.5, LAND + .5) * .45 + (opened ? between(t - openStart, 0, 2) * .25 : 0);
@@ -307,7 +318,7 @@ export default {
       if (k >= O.burst && !seamDone) {
         seamDone = true; env.audio.sfx('sparkle', .6);
         // golden dust spills out of the mouth of the envelope as it opens
-        for (let i = 0; i <= 8; i++) { const [x, y] = toPx([lerp(8, 92, i / 8), 2]); fx.burst(x, y, { n: 8, speed: 70, life: 1.6, size: 1.5, color: '255,220,150' }); }
+        for (let i = 0; i <= 4; i++) { const [x, y] = toPx([lerp(14, 86, i / 4), 2]); fx.burst(x, y, { n: 4, speed: 44, life: 1.9, size: 1.3, color: '255,222,160', sparkle: 0, lift: 10 }); }
       }
       { const u = clamp((k - O.burst + .2) / .7); flash.style.opacity = (u > 0 && u < 1 ? Math.sin(u * Math.PI) * .55 : 0).toFixed(3); flash.style.transform = `translate(-50%,-50%) scale(${(.4 + 1.3 * easeOut(u)).toFixed(3)})`; }
       // the flap swings up on its hinge; past upright it is behind the letter

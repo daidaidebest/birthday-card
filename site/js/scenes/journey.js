@@ -114,7 +114,7 @@ export default {
       if (how === 'pan') { lane.pan = 0; lane.p = 9; } else { lane.p = 0; lane.pan = -1; }
       const m = lane.meta; lane.root.classList.remove('swap'); void lane.root.offsetWidth; lane.root.classList.add('swap');
       setTimeout(() => { m.h3.textContent = P.region ? `${P.region} · ${P.city}` : P.city; m.school.textContent = P.school || ''; m.line.textContent = P.line; }, how === 'pan' ? PAN * 450 : 450);
-      env.audio.sfx('sparkle', .25);
+      env.audio.sfx('sand', .22);
     }
     // One frame of sand. A new city is poured (the drawing appears along its reveal order) or walked to: the
     // camera pans across the table, the old city sliding out as the next slides in, the dunes in front passing
@@ -172,8 +172,16 @@ export default {
       s.textContent = text; s.style.left = (x / 1280 * 100) + '%'; s.style.top = (y / 850 * 100) + '%'; labels.appendChild(s); return { id, s };
     });
     const progressFor = (k, id) => { const route = k ? HIS_ROUTE : HER_ROUTE, i = route.indexOf(id); if (i < 0) return 9; let d = 0; for (let j = 1; j <= i; j++) d += lens[k].seg[j - 1]; return d / lens[k].L; };
-    let heart = 0, met = false, heartAt = null;
+    let heart = 0, met = false, heartAt = null, metAt = 0, goldAt = null, lastMapT = 0, dt0 = 0;
+    // a band of warm gold light sweeping once across the sand (k: seconds into the sweep)
+    function sheen(c, k, a) {
+      const u = k / 2.1; if (u <= 0 || u >= 1) return; const x = lerp(-.3, 1.3, easeInOut(u)) * W, w = W * .2;
+      c.save(); c.globalCompositeOperation = 'lighter'; c.translate(x, H / 2); c.rotate(-.42);
+      const gr = c.createLinearGradient(-w, 0, w, 0); gr.addColorStop(0, 'rgba(255,200,110,0)'); gr.addColorStop(.42, `rgba(255,206,120,${(a * .55).toFixed(3)})`); gr.addColorStop(.5, `rgba(255,232,180,${a.toFixed(3)})`); gr.addColorStop(.58, `rgba(255,206,120,${(a * .55).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,200,110,0)');
+      c.globalAlpha = Math.sin(u * Math.PI); c.fillStyle = gr; c.fillRect(-w, -H * 1.2, w * 2, H * 2.4); c.restore();
+    }
     function mapFrame(t) {
+      dt0 = Math.min(.05, Math.max(0, t - lastMapT)); lastMapT = t;
       const lane = lanes[0], g = lane.g, gg = lane.gg;
       const fh = between(t, 1.1, 4.1), fm = between(t, 1.3, 4.1);
       // carve both paths through the sand
@@ -189,18 +197,22 @@ export default {
       [fh, fm].forEach((f, k) => { if (f <= 0) return; gg.beginPath(); const N = 80; for (let i = 0; i <= N; i++) { const [x, y] = at(k, f * i / N); i ? gg.lineTo(x, y) : gg.moveTo(x, y); } gg.stroke(); });
       gg.restore();
       [fh, fm].forEach((f, k) => { if (f <= 0 || f >= 1) return; const [x, y] = at(k, f), s = W / 14; gg.globalAlpha = .9; gg.drawImage(spark, x - s / 2, y - s / 2, s, s); });
-      if (fh >= 1 && fm >= 1 && !met) { met = true; env.audio.sfx('chime', .8); const r = lane.glow.getBoundingClientRect(), [x, y] = mxy(CITIES.tokyo); heartAt = [r.left + x / 1280 * r.width, r.top + y / 850 * r.height]; fx.burst(heartAt[0], heartAt[1], { n: 90, speed: 160, life: 2.2, size: 2.2 }); }
+      if (fh >= 1 && fm >= 1 && !met) { met = true; metAt = t; env.audio.sfx('shimmer', .42); env.audio.sfx('glint', .22, { delay: .5 }); const r = lane.glow.getBoundingClientRect(), [x, y] = mxy(CITIES.tokyo); heartAt = [r.left + x / 1280 * r.width, r.top + y / 850 * r.height]; }
+      // liquid gold, used sparingly: one slow sheen across the sand when the map has gathered, a warmer one when the roads meet
+      if (goldAt == null) goldAt = t;
+      sheen(gg, t - goldAt - .3, .14); if (met) sheen(gg, t - metAt - .15, .26);
       if (met) {
-        heart = Math.min(1, heart + 1 / 60); const [x, y] = mxy(CITIES.tokyo).map(v => v * W / 1280), s = W / 26;
-        const pulse = 1;
-        gg.globalAlpha = .55 + .2 * Math.sin(t * 3); gg.drawImage(spark, x - s * 2.5, y - s * 2.5, s * 5, s * 5);
-        g.save(); g.globalCompositeOperation = 'destination-out'; g.beginPath();
-        for (let i = 0; i <= 60; i++) { const a = i / 60 * TAU * heart; const hx = 16 * Math.pow(Math.sin(a), 3), hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); i ? g.lineTo(x + hx * s / 14 * pulse, y - s * 1.6 + hy * s / 14 * pulse) : g.moveTo(x + hx * s / 14, y - s * 1.6 + hy * s / 14); }
-        g.lineWidth = W / 300; g.stroke(); g.restore();
-        // part of the heart lies over the sea, where there is no sand to carve: it is also drawn in light
-        gg.save(); gg.globalCompositeOperation = 'lighter'; gg.globalAlpha = .85; gg.strokeStyle = '#ffe7b8'; gg.lineWidth = W / 380; gg.beginPath();
-        for (let i = 0; i <= 60; i++) { const a = i / 60 * TAU * heart; const hx = 16 * Math.pow(Math.sin(a), 3), hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); i ? gg.lineTo(x + hx * s / 14, y - s * 1.6 + hy * s / 14) : gg.moveTo(x + hx * s / 14, y - s * 1.6 + hy * s / 14); }
-        gg.stroke(); gg.restore();
+        // the two roads become one golden thread, tied in a loop at the place they meet (红线): carved in the sand and drawn in light
+        heart = Math.min(1, heart + dt0 / 1.6); const [x, y] = mxy(CITIES.tokyo).map(v => v * W / 1280), s = W / 26, e = easeInOut(heart);
+        const knot = (c, n = 72) => { c.beginPath(); for (let i = 0; i <= n * e; i++) { const a = -Math.PI / 2 + i / n * TAU, d = 1 + Math.sin(a) ** 2, kx = Math.cos(a) / d, ky = Math.sin(a) * Math.cos(a) / d; const px = x + kx * s * 1.9, py = y - s * .9 + ky * s * 1.7; i ? c.lineTo(px, py) : c.moveTo(px, py); } };
+        gg.globalAlpha = .38 * between(t - metAt, 0, 1.2) + .04 * Math.sin(t * 1.1); gg.drawImage(spark, x - s * 2.2, y - s * 2.2, s * 4.4, s * 4.4);
+        g.save(); g.globalCompositeOperation = 'destination-out'; g.lineCap = 'round'; knot(g); g.lineWidth = W / 320; g.stroke(); g.restore();
+        gg.save(); gg.globalCompositeOperation = 'lighter'; gg.globalAlpha = .8; gg.strokeStyle = '#ffe2a8'; gg.lineCap = 'round'; gg.lineWidth = W / 420; knot(gg); gg.stroke(); gg.restore();
+        // a few tiny glints along the last of both roads, one after another, then gone
+        [[0, .9], [1, .93], [0, .97], [1, .985], [0, 1]].forEach(([k, f], i) => {
+          const u = (t - metAt - .35 - i * .2) / .8; if (u <= 0 || u >= 1) return; const [px, py] = at(k, f), r = W / 70 * (.6 + .4 * Math.sin(u * Math.PI));
+          gg.globalAlpha = Math.sin(u * Math.PI) * .7; gg.drawImage(spark, px - r, py - r, r * 2, r * 2);
+        });
       }
       gg.globalCompositeOperation = 'source-over'; gg.globalAlpha = 1;
       labelEls.forEach(({ id, s }) => { const on = Math.min(progressFor(0, id), progressFor(1, id)) <= Math.max(fh, fm) + .001 && t > 2; s.classList.toggle('on', on); });
@@ -247,7 +259,7 @@ export default {
     }
 
     // ---------- clock ----------
-    let T = 0, mode = 'routes', ended = false, cardShown = false, mapT = 0;
+    let T = 0, mode = 'routes', ended = false, cardShown = false, mapT = 0, skipOffered = false;
     let mapStart = 1e9;
     const cuesMap = env.cues([[.5, 4, '各自走来的路，在东京写下同一页。'], [4.3, MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
     function resize() {
@@ -263,10 +275,12 @@ export default {
     return {
       resize,
       progress: () => mode === 'map' ? .75 + clamp(mapT / MAP_LEN) * .25 : clamp(((lanes[0].idx + 1) / HER.length + (lanes[1].idx + 1) / HIS.length) / 2) * .75,
-      destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
+      destroy() { env.offerNext(null); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
       update(dt, t) {
         T = t;
         if (!cardShown) { cardShown = true; env.chapterCard('II', 1700); }
+        if (!skipOffered && t > 7 && mode === 'routes') { skipOffered = true; env.offerNext('跳过', () => { ended = true; env.next({ transition: 'bloom', at: [env.W / 2, env.H * .5] }); }, { quiet: true }); }
+        if (skipOffered === true && mode === 'map') { skipOffered = 1; env.offerNext(null); }
         // 2.5D parallax: the glow of the room drifts least, the light tables more, the captions most,
         // so the layers separate in depth as the camera breathes and leans with her (2D moves only: cheap)
         let par = [0, 0];
@@ -318,8 +332,11 @@ export default {
           mapT += dt; const l = lanes[0];
           if (l.p < 1.25) { l.p += dt / 1.1; compose(l); }
           else mapFrame(mapT); // the carving accumulates on the finished sand, no per-frame recompose
-          if (met && !endAsked) { endAsked = mapT; setTimeout(() => { if (!ended) hint('轻触，翻到下一章'); }, 2600); }
-          if (!ended && met && (wantEnd || mapT - endAsked > AUTO_END)) { ended = true; hint(null); env.next({ transition: 'bloom', at: heartAt }); }
+          // the sand art is a story that plays by itself: when the roads have met, a quiet "continue" is there for her, and
+          // after a long, still moment the chapter turns on its own
+          const leave = () => { if (ended) return; ended = true; hint(null); env.offerNext(null); env.next({ transition: 'bloom', at: heartAt }); };
+          if (met && !endAsked) { endAsked = mapT; setTimeout(() => { if (!ended) env.offerNext('继续', leave); }, 3200); }
+          if (!ended && met && (wantEnd || mapT - endAsked > (env.auto ? AUTO_END : 14))) leave();
         }
       },
     };

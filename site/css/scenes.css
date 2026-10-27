@@ -42,6 +42,7 @@
   background:radial-gradient(circle,rgba(255,250,225,.95) 0,rgba(255,214,140,.55) 22%,rgba(255,170,90,.18) 45%,transparent 68%);mix-blend-mode:screen}
 .pro-hint{position:absolute;left:0;right:0;top:calc(50% + var(--eh)*.66);text-align:center;font-size:14px;letter-spacing:.32em;color:#e8d8b8cc;opacity:0;transition:opacity 1.2s ease;text-shadow:0 0 12px #000}
 .pro-letter-wrap.hinted .pro-hint{opacity:1}
+.pro-letter-wrap:not(.open) .pro-env.on{pointer-events:auto;cursor:pointer}   /* the star, or anywhere on the envelope */
 /* the letter: a sheet of parchment folded in three. It slides out folded, then opens fold by fold and writes itself in emerald ink */
 .pro-paper{position:absolute;left:50%;top:50%;width:var(--lw);height:var(--lh);margin:calc(var(--lh)/-2) 0 0 calc(var(--lw)/-2);z-index:2;perspective:900px;transform-style:preserve-3d;will-change:transform;transform-origin:50% 50%}
 .pro-fold{position:absolute;left:0;width:100%;height:33.334%;transform-style:preserve-3d}
@@ -56,6 +57,7 @@
 .pro-paper.lifted{filter:drop-shadow(0 26px 36px rgba(0,0,0,.55))}
 .pro-paper.glow{filter:drop-shadow(0 30px 40px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(150,230,180,.35))}
 .low-power .pro-paper.lifted,.low-power .pro-paper.glow{filter:none}
+.pro-paper.lift .pro-paper-inner span{transition:color .7s ease,opacity 1.2s ease .25s;color:#c99a45!important;opacity:.15}
 .pro-paper-inner{position:absolute;inset:0;transform:translateZ(1px);display:flex;flex-direction:column;justify-content:center;padding:calc(var(--lh)*.13) calc(var(--lw)*.13) calc(var(--lh)*.08);color:#1a4d33;font-size:var(--fs);line-height:2.05;letter-spacing:.06em;text-shadow:0 0 .5px rgba(10,50,30,.7)}
 .pro-paper-inner p{min-height:1em}.pro-paper-inner p.gap{height:.6em;min-height:0}
 .pro-paper-inner p:first-child{font-weight:600;font-size:1.06em;margin-bottom:.15em}
@@ -86,9 +88,9 @@
 .bk-leaf{position:absolute;left:var(--pw);top:0;width:0;height:var(--ph);transform-style:preserve-3d;transform:translateZ(1px)}
 .bk-strip{position:absolute;left:100%;top:0;width:var(--sw);height:100%;transform-style:preserve-3d;transform-origin:0 50%}
 .bk-strip.first{left:0}
-.bk-strip>canvas,.bk-strip>i{position:absolute;top:0;left:0;width:calc(100% + .6px);height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.bk-strip>canvas.b,.bk-strip>i.sb{transform:rotateY(180deg)}
-.bk-strip>i{background:#1d1006;opacity:0;pointer-events:none}
+.bk-strip>canvas,.bk-strip>i{position:absolute;top:0;left:0;width:calc(100% + var(--seam,1px));height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.bk-strip>canvas.b,.bk-strip>i.sb{left:calc(var(--seam,1px)*-1);transform:rotateY(180deg)}
+.bk-strip>i{background:transparent;pointer-events:none}
 .bk-cover{position:absolute;left:var(--pw);top:-3%;width:calc(var(--pw)*1.044);height:106%;transform-origin:0 50%;transform-style:preserve-3d}
 .bk-cover-front,.bk-cover-inside{position:absolute;inset:0;border-radius:2px 6px 6px 2px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .bk-cover-front{background-size:cover;background-position:center;box-shadow:inset 6px 0 14px rgba(0,0,0,.6),0 0 0 1px rgba(20,6,4,.6);display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -139,7 +141,16 @@
 .mm-wall{position:absolute;inset:0;pointer-events:none}
 .mm-card{position:absolute;left:0;top:0;width:var(--cw);padding:calc(var(--cw)*.06) calc(var(--cw)*.06) calc(var(--cw)*.2);background:#f7f1e6;box-shadow:0 14px 30px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4);transform-origin:50% 0;will-change:transform}
 .mm-card .clip{position:absolute;left:50%;top:calc(var(--cw)*-.07);width:calc(var(--cw)*.07);height:calc(var(--cw)*.17);margin-left:calc(var(--cw)*-.035);background:linear-gradient(90deg,#8a6a45,#c9a679 50%,#7a5a38);border-radius:2px;box-shadow:0 2px 3px rgba(0,0,0,.4)}
-.mm-card .ph{width:100%;aspect-ratio:1/1;overflow:hidden;background:#222}
+.mm-card .ph{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;background:#222}
+/* v17 · photos as remembered, not cards switched on: the one she takes down develops out of a soft, bright haze, carries a
+   fine film grain and a gentle vignette; the others step back out of focus */
+.mm-card{transition:filter 1s ease}
+.mm-card.back{filter:blur(1.4px) brightness(.82)}
+.mm-card .ph::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 0 calc(var(--cw)*.14) rgba(28,16,6,.32)}
+.mm-card.develop .ph{animation:develop 2.2s cubic-bezier(.3,0,.2,1) both}
+@keyframes develop{0%{filter:brightness(1.32) saturate(.5) contrast(.86) blur(1.6px)}55%{filter:brightness(1.08) saturate(.85) contrast(.96) blur(.3px)}100%{filter:none}}
+.mm-card.reading .ph::after{content:"";position:absolute;inset:-30%;z-index:3;pointer-events:none;opacity:.22;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.5 -.25'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");animation:grain 1.2s steps(5) infinite}
+.low-power .mm-card.back{filter:none}.low-power .mm-card.reading .ph::after{display:none}
 .mm-card .ph-depth{position:relative}.mm-card .ph-depth .dp-layer{filter:none;transition:none;object-fit:fill}
 .mm-card img{width:100%;height:100%;object-fit:cover;display:block;filter:sepia(.12) saturate(.95) contrast(1.02);transition:transform .3s linear}
 .mm-card figcaption{position:absolute;left:0;right:0;bottom:0;height:calc(var(--cw)*.2);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3b2a1c;text-align:center;padding:0 6%}
@@ -288,6 +299,15 @@
 .hearth-glow::after{left:calc(var(--hw)*-5.5);top:calc(var(--hw)*-4.6);width:calc(var(--hw)*11);height:calc(var(--hw)*9);
   background:radial-gradient(closest-side,rgba(255,168,88,.24),rgba(255,140,60,.09) 52%,rgba(255,130,60,0) 86%);opacity:var(--o2,0);transform:scale(var(--s2,1))}
 .low-power .hearth-glow::after{display:none}
-/* v16 · phones: a single-page book (js/scenes/book.js) */
-.bk-single .bk-page.l,.bk-single .bk-stack.l{visibility:hidden}
-.bk-single .bk-book .bk-backcover,.bk-single .bk-book.is-open .bk-backcover{left:48%}
+/* v17 · the book (js/scenes/book.js). Phones read one page at a time, but it is a whole book: the camera frames the
+   right-hand page. A breathing dog-ear at the free corner says the page can be turned; the cover's gold title glows
+   softly while it waits to be opened. */
+.bk-fl{position:absolute;inset:0;pointer-events:none;background-size:200% 100%;background-repeat:no-repeat}
+.bk-page.l .bk-fl{background-position:0 0}.bk-page.r .bk-fl{background-position:100% 0}
+.bk-curl{position:absolute;right:0;bottom:0;width:calc(var(--pw)*.11);height:calc(var(--pw)*.11);pointer-events:none;transform-origin:100% 100%;transform:scale(var(--c,0));filter:drop-shadow(-1px -1px 2px rgba(40,22,8,.35))}
+.bk-curl::before,.bk-curl::after{content:"";position:absolute;inset:0}
+.bk-curl::before{background:linear-gradient(315deg,#a8916a,#c9b38a 60%);clip-path:polygon(100% 0,100% 100%,0 100%)}
+.bk-curl::after{background:linear-gradient(135deg,#cdb68a 0%,#e9dab8 32%,#f7ecd2 47%,#d7c39a 50%);clip-path:polygon(100% 0,0 100%,0 0)}
+.bk-single .bk-hint{bottom:auto;top:calc(10svh + var(--safe-t,0px))}
+.bk-cover.invite .bk-cover-front b{animation:coverInvite 3.6s ease-in-out infinite}
+@keyframes coverInvite{0%,100%{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 10px rgba(255,210,130,.25))}50%{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 18px rgba(255,214,140,.55))}}

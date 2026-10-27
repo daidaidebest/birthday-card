@@ -38,7 +38,7 @@ const CHATTER = {
   journey: ['沙子沙沙的～', '我也想去东京！', '这里我认识！', '走呀走呀～'],
   memories: ['这张我最喜欢！', '照片里的你在发光', '把我也拍进去嘛', '好看好看！'],
   party: ['好香的蛋糕', '许愿要闭上眼睛哦', '我们安静陪着你', '生日快乐呀'],
-  tender: ['生日快乐 ♡', '今晚真美', '愿望一定会实现', '一直陪着你 ♡'],
+  tender: ['生日快乐', '今晚真美', '愿望一定会实现', '一直陪着你'],
 };
 const TRICKS = { bark: ['汪！', '汪汪！', '嗷呜～'], sneeze: ['阿嚏！', '哈啾～'], beg: ['作揖～', '恭喜恭喜！', '给寿星作揖～'], ball: ['陪我玩球？', '扔球球！'], fetch: ['再来一次！', '我捡到啦！', '还要玩！'] };
 // interactive things the puppies must never sit in front of
@@ -52,7 +52,7 @@ const MODES = {
   celebrate: { y: [.93, .93], zones: [[.06, .3], [.7, .94]], party: 1 },
   tender: { y: [.93, .93], zones: [[.08, .22], [.78, .92]], calm: 1 },
 };
-const REPLIES = [['喜欢你的摸摸 ♡', '今天你最好看 ♡', '生日快乐呀 ♡', '再摸摸嘛 ♡'], ['也想靠近你一点 ♡', '要一直开心哦 ♡', '抱抱 ♡', '最喜欢你了 ♡']];
+const REPLIES = [['喜欢你的摸摸', '今天你最好看', '生日快乐呀', '再摸摸嘛'], ['也想靠近你一点', '要一直开心哦', '抱抱', '最喜欢你了 ♡']];
 
 const D2R = Math.PI / 180;
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -130,13 +130,13 @@ export class Pups {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     t.w = img.width; t.h = img.height; return t;
   }
-  /** Soft contact shadow and a heart, drawn once into a small atlas. */
+  /** Soft contact shadow and a little warm glow (what rises when she pets them), drawn once into a small atlas. */
   fxAtlas() {
     const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
     const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(10,8,14,.62)'); gr.addColorStop(.55, 'rgba(10,8,14,.32)'); gr.addColorStop(1, 'rgba(10,8,14,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-    g.translate(192, 68); g.scale(3.6, 3.6); g.fillStyle = '#f4a6a8';
-    g.beginPath(); g.moveTo(0, 6); g.bezierCurveTo(-14, -4, -8, -16, 0, -8); g.bezierCurveTo(8, -16, 14, -4, 0, 6); g.fill();
+    const wg = g.createRadialGradient(192, 64, 0, 192, 64, 60); wg.addColorStop(0, 'rgba(255,240,214,.95)'); wg.addColorStop(.18, 'rgba(255,214,168,.6)'); wg.addColorStop(.55, 'rgba(255,190,140,.16)'); wg.addColorStop(1, 'rgba(255,180,130,0)');
+    g.fillStyle = wg; g.fillRect(128, 0, 128, 128);
     return c;
   }
   resize() {
@@ -559,7 +559,7 @@ export class Pups {
     if (view >= 112) tail();
     // hearts
     d.hearts.forEach(h => {
-      if (h.age < 0) return; const k = h.age / 1.8, a = Math.sin(k * Math.PI) * d.alpha, s = S * .16;
+      if (h.age < 0) return; const k = h.age / 1.8, a = Math.sin(k * Math.PI) * d.alpha * .7, s = S * (.1 + k * .05);
       const hx = x + h.x * S + Math.sin(h.age * 4) * 6, hy = oy + S * .2 - h.age * S * .32;
       this.quad(this.tex.fx, [128, 0, 128, 128], [hx - s / 2, hy - s / 2, s, s], I(), a, 1, 1);
     });

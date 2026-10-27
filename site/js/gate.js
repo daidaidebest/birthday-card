@@ -132,7 +132,7 @@ export class Gate {
     navigator.vibrate?.(18);
     this.env.audio.sfx('chime', .7);
     const r = this.btn.getBoundingClientRect();
-    this.env.fx.burst(r.left + r.width / 2, r.top + r.height / 2, { n: 90, speed: 220, life: 2.4, color: '235,240,255', size: 2.2, drag: 1.4, sparkle: .5 });
+    this.env.fx.burst(r.left + r.width / 2, r.top + r.height / 2, { n: 36, speed: 150, life: 2.4, color: '235,240,255', size: 1.8, drag: 1.6, sparkle: .1 });
     setTimeout(() => this.onOpen(), 900);
   }
   close() { this.root.classList.add('gone'); setTimeout(() => { this.gone = true; }, 1600); }

@@ -107,9 +107,15 @@ export default {
     const replay = () => { location.hash = ''; location.search = ''; location.reload(); };
     const keep = new Keepsake(el, env, { onAgain: () => wishAgain() }), closing = new Closing(el, env, { onReplay: replay });
     const glowW = glowSprite('255,196,120', 256, 1.5), glowSm = glowSprite('255,220,160', 64, 2), spark = sparkleSprite('255,236,190', 48), smokeS = glowSprite('200,196,205', 64, 1.4);
-    const petalImgs = PETALS.map(c => petalSprite(48, c));
-    const petals = Array.from({ length: 18 }, (_, i) => ({ c: i % PETALS.length, x: ((i * .383 + .05) % 1), st: 3 + i * 1.1 + R() * .8, sp: .7 + R() * .5, sz: .7 + R() * .6, ph: R() * TAU, spin: (R() - .5) * 1.4 }));
-    const motes = Array.from({ length: 34 }, () => ({ x: R(), y: R(), v: .012 + R() * .02, p: R() * TAU, s: .5 + R() }));
+    // petals in three depths: a far drift of tiny ones, a few in the room, and now and then one so close to the lens that it
+    // passes huge and out of focus along the edge of the frame (never across the words)
+    const petalImgs = PETALS.map(c => petalSprite(48, c)), petalSoft = PETALS.map(c => { const sp = petalSprite(96, c), b = canvas(sp.width + 40, sp.height + 40), bg = b.getContext('2d'); if (BLUR) bg.filter = 'blur(7px)'; bg.globalAlpha = BLUR ? 1 : .6; bg.drawImage(sp, 20, 20); return b; });
+    const petals = [
+      ...Array.from({ length: 14 }, (_, i) => ({ z: 0, c: i % PETALS.length, x: R(), st: 2 + i * 1.6 + R() * 1.2, sp: .45 + R() * .2, sz: .32 + R() * .14, ph: R() * TAU, spin: (R() - .5) * 1.1 })),
+      ...Array.from({ length: 10 }, (_, i) => ({ z: 1, c: i % PETALS.length, x: ((i * .383 + .05) % 1), st: 3.5 + i * 2.1 + R() * 1.2, sp: .75 + R() * .4, sz: .75 + R() * .45, ph: R() * TAU, spin: (R() - .5) * 1.4 })),
+      ...Array.from({ length: 4 }, (_, i) => ({ z: 2, c: i % PETALS.length, x: i % 2 ? .9 + R() * .12 : -.02 - R() * .1, st: 6 + i * 7.5 + R() * 2, sp: 2.1 + R() * .6, sz: 3.4 + R() * 1.4, ph: R() * TAU, spin: (R() - .5) * .8 })),
+    ];
+    const motes = Array.from({ length: 20 }, () => ({ x: R(), y: R(), v: .006 + R() * .016, p: R() * TAU, s: .4 + R() * 1.1 }));
     // fireworks beyond the glass (render pixels of the wide shot): shells rise, burst, and their sparks fall
     const shells = [], sparks = [], fwGlow = Object.fromEntries([...FW, '255,230,190'].map(c => [c, glowSprite(c, 32, 2.6)]));
     let flashA = 0, flashC = FW[0], nextShell = 0, fwStop = Infinity;
@@ -135,7 +141,7 @@ export default {
     const nextUp = () => ORDER.find(i => !flames[i].lit && !busy(i));
     function light(i) {
       if (flames[i].lit) return; flames[i].lit = .01; lit++; lastLight = T;
-      const [tx, ty] = tip(i); fx.burst(tx, ty - 8, { n: 26, speed: 70, life: 1.2, size: 1.6 }); env.audio.sfx('light', .7);
+      const [tx, ty] = tip(i); fx.burst(tx, ty - 10, { n: 8, speed: 34, life: 1.4, size: 1.3, sparkle: 0, color: '255,214,150', lift: 14 }); env.audio.sfx('light', .6); env.audio.sfx('glint', .14);
       env.say(WHISPERS[Math.min(lit, WHISPERS.length) - 1]); clearTimeout(sayTimer); sayTimer = setTimeout(() => env.say(null), 2600);
     }
     // a star from the night sky (the first one, the fallback, the relight), or the flame hopping over from a lit candle
@@ -281,8 +287,8 @@ export default {
         const fc = c3.fire.close, fw = c3.fire.wide, wa = 1 - closeA;
         const [cx, cy] = at(cT, fc[0] * c3.w, fc[1] * c3.h), cw = fc[2] * c3.w * cT.s, [wx, wy] = at(wT, fw[0] * c3.w, fw[1] * c3.h), ww = fw[2] * c3.w * wT.s;
         if (closeA > .01) { if (BLUR) sg.filter = `blur(${(cw * .035 * rr).toFixed(1)}px)`; drawFire(sg, cx, cy, cw, t, closeA * heat * .9); if (BLUR) sg.filter = 'none'; } // out of focus, like the rendered fire
-        if (wa > .01) drawFire(sg, wx, wy, ww, t, wa * heat, 3);
-        hearth.update(t, lerp(cx, wx, wa), lerp(cy, wy, wa), lerp(cw, ww, wa), .62 * heat);
+        const leap = wa > .01 ? drawFire(sg, wx, wy, ww, t, wa * heat, 3) : .5;
+        hearth.update(t, lerp(cx, wx, wa), lerp(cy, wy, wa), lerp(cw, ww, wa), .62 * heat, leap);
       }
     }
 
@@ -341,7 +347,8 @@ export default {
           if (phase === 'relight' && t - phaseAt > 2.6 && t - lastLight > .5 && nx != null) launch(nx);
           if (phase === 'light' && lit >= 1 && nx != null) {
             if (!hinted && t - Math.max(lastLight, idleAt) > 2.4 && !touch) { hinted = true; hint('把烛火带给下一支蜡烛，或轻点它'); }
-            if (t - Math.max(lastLight, idleAt) > AUTO_LIGHT && !touch) launch(nx);
+            if (env.auto && t - Math.max(lastLight, idleAt) > AUTO_LIGHT && !touch) launch(nx); // test mode only: the candles are hers to light
+            if (hinted && !touch && t - Math.max(lastLight, idleAt) > 11 && !hintEl.classList.contains('on')) hint('轻点下一支蜡烛，点亮它');
             // a soft ring breathing round the candle that is waiting next
             const a = between(t - Math.max(lastLight, idleAt), .9, 1.9) * (flights.some(f => !f.done) ? 0 : 1);
             if (a > 0) {
@@ -357,8 +364,8 @@ export default {
             let x, y;
             if (f.src >= 0) { const [sx, sy] = tip(f.src), lift = Math.abs(f.i - f.src) * sp * .35 + fs; x = lerp(sx, tx, easeInOut(u)); y = lerp(sy - fs * .6, ty - fs * .3, easeInOut(u)) - Math.sin(u * Math.PI) * lift; }
             else { x = lerp(f.from[0], tx, easeInOut(u)) + Math.sin(u * Math.PI) * 60 * (f.i % 2 ? 1 : -1); y = lerp(f.from[1], ty - 10, easeInOut(u)) - Math.sin(u * Math.PI) * 30; }
-            g.globalCompositeOperation = 'lighter'; g.drawImage(spark, x - 14, y - 14, 28, 28); g.globalCompositeOperation = 'source-over';
-            if (Math.random() < .9) fx.trail(x, y, { life: 1.1, size: 1.6 });
+            g.globalCompositeOperation = 'lighter'; g.drawImage(glowSm, x - 16, y - 16, 32, 32); g.globalCompositeOperation = 'source-over'; g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(x, y, 1.8, 0, TAU); g.fill();
+            if (Math.random() < .55) fx.trail(x, y, { life: 1.1, size: 1.3, color: '255,222,170' });
             if (u >= 1) { f.done = true; if (phase === 'relight') { flames[f.i].lit = .01; lit++; lastLight = t; env.audio.sfx('light', .5); } else light(f.i); }
           });
           // pick the flame up when her finger passes over a lit candle
@@ -376,14 +383,14 @@ export default {
           if (lit >= N && phase === 'light' && t - lastLight > 1.9) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); carry = false; touch = null; hint(null); }
           if (lit >= N && phase === 'relight' && t - lastLight > 1.5) { phase = 'ask'; phaseAt = t; el.classList.add('asking'); }
         }
-        if (phase === 'ask' && t - phaseAt > 18) startWish(); // let the moment happen on its own if nobody taps
+        if (env.auto && phase === 'ask' && t - phaseAt > 18) startWish(); // test mode only: the wish waits for her
         if (phase === 'wish') {
           const k = t - phaseAt; el.classList.toggle('w-close', k > .2); el.classList.toggle('w-heart', k > 2); el.classList.toggle('w-breath', k > 3.6); el.classList.toggle('w-ready', k > 5);
           if (mic && k > 5) {
             mic.an.getByteTimeDomainData(mic.buf); let sum = 0; for (const v of mic.buf) sum += (v - 128) ** 2; const rms = Math.sqrt(sum / mic.buf.length);
             mic.loud = rms > 18 ? mic.loud + dt : Math.max(0, mic.loud - dt); if (mic.loud > .25) blow();
           }
-          if (k > 22) blow();
+          if (env.auto && k > 22) blow();
         }
         flames.forEach((f, i) => {
           if (f.lit > 0) f.lit = Math.min(1, f.lit + dt * 2.2);
@@ -405,7 +412,7 @@ export default {
         if (phase === 'blown') {
           const k = t - blowAt;
           if (k > .3 && !step.pups) { step.pups = 1; env.pups.set('tender'); }
-          if (k > .7 && !step.dust) { step.dust = 1; const [x, y] = tip(FIRST); fx.burst(x, y - 20, { n: 50, speed: 60, life: 2.6, size: 1.6, color: '255,226,170' }); } // a breath of golden dust where the flames were
+          if (k > .7 && !step.dust) { step.dust = 1; const [x, y] = tip(FIRST); fx.burst(x, y - 20, { n: 18, speed: 34, life: 2.8, size: 1.3, color: '255,226,170', sparkle: 0, lift: 10 }); } // a breath of golden dust where the flames were
           if (k > 1.2 && !step.music) { step.music = 1; env.audio.cue('finale', 3); }
           if (k > PULL[0] && !step.pull) { step.pull = 1; setCam(1, PULL[1] - PULL[0]); }
           if (k > PULL[1] && !step.look) { step.look = 1; el.classList.add('look'); }
@@ -417,14 +424,17 @@ export default {
           if (!env.reduced) {
             const kp = k - (PULL[1] - 2);
             tg.globalCompositeOperation = 'lighter';
-            motes.forEach(m => { const a = between(kp, 2, 6) * (.35 + .65 * Math.sin(t * .9 * m.s + m.p) ** 2) * (cardOn ? .5 : 1); const x = (m.x + Math.sin(t * .15 + m.p) * .04) * W, y = ((m.y - t * m.v) % 1 + 1) % 1 * H, sz = 7 * m.s; tg.globalAlpha = a * .45; tg.drawImage(glowSm, x - sz, y - sz, sz * 2, sz * 2); });
+            motes.forEach(m => { const a = between(kp, 2, 6) * (.4 + .6 * Math.sin(t * .5 * m.s + m.p) ** 2) * (cardOn ? .5 : 1); const x = (m.x + Math.sin(t * .11 + m.p) * .04) * W, y = ((m.y - t * m.v) % 1 + 1) % 1 * H, sz = 3 + 6 * m.s; tg.globalAlpha = a * (.18 + .2 * m.s); tg.drawImage(glowSm, x - sz, y - sz, sz * 2, sz * 2); });
             tg.globalCompositeOperation = 'source-over';
             petals.forEach(p => {
               const u = (kp - p.st) * .05 * p.sp; if (u < 0 || u > 1.2) return;
-              const sz = Math.min(W, H) * .045 * p.sz, x = W * (.05 + p.x * .9) + Math.sin(kp * .8 + p.ph) * sz * 1.4, y = -sz + u * (H + sz * 2);
-              const flip = Math.cos(kp * 1.6 + p.ph), rot = p.ph + kp * p.spin + Math.sin(kp * 1.1 + p.ph) * .5;
-              tg.save(); tg.translate(x, y); tg.rotate(rot); tg.scale(Math.max(.15, Math.abs(flip)), 1); tg.globalAlpha = .92 * clamp(u * 10) * clamp((1.2 - u) * 6);
-              tg.drawImage(petalImgs[p.c], -sz * .39, -sz / 2, sz * .78, sz); tg.restore();
+              const near = p.z === 2, sz = Math.min(W, H) * .045 * p.sz, x = (near ? W * p.x : W * (.05 + p.x * .9)) + Math.sin(kp * (near ? .5 : .8) + p.ph) * sz * (near ? .35 : 1.4), y = -sz + u * (H + sz * 2);
+              const flip = Math.cos(kp * (near ? .9 : 1.6) + p.ph), rot = p.ph + kp * p.spin + Math.sin(kp * 1.1 + p.ph) * .5;
+              const a = [.42, .9, .5][p.z] * clamp(u * 10) * clamp((1.2 - u) * 6) * (cardOn ? .4 : 1);
+              tg.save(); tg.translate(x, y); tg.rotate(rot); tg.scale(Math.max(.15, Math.abs(flip)), 1); tg.globalAlpha = a;
+              if (near) { const im = petalSoft[p.c], k = sz / 96; tg.drawImage(im, -im.width * k * .5, -im.height * k * .5, im.width * k, im.height * k); }
+              else tg.drawImage(petalImgs[p.c], -sz * .39, -sz / 2, sz * .78, sz);
+              tg.restore();
             });
           }
           tg.globalAlpha = 1;
@@ -457,8 +467,9 @@ export default {
       const N = 60; for (let i = 0; i <= N * k; i++) { const u = i / N, x = (1 - u) * (1 - u) * ax + 2 * (1 - u) * u * mx + u * u * bx, y = (1 - u) * (1 - u) * ay + 2 * (1 - u) * u * my + u * u * by; i ? g.lineTo(x, y) : g.moveTo(x, y); }
       g.stroke(); g.setLineDash([]);
       g.globalCompositeOperation = 'lighter';
-      for (const [x, y] of [[ax, ay], [bx, by]]) g.drawImage(spark, x - 16, y - 16, 32, 32);
-      if (k >= 1) { const hx = mx, hy = (ay + by) / 2 - Math.abs(bx - ax) * .16, s = 16 + Math.sin(t * 3) * 2; g.fillStyle = '#ffb3a8'; g.globalAlpha = .9; heartPath(g, hx, hy, s); g.fill(); g.globalAlpha = .5; g.drawImage(glowW, hx - 40, hy - 40, 80, 80); }
+      for (const [x, y] of [[ax, ay], [bx, by]]) g.drawImage(glowSm, x - 14, y - 14, 28, 28);
+      // over the thread between the two cities, the same crescent moon both of them can see tonight
+      if (k >= 1) { const hx = mx, hy = (ay + by) / 2 - Math.abs(bx - ax) * .16, s = 11, a = between(t - (drawArc.at ??= t), 0, 1.6); g.globalAlpha = .35 * a; g.drawImage(glowW, hx - 44, hy - 44, 88, 88); g.globalAlpha = .92 * a; g.fillStyle = '#fbe6bd'; g.beginPath(); g.arc(hx, hy, s, 0, TAU); g.arc(hx + s * .45, hy - s * .18, s * .86, 0, TAU, true); g.fill('evenodd'); }
       g.restore();
     }
   },

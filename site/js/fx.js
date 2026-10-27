@@ -20,14 +20,14 @@ export class FX {
     for (let i = 0; i < n; i++) {
       const a = R() * TAU, s = (o.speed ?? 120) * (.25 + R() * .9);
       this.add({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (o.lift ?? 0), life: (o.life ?? 1.5) * (.5 + R() * .7), age: 0,
-        size: (o.size ?? 2) * (.5 + R()), color: o.color, drag: o.drag ?? 1.2, g: o.gravity ?? 0, kind: R() < (o.sparkle ?? .25) ? 1 : 0, tw: R() * 10 });
+        size: (o.size ?? 2) * (.5 + R()), color: o.color, drag: o.drag ?? 1.2, g: o.gravity ?? 0, kind: R() < (o.sparkle ?? .06) ? 1 : 0, tw: R() * 10 });
     }
   }
   /** Gentle trail particle, e.g. behind a moving quill or star. */
   trail(x, y, o = {}) {
     const R = this.rand;
     this.add({ x: x + (R() - .5) * (o.spread ?? 6), y: y + (R() - .5) * (o.spread ?? 6), vx: (R() - .5) * 20 + (o.vx ?? 0), vy: (R() - .5) * 20 + (o.vy ?? -10),
-      life: (o.life ?? 1.2) * (.6 + R() * .6), age: 0, size: (o.size ?? 1.6) * (.6 + R()), drag: .8, g: o.gravity ?? 0, kind: R() < .2 ? 1 : 0, tw: R() * 10 });
+      life: (o.life ?? 1.2) * (.6 + R() * .6), age: 0, size: (o.size ?? 1.6) * (.6 + R()), drag: .8, g: o.gravity ?? 0, kind: R() < (o.sparkle ?? 0) ? 1 : 0, tw: R() * 10, color: o.color });
   }
   goldSwirl() { this.swirl = .001; }
   /** A soft shower of paper confetti (gold, blush, ivory) drifting down from above the screen. */
@@ -60,10 +60,11 @@ export class FX {
       if (p.age >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
       const d = Math.exp(-p.drag * dt); p.vx *= d; p.vy = p.vy * d + p.g * dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      const k = p.age / p.life, a = clamp(Math.min(k * 6, 1) * (1 - k) * 1.3) * (.65 + .35 * Math.sin(p.tw + p.age * 9));
+      // soft motes breathe slowly; only the rare glint twinkles
+      const k = p.age / p.life, a = clamp(Math.min(k * 5, 1) * (1 - k) * 1.25) * (p.kind ? .65 + .35 * Math.sin(p.tw + p.age * 9) : .8 + .2 * Math.sin(p.tw + p.age * 2.2));
       ctx.globalAlpha = a;
       const s = p.size * (p.kind ? 7 : 5);
-      ctx.drawImage(p.kind ? this.spark : this.glow, p.x - s / 2, p.y - s / 2, s, s);
+      ctx.drawImage(p.kind ? this.spark : p.color ? glowSprite(p.color, 64, 2) : this.glow, p.x - s / 2, p.y - s / 2, s, s);
     }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     const C = this.conf;

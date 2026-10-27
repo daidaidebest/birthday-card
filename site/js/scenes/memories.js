@@ -111,12 +111,12 @@ export default {
         g.globalCompositeOperation = 'lighter';
         bokeh.forEach(b => { const dz = b.r / 40 - .6, x = ((b.x + t * b.s) % 1.2 - .1) * W - lx * dz * 1.6, y = (b.y + Math.sin(t * .3 + b.p) * .02) * H - ly * dz * 1.6; g.globalAlpha = b.a * (.7 + .3 * Math.sin(t + b.p)); g.drawImage(spr(b.c), x - b.r, y - b.r, b.r * 2, b.r * 2); });
         g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-        const lightsOn = between(t, .4, 1.8);
+        const lightsOn = 1, hx = env.handoff ? env.handoff[0] / W : .5; // the bulbs come on outward from where the last chapter's light opened
         strings.forEach((f, r) => {
           g.strokeStyle = 'rgba(60,40,30,.9)'; g.lineWidth = 1.2; g.beginPath(); for (let x = -10; x <= W + 10; x += 12) { const y = f(x); x < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
           g.globalCompositeOperation = 'lighter';
           for (let k = 0; k < 18; k++) {
-            const x = (k + .5) / 18 * W, y = f(x) + 5, on = lightsOn * clamp((t - .4) * 8 - k * .3), tw = .65 + .35 * Math.sin(t * 2.2 + k * 1.7 + r);
+            const x = (k + .5) / 18 * W, y = f(x) + 5, on = lightsOn * clamp((t - .35 - Math.abs((k + .5) / 18 - hx) * 2.2 - r * .3) * 3), tw = .8 + .2 * Math.sin(t * 1.3 + k * 1.7 + r);
             if (on <= 0) continue; g.globalAlpha = on * tw; g.drawImage(bulb, x - 18, y - 18, 36, 36); g.globalAlpha = on; g.fillStyle = '#fff1c8'; g.beginPath(); g.arc(x, y, 2, 0, TAU); g.fill();
           }
           g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
@@ -125,13 +125,16 @@ export default {
         // left alone, the next photo she has not seen comes forward; a photo she is looking at stays until she lets it go
         if (t > DROP && LETTER_AT >= 1e9) {
           const idle = t - Math.max(lastInput, focusAt);
-          if (focusIdx < 0 && idle > (seen.size ? 1.6 : AUTO_IDLE) && seen.size < PHOTOS.length && t - lastInput > AUTO_IDLE) focus([...cards.keys()].find(i => !seen.has(i)));
-          else if (focusIdx >= 0 && t - focusAt > HOLD_LOOK && t - lastInput > HOLD_LOOK) focus(-1);
+          // she takes the photos down herself (only the test mode brings them forward); a photo she is looking at goes back
+          // up on its own after a while, and the letter is there for her once she has looked at one or all of them
+          if (env.auto && focusIdx < 0 && idle > (seen.size ? 1.6 : AUTO_IDLE) && seen.size < PHOTOS.length && t - lastInput > AUTO_IDLE) focus([...cards.keys()].find(i => !seen.has(i)));
+          else if (focusIdx >= 0 && t - focusAt > (env.auto ? HOLD_LOOK : HOLD_LOOK * 1.8) && t - lastInput > HOLD_LOOK) focus(-1);
           if (t > DROP + 1.5 && !lastInput && focusIdx < 0 && !seen.size) hint('轻触一张照片，取下来看看');
-          if (seen.size === PHOTOS.length && focusIdx < 0 && !offered) { offered = true; env.offerNext('读一读给你的信', () => openLetter(T)); }
-          if (offered && focusIdx < 0 && t - Math.max(lastInput, focusAt) > 5) openLetter(t);
+          else if (!env.auto && seen.size && seen.size < PHOTOS.length && focusIdx < 0 && idle > 3.5 && !offered) hint('再取下一张看看');
+          if (focusIdx < 0 && !offered && (seen.size === PHOTOS.length || (seen.size && idle > 9))) { offered = true; hint(null); env.offerNext('读一读给你的信', () => openLetter(T)); }
+          if (env.auto && offered && focusIdx < 0 && t - Math.max(lastInput, focusAt) > 5) openLetter(t);
         }
-        const fi = focusIdx, ft = clamp((t - focusAt) / HOLD_LOOK), inFocus = fi >= 0;
+        const fi = focusIdx, ft = clamp((t - focusAt) / (env.auto ? HOLD_LOOK : HOLD_LOOK * 1.8)), inFocus = fi >= 0;   // the push-in lasts as long as she looks
         lookE += ((inFocus ? 1 : 0) - lookE) * (1 - Math.exp(-dt * 3.2));
         const letterUp = between(t, LETTER_AT, LETTER_AT + 2);
         const qi = inFocus && t - focusAt > .5 ? fi : -1;
@@ -141,11 +144,12 @@ export default {
         }
         // while one photo is looked at, the others step back (smaller, higher, dimmer) to make room
         cards.forEach(c => {
-          const [ax, ay] = anchors[c.i]; const k = easeOutBack(clamp((t - c.drop) / 1.1));
-          if (k > 0 && !c.landed) { c.landed = true; env.audio.sfx('page', .15); }
-          const sw = Math.sin(t * 1.4 + c.ph) * (2 + 6 * Math.exp(-(t - c.drop) * .7)) + c.swing * .1;
-          let x = ax - lx * .5, y = lerp(-H * .4, ay, k) - ly * .5, rot = sw, s = 1, z = 0, dim = 0;
-          c.e = (c.e || 0) + ((c.i === fi ? 1 : 0) - (c.e || 0)) * (1 - Math.exp(-dt * 3.4));
+          // each photo drifts down into the lamplight and settles on its clip with a slow, damped sway (no bounce)
+          const [ax, ay] = anchors[c.i]; const k = easeOut(clamp((t - c.drop) / 1.8)), appear = clamp((t - c.drop) / 1.1);
+          if (k > 0 && !c.landed) { c.landed = true; env.audio.sfx('page', .12); }
+          const sw = Math.sin(t * 1.1 + c.ph) * (1.4 + 5 * Math.exp(-Math.max(0, t - c.drop) * .55)) + c.swing * .08;
+          let x = ax - lx * .5, y = lerp(ay - H * .16, ay, k) - ly * .5, rot = sw, s = 1, z = 0, dim = 0;
+          c.e = (c.e || 0) + ((c.i === fi ? 1 : 0) - (c.e || 0)) * (1 - Math.exp(-dt * 2.4));
           if (c.e > .002 || inFocus) {
             const e = easeInOut(c.e);
             if (c.e > .002) {
@@ -156,13 +160,13 @@ export default {
                 c.lx = lerp(c.lx || 0, clamp(lerp(-.7, .7, easeInOut(ft)) + env.look.x * .5 - dx, -1.3, 1.3), .08); c.ly = lerp(c.ly || 0, clamp(lerp(.3, -.2, ft) + env.look.y * .4 - dy, -1.3, 1.3), .08);
                 c.view.frame(b, { x: c.lx, y: c.ly, zoom: .14 * easeInOut(clamp(ft * 1.4)) * c.e, focus: .3 }, [b.bw / 2, b.bw * .55]).apply(); c.still = false;
               } else c.img.style.transform = `scale(${1.04 + ft * .1}) translate(${(ft - .5) * -2}%,0)`;
-              c.el.classList.toggle('reading', e > .6);
-            } else { dim = (inFocus ? .55 : 0) * lookE + lookE * .4; s = 1 - lookE * .26; y -= lookE * H * .07; c.el.classList.remove('reading'); }
+              c.el.classList.toggle('reading', e > .6); c.el.classList.toggle('develop', c.i === fi); c.el.classList.remove('back');
+            } else { dim = (inFocus ? .55 : 0) * lookE + lookE * .4; s = 1 - lookE * .26; y -= lookE * H * .07; c.el.classList.remove('reading', 'develop'); c.el.classList.toggle('back', inFocus && lookE > .4); }
             if (c.e <= .002 && c.view && c.base && !c.still) { c.still = true; c.view.frame(c.base, { x: 0, y: 0, zoom: 0, focus: .3 }, [c.base.bw / 2, c.base.bw / 2]).apply(); }
-          } else c.el.classList.remove('reading');
+          } else c.el.classList.remove('reading', 'develop', 'back');
           if (letterUp > 0) { dim = Math.max(dim, letterUp * .7); y -= letterUp * H * .06; }
           c.el.style.transform = `translate(${(x - cardW / 2).toFixed(1)}px,${y.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${s.toFixed(3)})`;
-          c.el.style.zIndex = z ? 5 : 1; const op = (1 - dim * .6).toFixed(2); if (c.op !== op) { c.op = op; c.el.style.opacity = op; }
+          c.el.style.zIndex = z ? 5 : 1; const op = ((1 - dim * .6) * appear).toFixed(2); if (c.op !== op) { c.op = op; c.el.style.opacity = op; }
         });
         // ---------- letter ----------
         letterEl.classList.toggle('up', t > LETTER_AT);
@@ -174,8 +178,8 @@ export default {
             if (r.bottom > pr.bottom - pr.height * .22) paper.scrollTop += r.bottom - (pr.bottom - pr.height * .22);
             if (written % 4 === 0) fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.3, vy: -14 });
           }
-          if (written >= chars.length && !folded) { folded = true; env.offerNext('收好这封信', () => { ended = true; env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45] }); }); }
-          if (folded && !ended && t > WRITE_END + 25) { ended = true; env.offerNext(null); env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45] }); }
+          if (written >= chars.length && !folded) { folded = true; env.offerNext('收好这封信', () => { ended = true; env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45], tint: '255,190,120' }); }); }
+          if (env.auto && folded && !ended && t > WRITE_END + 25) { ended = true; env.offerNext(null); env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45], tint: '255,190,120' }); }
         }
       },
       destroy() { env.offerNext(null); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); hearth.remove(); },

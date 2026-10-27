@@ -63,9 +63,10 @@ HARP, CEL, BOX, PIANO, VIB, PAD = 46, 8, 10, 0, 11, 89
 
 # ------------------------------------------------------------------ soft feedback
 def chime():
-    """Chapter cards, the letter landing: a low harp dyad that blooms, a whisper of celesta an octave up, no sharp attack."""
-    y = sf([(0, 2.5, m('D5'), 48, HARP), (.09, 2.5, m('A5'), 40, HARP), (.32, 2.2, m('F#5'), 34, CEL)], 3.2)
-    write('sfx-chime', fade(lp(reverb(y, .35, 2.6), 5200), .025, .9), .55)
+    """Chapter cards, the letter landing (v17, softer): a low harp dyad that blooms, the faintest celesta, darker and
+    rounder, the attack eased in (D-A-F#: at home in every key of the score)."""
+    y = sf([(0, 2.6, m('D4'), 40, HARP), (.11, 2.6, m('A4'), 34, HARP), (.36, 2.2, m('F#5'), 22, CEL)], 3.2)
+    write('sfx-chime', fade(lp(reverb(y, .38, 2.6), 3400), .045, 1.0), .45)
 def light():
     """A candle catching / a touch that brings light: the soft breath of a flame and a warm glass tone, felt more than heard."""
     n = len(t_(1.6)); breath = lp(noise(1.6), 900) * np.minimum(1, t_(1.6) / .05) * np.exp(-t_(1.6) / .18) * .5
@@ -98,9 +99,15 @@ def _rustle(sec, amt=1.0, seed=7):
     return np.stack([y, np.roll(y, 90)], 1) * amt
 def rustle(): write('sfx-rustle', fade(reverb(_rustle(1.4), .15, 1.2), .005, .3), .45)
 def page():
-    """A page turning: a soft swish of paper."""
-    tt = t_(.75); y = bp(noise(.75), 700, 5000) * np.sin(np.pi * np.minimum(1, tt / .75)) ** 2 * (1 + .5 * np.sin(tt * 38))
-    write('sfx-page', fade(reverb(y + _rustle(.75, .25, 3)[:, 0], .15, 1.0), .01, .2), .4)
+    """A page turning (v17): a heavy, soft leaf: the air it moves (a low swell), the paper's own soft friction riding on
+    it, and a muted settle as it lands."""
+    T = 1.0; tt = t_(T); r = np.random.RandomState(21)
+    arc = np.sin(np.pi * np.clip(tt / .62, 0, 1)) ** 2
+    air = lp(bp(r.randn(len(tt)), 110, 700), 600) * arc * 1.0
+    paper = bp(r.randn(len(tt)), 900, 3800) * arc ** 1.5 * (1 + .35 * np.sin(2 * np.pi * 7 * tt)) * .22 + _rustle(T, .1, 5)[:, 0] * arc
+    land = lp(r.randn(len(tt)), 380) * np.exp(-np.clip(tt - .6, 0, None) / .07) * (tt > .6) * np.minimum(1, (tt - .6).clip(0) / .012) * .9
+    y = air + paper + land
+    write('sfx-page', fade(lp(reverb(np.stack([y, np.roll(y, 60)], 1), .14, 1.0), 4200), .03, .25), .4)
 def whoosh():
     tt = t_(1.3); y = bp(noise(1.3), 250, 1800) * np.sin(np.pi * tt / 1.3) ** 2.2
     write('sfx-whoosh', fade(reverb(y, .25, 1.6), .02, .3), .35)
@@ -115,6 +122,36 @@ def wings():
 def blow():
     tt = t_(1.4); y = lp(noise(1.4), 1300) * np.minimum(1, tt / .06) * np.exp(-tt / .42)
     write('sfx-blow', fade(reverb(y, .12, 1.0), .005, .3), .5)
+
+# ------------------------------------------------------------------ v17: light and sand (all pitches from D major pentatonic,
+# D-E-F#-A-B, which sits inside every key of the score: Bm/D, A, D, Em/G, G)
+def glint():
+    """A tapped star, a page settling, a candle catching: one tiny, very soft harp harmonic with a breath of celesta."""
+    tt = t_(.8); f = 1174.66   # D6
+    y = (np.sin(2 * np.pi * f * tt) + .18 * np.sin(2 * np.pi * 2 * f * tt) + .05 * np.sin(2 * np.pi * 3 * f * tt)) * np.minimum(1, tt / .012) * np.exp(-tt / .22)
+    cel = sf([(0.0, .5, m('A6'), 22, CEL)], .8)[:, 0]
+    y = y * .6 + cel * 2.2
+    write('sfx-glint', fade(lp(reverb(y, .3, 1.6), 6000), .006, .25), .32)
+def shimmer():
+    """A chapter opening, the sand turning to liquid gold: a gentle rising harp glissando (D pentatonic) with a celesta
+    touch at the top and a soft tail, ~2.3 s."""
+    ps = [p for p in range(m('D4'), m('B6') + 1) if p % 12 in (2, 4, 6, 9, 11)]
+    ns = [(i * 1.15 / len(ps), 1.6, p, int(22 + 14 * i / len(ps)), HARP) for i, p in enumerate(ps)] + [(1.12, 1.4, m('A6'), 20, CEL), (1.3, 1.2, m('D7'), 16, CEL)]
+    y = sf(ns, 2.4)
+    y *= np.minimum(1, t_(2.4) / .3)[:, None]   # it rises out of nothing
+    write('sfx-shimmer', fade(lp(reverb(y, .4, 2.4), 5200), .02, .7), .4)
+def sand():
+    """A finger drawn through sand: a soft, dry pour of grains (many tiny band-limited ticks thinning out) over a whisper
+    of hiss, ~1.2 s, no hard transients."""
+    T = 1.25; n = int(SR * T); tt = np.arange(n) / SR; r = np.random.RandomState(33); y = np.zeros(n)
+    dens = np.minimum(1, tt / .12) * np.exp(-np.clip(tt - .25, 0, None) / .35)
+    at = 0.0
+    while at < T - .02:
+        i = int(at * SR); L = int(SR * r.uniform(.0015, .004)); g = r.randn(L) * np.hanning(L) * r.uniform(.15, 1) * dens[i]
+        y[i:i + L] += g; at += r.exponential(.0016 / max(dens[i], .05))
+    y = bp(y, 1800, 7000) * .9 + bp(r.randn(n), 2500, 6500) * .05 * dens
+    st = np.stack([y, np.roll(y, 37) * .9 + bp(r.randn(n), 2500, 6500) * .02 * dens], 1)
+    write('sfx-sand', fade(lp(reverb(st, .06, .6), 6500), .04, .35), .22)
 
 # ------------------------------------------------------------------ the teddies
 def _bark(f0=560, rise=180, dur=.16, seed=1):
@@ -202,7 +239,7 @@ def bed_fire(sec=30):
     y = np.stack([L_, R_], 1); y -= lp(y, 25)
     write('amb-fire', fade(reverb(y, .12, 1.0, 4, 6000), 1.5, 1.5), .55, '96k')
 
-ALL = dict(chime=chime, light=light, sparkle=sparkle, tap=tap, seal=seal, rustle=rustle, page=page, whoosh=whoosh, wings=wings, blow=blow,
+ALL = dict(glint=glint, shimmer=shimmer, sand=sand, chime=chime, light=light, sparkle=sparkle, tap=tap, seal=seal, rustle=rustle, page=page, whoosh=whoosh, wings=wings, blow=blow,
            barks=barks, patter=patter, wag=wag, sneeze=sneeze, fireworks=fireworks, wind=bed_wind, fire=bed_fire)
 if __name__ == '__main__':
     for k in (sys.argv[1:] or ALL): ALL[k]()

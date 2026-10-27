@@ -48,8 +48,12 @@ export default {
     const dust = [];
     // twinkling stars over the painted night sky (image space, above the horizon)
     const stars = Array.from({ length: Math.round(160 * env.q + 50) }, () => ({ x: R(), y: R() * HORIZON * .9, r: R() * R() * 1.5 + .4, p: R() * TAU, s: .5 + R() * 2 }));
-    // a heart of stars (constellation) in the upper sky; heartC is where it sits this frame
-    const heart = Array.from({ length: 14 }, (_, i) => { const a = i / 14 * TAU; return [Math.pow(Math.sin(a), 3), -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 16]; });
+    // a crescent moon of stars in the upper sky (the opening's crescent, come round again); its upper tip is the brightest
+    // star, the one that falls. heartC is where the constellation sits this frame.
+    const D2 = Math.PI / 180, crescent = [
+      ...Array.from({ length: 8 }, (_, i) => { const a = (-70 - i * 220 / 7) * D2; return [Math.cos(a), Math.sin(a)]; }),          // the outer rim, round the left
+      ...Array.from({ length: 6 }, (_, j) => { const a = (96.6 + (j + 1) * 166.8 / 7) * D2; return [.45 + .946 * Math.cos(a), .946 * Math.sin(a)]; })]; // the inner rim, back up
+    const heart = crescent.map(([x, y]) => [x * .72 + .12, y * .72 + .32]);
     let heartC = [0, 0, 1];
     const heartXY = ([x, y]) => [heartC[0] + x * heartC[2], heartC[1] + y * heartC[2]];
     const flies = Array.from({ length: Math.round(30 * env.q + 10) }, () => ({ x: R(), y: .7 + R() * .25, p: R() * TAU, s: .3 + R() }));
@@ -289,7 +293,11 @@ export default {
         g.globalAlpha = form * .5; g.strokeStyle = '#f2dcae'; g.lineWidth = .8; g.beginPath();
         const n = Math.floor(pts.length * between(k, 14, 19)); for (let i = 0; i <= n && i < pts.length; i++) i ? g.lineTo(pts[i][0], pts[i][1]) : g.moveTo(pts[i][0], pts[i][1]); if (n >= pts.length) g.closePath(); g.stroke();
         g.globalCompositeOperation = 'lighter';
-        pts.forEach(([x, y], i) => { if (i === 0 && fell) return; const tw = .7 + .3 * Math.sin(t * 3 + i); const sz = (i === 0 ? 34 : 16) * tw; g.globalAlpha = form * (i === 0 ? 1 : .8); g.drawImage(spark, x - sz / 2, y - sz / 2, sz, sz); });
+        pts.forEach(([x, y], i) => { // soft points of light; only the brightest one carries a glint
+          if (i === 0 && fell) return; const tw = .82 + .18 * Math.sin(t * 1.4 + i * 1.7);
+          if (i === 0) { const sz = 26 * tw; g.globalAlpha = form; g.drawImage(spark, x - sz / 2, y - sz / 2, sz, sz); }
+          else { const sz = 11 * tw; g.globalAlpha = form * .75; g.drawImage(glowS, x - sz / 2, y - sz / 2, sz, sz); g.globalAlpha = form * .9; g.fillStyle = '#fff8ec'; g.fillRect(x - .8, y - .8, 1.6, 1.6); }
+        });
         g.globalCompositeOperation = 'source-over';
         if (!fell && k > 21.2) { fell = true; fallAt = t; env.audio.sfx('sparkle', .8); }
       }
@@ -311,6 +319,8 @@ export default {
         dt *= TS; t *= TS;
         T = t; const W = env.W, H = env.H;
         if (!cardShown) { cardShown = true; env.letterbox(true); env.chapterCard('IV', 1700); }
+        if (!A.skip && t > 8) { A.skip = true; env.offerNext('跳过', () => { ended = true; env.letterbox(false); env.next({ transition: 'bloom', at: [env.W / 2, env.H * .5] }); }, { quiet: true }); }
+        if (fell && A.skip === true) { A.skip = 1; env.offerNext(null); }
         g.setTransform(rs, 0, 0, rs, 0, 0);
         const t2 = Math.max(0, t - 1);
         g.globalAlpha = 1; g.fillStyle = '#05060c'; g.fillRect(0, 0, W, H);
@@ -326,10 +336,10 @@ export default {
           const k = clamp((tB - fallAt) / 3.2), [hx0, hy0] = heartXY(heart[0]), x = lerp(hx0, W * .5, k), y = lerp(hy0, H * .62, easeIn2(k));
           g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1; const s = 40 + k * 60; g.drawImage(spark, x - s / 2, y - s / 2, s, s); g.drawImage(glowW, x - s * 2, y - s * 2, s * 4, s * 4); g.globalCompositeOperation = 'source-over';
           if (Math.random() < .8) fx.trail(x, y, { life: 1.5, size: 1.8, vy: -30 });
-          if (k >= 1 && !ended) { ended = true; env.letterbox(false); env.next({ transition: 'bloom', at: [x, y] }); }
+          if (k >= 1 && !ended) { ended = true; env.letterbox(false); env.next({ transition: 'star', at: [x, y] }); } // the same star goes on to light the first candle
         }
       },
-      destroy() { env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (clipRun) { stop(clipRun); stop(clipKiss); } if (lionClip) stop(lionClip); },
+      destroy() { env.offerNext(null); env.letterbox(false); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (clipRun) { stop(clipRun); stop(clipKiss); } if (lionClip) stop(lionClip); },
     };
   },
 };

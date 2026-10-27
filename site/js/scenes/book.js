@@ -47,8 +47,8 @@ export default {
         <div class="bk-book">
           <div class="bk-backcover"></div>
           <div class="bk-stack l"></div><div class="bk-stack r"></div>
-          <div class="bk-page l"><canvas></canvas><i class="bk-shadow"></i></div>
-          <div class="bk-page r"><canvas></canvas><i class="bk-shadow"></i></div>
+          <div class="bk-page l"><canvas></canvas><i class="bk-fl"></i><i class="bk-shadow"></i></div>
+          <div class="bk-page r"><canvas></canvas><i class="bk-fl"></i><i class="bk-shadow"></i><i class="bk-curl"></i></div>
           <div class="bk-leaf"></div>
           <div class="bk-cover"><div class="bk-cover-front"><b>师宝宝</b><small>一本只认识你的书</small></div><div class="bk-cover-inside"></div></div>
         </div>
@@ -56,31 +56,34 @@ export default {
     const $ = s => el.querySelector(s);
     // one canvas holds the window sky, the depth planes of the room and its warm light (fewest layers to composite)
     const light = $('.bk-room'), lg = light.getContext('2d', { alpha: false });
-    const floatEl = $('.bk-float'), bookEl = $('.bk-book'), leafEl = $('.bk-leaf'), coverEl = $('.bk-cover');
+    const camEl = $('.bk-cam'), floatEl = $('.bk-float'), bookEl = $('.bk-book'), leafEl = $('.bk-leaf'), coverEl = $('.bk-cover'), curlEl = $('.bk-curl');
     const hearth = new Hearth(el);   // warm firelight breathing over the room and the book (on top, screen blend)
-    const auraS = glowSprite('255,206,130', 128, 1.6); let camX = 0, camY = 0, camS = .5;
-    const pageL = $('.bk-page.l canvas'), pageR = $('.bk-page.r canvas'), shadowL = $('.bk-page.l .bk-shadow'), shadowR = $('.bk-page.r .bk-shadow');
+    const auraS = glowSprite('255,206,130', 128, 1.6); let camX = env.W / 2, camY = env.H / 2, camS = .5;
+    const pageL = $('.bk-page.l canvas'), pageR = $('.bk-page.r canvas'), shadowL = $('.bk-page.l .bk-shadow'), shadowR = $('.bk-page.r .bk-shadow'), fireL = [...el.querySelectorAll('.bk-fl')];
     bookEl.querySelector('.bk-cover-front').style.backgroundImage = `url(${A.cover.src})`;
     bookEl.querySelector('.bk-cover-inside').style.backgroundImage = `url(${marbled()})`;
 
     const defs = buildPages(A);
     const SPREADS = defs.length / 2;
-    let win = { x: 0, y: 0, w: 1, h: 1 }, rs = 1, pw = 300, ph = 400, dpr = env.dpr, N = env.q < 1 || env.portrait ? 10 : 18;
-    // phones: a single-page book. The spine sits just left of the screen, one page faces her at a time, the cover and each
-    // turned leaf swing away past the spine and fade, and nothing slides sideways.
+    let win = { x: 0, y: 0, w: 1, h: 1 }, rs = 1, pw = 300, ph = 400, dpr = env.dpr, N = env.q < 1 ? 10 : env.portrait ? 14 : 18;
+    // phones: one page faces her at a time. It is still a whole book: the camera frames the right-hand page for reading,
+    // with the spine and a sliver of the left page at the edge, and eases back a little while a leaf turns over.
     const single = env.portrait; el.classList.toggle('bk-single', single);
-    let portrait = env.portrait, cover = null;
+    let portrait = env.portrait;
     const R = rng(5);
     const room = A.room && !A.room.failed ? A.room : null;
     if (room) { room.v.loop = true; room.portrait = env.portrait; play(room, .5); } // a 5 s in-and-out loop, played slow
 
-    // ---------------- warm light: soft bokeh drifting in the lamplight, a hearth glow that breathes ----------------
-    const glowW = glowSprite('255,190,110', 128, 1.8), sparkle = sparkleSprite('255,230,180', 48), bokehS = glowSprite('255,214,150', 64, 1.25);
-    const bokeh = Array.from({ length: Math.round(10 + 8 * env.q) }, () => ({ x: R(), y: .08 + R() * .6, r: .018 + R() * .035, p: R() * TAU, v: .004 + R() * .008, a: .1 + R() * .16 }));
-    const motes = Array.from({ length: Math.round(60 * env.q + 20) }, () => ({ x: R(), y: R(), z: R(), p: R() * TAU }));
+    // ---------------- warm light: soft bokeh far back in the lamplight, a little dust in the air ----------------
+    const glowW = glowSprite('255,190,110', 128, 1.8), bokehS = glowSprite('255,214,150', 64, 1.25), dustS = glowSprite('255,226,180', 32, 2.2);
+    const bokeh = Array.from({ length: Math.round(8 + 6 * env.q) }, () => ({ x: R(), y: .08 + R() * .6, r: .018 + R() * .035, p: R() * TAU, v: .002 + R() * .004, a: .08 + R() * .12 }));
+    const motes = Array.from({ length: Math.round(16 * env.q + 8) }, () => ({ x: R(), y: R(), z: R(), p: R() * TAU, s: .4 + R() * .8 }));
 
     // ---------------- layout ----------------
+    // The pages are laid out at their reading size (so the writing is drawn sharp at the size she reads it); before she
+    // opens the book the camera holds it smaller, with the room around it.
     let map = { s: 1, x: 0, y: 0 }, view = null, viewFor = null; const tmp = {};
+    let zClosed = .86, zOpen = .6, sxRead = .5;
     function layout() {
       const W = env.W, H = env.H; portrait = env.portrait; dpr = env.dpr;
       const img = portrait ? A.port : A.study;
@@ -89,11 +92,18 @@ export default {
       const dm = portrait ? A.dPort : A.dLand;
       if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .045, focus: .72 }); }
       rs = env.res(false); light.width = Math.round(W * rs); light.height = Math.round(H * rs);
-      pw = Math.round(single ? Math.min(W * .76, H * .42) : Math.min(W * .31, H * .47));
+      if (single) { // reading: the page spans ~88% of the screen's width
+        pw = Math.round(Math.min(W * .86, H * .48)); zClosed = Math.min(W * .76, H * .42) / pw;
+        zOpen = Math.min(1, W * .96 / (pw * 2.09)); sxRead = (W - pw) / 2 / W + .012;
+      } else {
+        pw = Math.round(Math.min(W * .33, H * .54)); zClosed = zOpen = Math.min(W * .31, H * .47) / pw; sxRead = .5;
+      }
       ph = Math.round(pw * 1.36);
-      el.style.setProperty('--pw', pw + 'px'); el.style.setProperty('--ph', ph + 'px'); el.style.setProperty('--sw', (pw / N) + 'px');
+      camEl.style.perspective = Math.round(Math.hypot(W, H) * 1.25) + 'px';   // a lens, not a telephoto: the leaf reads in depth
+      el.style.setProperty('--pw', pw + 'px'); el.style.setProperty('--ph', ph + 'px'); el.style.setProperty('--sw', (pw / N) + 'px'); el.style.setProperty('--seam', SEAM + 'px');
       [pageL, pageR].forEach(c => { c.width = Math.round(pw * dpr); c.height = Math.round(ph * dpr); });
       buildLeaf(); if (leafF >= 0) leafEl.style.display = ''; rebuild();
+      cam.init = false;
     }
     // ---------------- page rendering ----------------
     const inst = { L: null, R: null };
@@ -107,13 +117,16 @@ export default {
       g.drawImage(paper(Math.round(pw), Math.round(ph), p.side, A.tex), 0, 0, pw, ph);
       g.textAlign = 'left'; p.draw(prog, time);
     }
+    /** The back of a turned leaf, lying on the left (phones: the left page only ever shows the backs of turned leaves). */
+    function blankLeft() { const g = pageL.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(paper(Math.round(pw), Math.round(ph), 'left', A.tex), 0, 0, pageL.width, pageL.height); }
     // Which page index each surface shows; layout() can rebuild everything from these at any moment.
-    let idxL = -1, idxR = single ? 0 : 1, leafF = -1, leafB = -1, cur = 0;
+    let idxL = -1, idxR = single ? 0 : 1, leafF = -1, leafB = -1, cur = 0, leftBlank = false;
     const isLast = () => single ? cur >= defs.length - 1 : spread >= SPREADS - 1;
     function rebuild() {
       inst.L = idxL >= 0 ? makePage(idxL, pageL) : null;
       inst.R = makePage(idxR, pageR);
       render(inst.L, writeL, T); render(inst.R, writeR, T);
+      if (single && leftBlank) blankLeft();
       if (leafF >= 0) sliceLeaf();
     }
     function sliceLeaf() {
@@ -123,59 +136,107 @@ export default {
       else { const g = b.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(paper(Math.round(pw), Math.round(ph), 'left', A.tex), 0, 0, b.width, b.height); } // the back of a leaf: plain paper
       sliceInto(b, 'b');
     }
-    // ---------------- turning leaf ----------------
-    let strips = [];
+    // ---------------- turning leaf: a sheet of paper made of hinged strips ----------------
+    let strips = []; const SEAM = 1.5;
     function buildLeaf() {
       leafEl.innerHTML = ''; strips = [];
       let parent = leafEl;
       for (let i = 0; i < N; i++) {
         const s = document.createElement('div'); s.className = 'bk-strip' + (i === 0 ? ' first' : '');
-        const f = canvas(pw / N * dpr + 1, ph * dpr), b = canvas(pw / N * dpr + 1, ph * dpr); f.className = 'f'; b.className = 'b';
+        // each strip carries 1.5 px of its neighbour's paper, tucked under the next strip: no hairline seams between layers
+        const f = canvas((pw / N + SEAM) * dpr, ph * dpr), b = canvas((pw / N + SEAM) * dpr, ph * dpr); f.className = 'f'; b.className = 'b';
         const sf = document.createElement('i'), sb = document.createElement('i'); sf.className = 'sf'; sb.className = 'sb';
         s.append(f, sf, b, sb); parent.appendChild(s); parent = s; strips.push({ s, f, b, sf, sb });
       }
       leafEl.style.display = 'none';
     }
     function sliceInto(src, which) {
-      const sw = src.width / N;
+      const sw = src.width / N, ow = c => c.width;
       strips.forEach((st, i) => {
         const c = st[which], g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
-        const sx = which === 'f' ? i * sw : src.width - (i + 1) * sw;
-        g.drawImage(src, sx, 0, sw + 1, src.height, 0, 0, c.width, c.height);
+        // the back canvas is mirrored in place, so its extra 1.5 px lands on the spine side, under the strip before it
+        const sx = which === 'f' ? i * sw : src.width - (i + 1) * sw, w = Math.min(ow(c), src.width - sx);
+        g.drawImage(src, sx, 0, w, src.height, 0, 0, w, c.height);
       });
+    }
+    // light from in front of the book, a little from the left (the lamp and the hearth); a page lying flat is not shaded
+    const LX = -.3, LZ = .95, LN = Math.hypot(LX, LZ), REST = LZ / LN;
+    const shadeCss = d => { // d: how squarely the visible face meets the light
+      if (d >= REST) return `rgba(255,243,220,${Math.min(.12, (d - REST) * 1.6).toFixed(3)})`;
+      return `rgba(30,17,7,${(clamp((REST - d) / (REST + .35)) * .62).toFixed(3)})`;
+    };
+    let curlS = 0, landAt = -1;
+    /** Bends the leaf for turn progress t: the spine side swings over on an eased arc; by hand her finger leads with
+     *  the edge; on its own the edge lifts first, then trails behind as the sheet falls through the air. */
+    function bendLeaf(t, dt, byHand) {
+      const root = -180 * (.5 - .5 * Math.cos(Math.PI * clamp(t)));
+      let want, ex;
+      if (landAt >= 0) { const u = clamp((T - landAt) / .42); want = 8 * Math.sin(u * Math.PI) * (1 - u * .4); ex = 2; } // it settles: the edge lifts a hair and lies down
+      else if (byHand) { want = -68 * Math.sin(Math.PI * clamp(t)) * (1 - .25 * t); ex = 1.35; } // a visible bow, even seen edge-on
+      else { want = -44 * Math.sin(Math.PI * clamp(t / .34)) + 60 * Math.pow(Math.sin(Math.PI * clamp((t - .12) / .88)), 1.15); ex = lerp(2.2, 1.3, between(t, .12, .42)); }
+      curlS += (want - curlS) * (1 - Math.exp(-dt * (landAt >= 0 ? 30 : 11)));
+      const ang = strips.map((_, i) => clamp(root + curlS * Math.pow((i + 1) / N, ex), -179.7, -.25));
+      const vtx = ang.map((a, i) => i ? (a + ang[i - 1]) / 2 : a); vtx.push(ang[N - 1]);
+      const dF = vtx.map(a => { const r = a * Math.PI / 180; return (Math.sin(r) * LX + Math.cos(r) * LZ) / LN; });
+      strips.forEach((st, i) => {
+        st.s.style.transform = `rotateY(${(i ? ang[i] - ang[i - 1] : ang[0]).toFixed(2)}deg)`;
+        st.sf.style.background = `linear-gradient(90deg,${shadeCss(dF[i])},${shadeCss(dF[i + 1])})`;
+        st.sb.style.background = `linear-gradient(90deg,${shadeCss(-dF[i + 1])},${shadeCss(-dF[i])})`;
+      });
+      // the shadow the lifted sheet throws onto the pages beneath it moves with its edge
+      let xe = 0, hgt = 0; ang.forEach(a => { const r = a * Math.PI / 180; xe += Math.cos(r) / N; hgt = Math.max(hgt, -Math.sin(r)); });
+      const a = (.42 * hgt + .12 * (1 - hgt) * (t > .02 && t < .98 ? 1 : 0)).toFixed(3), soft = .06 + .3 * hgt;
+      const er = Math.max(0, xe), el2 = Math.max(0, -xe);
+      shadowR.style.background = `linear-gradient(90deg,rgba(30,16,6,${a}) ${(er * 100).toFixed(1)}%,rgba(30,16,6,0) ${((er + soft) * 100).toFixed(1)}%)`;
+      shadowL.style.background = `linear-gradient(270deg,rgba(30,16,6,${a}) ${(el2 * 100).toFixed(1)}%,rgba(30,16,6,0) ${((el2 + soft * .7) * 100).toFixed(1)}%)`;
+      shadowR.style.opacity = shadowL.style.opacity = 1;
+      return xe;
+    }
+
+    // ---------------- the camera: the book's scale (1 = reading size) and where its spine sits, on soft springs ----------------
+    const cam = { z: 1, sx: .5, vz: 0, vsx: 0, init: false };
+    function spring(dt, zT, sxT, w) {
+      if (!cam.init) { cam.z = zT; cam.sx = sxT; cam.vz = cam.vsx = 0; cam.init = true; return; }
+      for (const [k, v, T0] of [['z', 'vz', zT], ['sx', 'vsx', sxT]]) { cam[v] += (w * w * (T0 - cam[k]) - 2 * w * cam[v]) * dt; cam[k] += cam[v] * dt; }
     }
 
     // ---------------- timeline state ----------------
     let T = 0, spread = -1, writeL = 0, writeR = 0, phase = 'intro', phaseAt = 0, turnP = 0, coverP = 0, rise = 0, dive = 0, focus = 0, focusTarget = 0;
-    let hurry = false, ended = false, cardShown = false, frameN = 0;
+    let hurry = false, ended = false, cardShown = false, frameN = 0, openedAt = -1, curlK = 0, fireAt = null, fireCss = '';
     const OPEN_AT = 4.4;
-    // she turns the pages herself: drag a page (or the cover) leftward, or tap; a long pause turns it for her
-    const IDLE_TURN = 3.4, IDLE_OPEN = 3.5, IDLE_DIVE = 4.5; // left alone, the book turns its own pages (reading time comes while the ink writes)
+    // she turns the pages herself: drag a page (or the cover) leftward, or tap. Only the test mode (?auto) turns them for her.
+    const IDLE_TURN = 3.4, IDLE_OPEN = 3.5, IDLE_DIVE = 4.5;
     let manual = false, turnTarget = 1, dragX = 0, dragP = 0, downAt = 0, waitAt = 0, turnsDone = 0;
     const hintEl = document.createElement('p'); hintEl.className = 'bk-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
     function startTurn(byHand) {
       if (phase !== 'hold' && phase !== 'write') return;
-      hint(null);
-      if (isLast()) { phase = 'dive'; phaseAt = T; env.audio.sfx('whoosh', .6); return; }
-      manual = !!byHand; turnTarget = 1;
+      hint(null); curlK = 0; curlEl.style.setProperty('--c', 0);
+      if (isLast()) { phase = 'dive'; phaseAt = T; env.audio.sfx('whoosh', .45); return; }
+      manual = !!byHand; turnTarget = 1; curlS = 0; landAt = -1;
       if (single) { leafF = cur; leafB = -2; sliceLeaf(); idxR = ++cur; }
       else { leafF = idxR; leafB = (spread + 1) * 2; sliceLeaf(); idxR = (spread + 1) * 2 + 1; }
       // the page underneath is the next page, still unwritten
       inst.R = makePage(idxR, pageR); writeR = 0; render(inst.R, 0, T);
       leafEl.style.display = ''; phase = 'turn'; phaseAt = T; turnP = 0;
-      env.audio.sfx('page', .9); env.audio.sfx('whoosh', .35);
+      env.audio.sfx('page', .9);
     }
     function finishTurn() {
-      turnsDone++; leafEl.style.display = 'none'; leafF = leafB = -1; leafEl.style.opacity = '';
-      if (single) { phase = 'write'; phaseAt = T; hurry = false; return; }
+      turnsDone++; leafEl.style.display = 'none'; leafF = leafB = -1; landAt = -1;
+      shadowR.style.opacity = shadowL.style.opacity = 0;
+      // the sheet settles: a breath of dust from the gutter, a faint glint of sound
+      const r = pageR.getBoundingClientRect();
+      if (r.width) for (let k = 0; k < 2; k++) fx.burst(r.left + 4, r.top + r.height * (.3 + R() * .5), { n: 3, speed: 16, life: 2.4, size: 1.1, sparkle: 0, color: '255,228,186', lift: 8, drag: 1.6 });
+      env.audio.sfx('glint', .14);
+      if (single) { leftBlank = true; blankLeft(); phase = 'write'; phaseAt = T; hurry = false; return; }
       spread++;
       idxL = spread * 2; inst.L = makePage(idxL, pageL); writeL = 0; render(inst.L, 0, T);
       phase = 'write'; phaseAt = T; hurry = false;
     }
     /** A turn let go too early falls back: the leaf lies down again on the right. */
     function cancelTurn() {
-      leafEl.style.display = 'none'; leafEl.style.opacity = ''; if (single) cur = leafF; idxR = leafF; leafF = leafB = -1;
+      leafEl.style.display = 'none'; shadowR.style.opacity = shadowL.style.opacity = 0; landAt = -1;
+      if (single) cur = leafF; idxR = leafF; leafF = leafB = -1;
       inst.R = makePage(idxR, pageR); writeR = inst.R?.dur || 0; render(inst.R, writeR, T);
       phase = 'hold'; phaseAt = T; waitAt = T;
     }
@@ -183,11 +244,11 @@ export default {
       if (e.target.closest('#hud,#menu,#btn-next')) return;
       dragX = e.clientX; downAt = T; dragP = 0;
       if (phase === 'hold' && !isLast() && (single || e.clientX > env.W * .35)) startTurn(true);
-      else if (phase === 'cover-wait') { phase = 'cover'; phaseAt = T; manual = true; coverP = 0; hint(null); env.audio.sfx('whoosh', .5); }
+      else if (phase === 'cover-wait') { phase = 'cover'; phaseAt = T; manual = true; coverP = 0; hint(null); coverEl.classList.remove('invite'); env.audio.sfx('whoosh', .4); }
     });
     addEventListener('pointermove', e => {
       if (!manual) return;
-      dragP = clamp((dragX - e.clientX) / (pw * 1.3));
+      dragP = clamp((dragX - e.clientX) / (pw * cam.z * 1.2));
       if (phase === 'turn') turnP = dragP; else if (phase === 'cover') coverP = dragP;
     }, { passive: true });
     const release = e => {
@@ -202,23 +263,12 @@ export default {
       else if (phase === 'hold' && isLast()) startTurn();
     });
 
-    let glintAt = 0;
-    function cornerGlow(t) {
-      if (t - glintAt < .09 || !pageR.isConnected) return; glintAt = t;
-      const r = pageR.getBoundingClientRect(), k = (t * .7) % 1;
-      fx.trail(r.right - 6 - k * r.width * .06, r.bottom - 6 - (1 - k) * r.height * .1, { life: 1.1, size: 1.3, vy: -12, spread: 3 });
-    }
-    function coverGlow(t) {
-      if (t - glintAt < .07) return; glintAt = t;
-      const r = coverEl.getBoundingClientRect(), k = (t * .35) % 1;
-      fx.trail(r.right - 4, r.top + k * r.height, { life: 1.2, size: 1.4, vy: -10, spread: 3 });
-    }
     const cues = env.cues([[2.2, 5.4, '书房里的灯，一盏一盏，暖暖地亮了起来。']]);
     layout();
 
     return {
       progress: () => single ? clamp((cur + 1 + turnP) / (defs.length + 1)) : clamp((spread + 1 + turnP) / (SPREADS + 1)),
-      debug: () => ({ phase, spread, writeL, writeR, T, lDur: inst.L?.dur, rDur: inst.R?.dur }),
+      debug: () => ({ phase, spread, cur, writeL, writeR, T, turnP: +turnP.toFixed(3), lDur: inst.L?.dur, rDur: inst.R?.dur, z: +cam.z.toFixed(3), sx: +cam.sx.toFixed(3), pw, page: (r => [Math.round(r.left), Math.round(r.right), Math.round(r.width)])(pageR.getBoundingClientRect()) }),
       resize() { layout(); },
       destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); stop(room); hearth.remove(); },
       update(dt, t) {
@@ -226,8 +276,8 @@ export default {
         if (!cardShown && t > .2) { cardShown = true; env.chapterCard('I', 1700); }
         if (t < 9) cues(t);
         // ---------- 2.5D camera ----------
-        const wd = wander(t, 4.1, .9);
-        view.frame(map, { x: wd.x * .7 + env.look.x * .8, y: wd.y * .45 + env.look.y * .5 - .25 * (1 - rise), zoom: .035 * rise + .06 * between(t, 1, 45) + .16 * dive, focus: .72 }, [W / 2, H * .55]);
+        const wd = wander(t, 4.1, .9), push = clamp((cam.z - zClosed) / (1 - zClosed || 1));
+        view.frame(map, { x: wd.x * .7 + env.look.x * .8, y: wd.y * .45 + env.look.y * .5 - .25 * (1 - rise), zoom: .035 * rise + .06 * between(t, 1, 45) + .05 * clamp(push) + .16 * dive, focus: .72 }, [W / 2, H * .55]);
         // ---------- the room, its warm light, dust ----------
         lg.setTransform(rs, 0, 0, rs, 0, 0); lg.globalAlpha = 1;
         const filmed = room && drawable(room) && (room.portrait === portrait);
@@ -241,7 +291,8 @@ export default {
         { // the hearth: living flame over the filmed fire, and its light breathing over the room
           const F = FIRE[portrait ? 'study-port' : 'study-land'], img = portrait ? A.port : A.study, pm = view.at(.55, tmp);
           const hx = pm.x + F.x * img.width * pm.s, hy = pm.y + F.y * img.height * pm.s, hw = F.w * img.width * pm.s;
-          lg.setTransform(rs, 0, 0, rs, 0, 0); drawFire(lg, hx, hy, hw, t, warm); hearth.update(t, hx, hy, hw, warm);
+          lg.setTransform(rs, 0, 0, rs, 0, 0); const leap = drawFire(lg, hx, hy, hw, t, warm); hearth.update(t, hx, hy, hw, warm, leap);
+          fireAt = [hx, hy];
         }
         { const pm = view.at(.75, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); if (!filmed) studySteam(lg, portrait ? 'study-port' : 'study-land', t, warm * (1 - rise * .6)); lg.setTransform(rs, 0, 0, rs, 0, 0); } // the film has its own steam
         lg.globalCompositeOperation = 'lighter';
@@ -249,94 +300,100 @@ export default {
           const pm = view.at(.9, tmp), k = pm.s / map.s, x = pm.x + (((b.x + t * b.v) % 1.1 - .05) * W - map.x) * k, y = pm.y + ((b.y + Math.sin(t * .4 + b.p) * .02) * H - map.y) * k, r = b.r * Math.min(W, H) * 1.6;
           lg.globalAlpha = b.a * warm * (.6 + .4 * Math.sin(t * .7 + b.p)); lg.drawImage(bokehS, x - r, y - r, r * 2, r * 2);
         });
-        lg.globalCompositeOperation = 'source-over';
-        lg.globalAlpha = 1; lg.globalCompositeOperation = 'lighter';
+        // a little dust hanging in the lamplight, near and far (soft, slow, never glittering)
         motes.forEach(m => {
-          const x = ((m.x + t * .006 * (m.z + .3)) % 1) * W, y = ((m.y + Math.sin(t * .2 + m.p) * .02 - t * .004 * m.z) % 1 + 1) % 1 * H;
-          lg.globalAlpha = (.25 + .5 * m.z) * (.5 + .5 * Math.sin(t * 1.3 + m.p)); lg.fillStyle = '#ffdca0'; lg.fillRect(x, y, 1 + m.z * 1.4, 1 + m.z * 1.4);
+          const x = ((m.x + t * .003 * (m.z + .3) + Math.sin(t * .13 + m.p) * .01) % 1) * W, y = ((m.y + Math.sin(t * .17 + m.p) * .015 - t * .002 * m.z) % 1 + 1) % 1 * H, sz = 1.2 + m.z * 2.6;
+          lg.globalAlpha = warm * (.05 + .12 * m.z) * (.55 + .45 * Math.sin(t * .6 * m.s + m.p)); lg.drawImage(dustS, x - sz, y - sz, sz * 2, sz * 2);
         });
         lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1;
-        // warm lamplight wash and the book's own glow are painted here rather than as extra full-screen layers
+        // warm lamplight wash and a soft pool of light where the book floats
         const wv = warm * (.75 + Math.sin(t * 9) * .05 + Math.sin(t * 4.1) * .06);
-        if (wv > .01) { lg.globalCompositeOperation = 'lighter'; lg.globalAlpha = wv * .22; lg.drawImage(glowW, W * .1, -H * .35, W * .8, H * 1.2); }
-        const av = .35 + rise * .45 + Math.sin(t * 1.7) * .1 * rise;
-        if (av > .02) { lg.globalCompositeOperation = 'lighter'; lg.globalAlpha = av * .55; const aw = pw * 3.4 * camS, ah = ph * 2.1 * camS; lg.drawImage(auraS, W / 2 + camX - aw / 2, H / 2 + camY - ah / 2, aw, ah); }
+        if (wv > .01) { lg.globalCompositeOperation = 'lighter'; lg.globalAlpha = wv * .18; lg.drawImage(glowW, W * .1, -H * .35, W * .8, H * 1.2); }
+        const av = (.3 + rise * .3) * (1 - push * .5);
+        if (av > .02) { lg.globalCompositeOperation = 'lighter'; lg.globalAlpha = av * .32; const aw = pw * 3 * camS, ah = ph * 1.9 * camS; lg.drawImage(auraS, camX - aw / 2, camY - ah / 2, aw, ah); }
         lg.globalCompositeOperation = 'source-over'; lg.globalAlpha = 1;
 
         // ---------- choreography ----------
         if (phase === 'intro') {
           rise = easeInOut(between(t, 2.4, 4.6)); // after the chapter's title has cleared
-          if (t > OPEN_AT) { phase = 'cover-wait'; phaseAt = t; if (single) { idxR = 0; inst.R = makePage(0, pageR); render(inst.R, 0, t); } else { idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); } }
+          if (t > OPEN_AT) { phase = 'cover-wait'; phaseAt = t; coverEl.classList.add('invite'); if (single) { idxR = 0; inst.R = makePage(0, pageR); render(inst.R, 0, t); } else { idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); } }
         }
         if (phase === 'cover-wait') {
           if (t - phaseAt > 1.2) hint('轻触封面，或向左拨开，翻开这本书');
-          coverGlow(t);
-          if (t - phaseAt > IDLE_OPEN) { phase = 'cover'; phaseAt = t; manual = false; turnTarget = 1; hint(null); env.audio.sfx('whoosh', .5); }
+          if (env.auto && t - phaseAt > IDLE_OPEN) { phase = 'cover'; phaseAt = t; manual = false; turnTarget = 1; hint(null); coverEl.classList.remove('invite'); env.audio.sfx('whoosh', .4); }
         }
         if (phase === 'cover') {
-          if (!manual) coverP = clamp(coverP + (turnTarget ? 1 : -1) * dt / 1.3);
-          if (coverP <= 0 && !manual && !turnTarget) { phase = 'cover-wait'; phaseAt = t - 1.2; turnTarget = 1; }
-          if (coverP >= 1) { spread = 0; coverEl.style.display = 'none'; writeL = 0; writeR = 0; if (single) { cur = 0; idxR = 0; inst.R = inst.R || makePage(0, pageR); } else { idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); } phase = 'write'; phaseAt = t; }
+          if (!manual) coverP = clamp(coverP + (turnTarget ? 1 : -1) * dt / 1.5);
+          if (coverP <= 0 && !manual && !turnTarget) { phase = 'cover-wait'; phaseAt = t - 1.2; turnTarget = 1; coverEl.classList.add('invite'); }
+          if (coverP >= 1) { spread = 0; openedAt = t; writeL = 0; writeR = 0; if (single) { cur = 0; idxR = 0; inst.R = inst.R || makePage(0, pageR); } else { idxL = 0; inst.L = makePage(0, pageL); render(inst.L, 0, t); } phase = 'write'; phaseAt = t; }
         }
         if (phase === 'write' || phase === 'hold') {
           const L = inst.L, Rp = inst.R, spd = hurry ? 6 : 1.5;
           const lDur = L?.dur || 0, rDur = Rp?.dur || 0;
-          if (writeL < lDur + .01) { writeL += dt * spd; render(L, writeL, t); }
+          // on a phone the ink waits until the camera has come in close enough to read it
+          const ready = !single || openedAt < 0 || cam.z > .9 || t - openedAt > 2.6;
+          if (!ready) { /* the push-in */ }
+          else if (writeL < lDur + .01) { writeL += dt * spd; render(L, writeL, t); }
           else if (writeR < rDur + .01) { writeR += dt * spd; render(Rp, writeR, t); }
           else if ((frameN++ % (env.q < 1 ? 6 : 3)) === 0) { render(L, writeL, t); render(Rp, writeR, t); } // gold ink shimmer
-          // the camera follows the pen on narrow screens
-          focusTarget = single ? 0 : portrait ? (writeL < lDur ? 1 : -1) : 0;
-          if (Rp?.map && !single) focusTarget = portrait ? -1 : -.35;
-          if (phase === 'write' && writeL >= lDur && writeR >= rDur) { phase = 'hold'; phaseAt = t; waitAt = t; }
+          focusTarget = !single && Rp?.map ? -.35 : 0;
+          if (phase === 'write' && ready && writeL >= lDur && writeR >= rDur) { phase = 'hold'; phaseAt = t; waitAt = t; }
           if (phase === 'hold') {
             const last = isLast(), wait = t - waitAt;
-            if (wait > 1.4) hint(last ? '轻触书页，走进故事里' : turnsDone ? null : '向左拨动书页，翻到下一页');
-            if (!last) cornerGlow(t);
-            if (wait > (last ? IDLE_DIVE : IDLE_TURN)) startTurn();
+            if (wait > 1.4 && (last || !turnsDone)) hint(last ? '轻触书页，走进故事里' : '向左拨动书页，翻到下一页');
+            else if (!last && wait > 9) hint('轻触书页，或向左拨动');
+            if (env.auto && wait > (last ? IDLE_DIVE : IDLE_TURN)) startTurn();
           }
         }
+        // the free corner of the page lifts a little, breathing, to say it can be turned
+        { const want = phase === 'hold' && !isLast() && t - waitAt > .8 ? .55 + .45 * (.5 + .5 * Math.sin((t - waitAt) * 1.7)) : 0;
+          curlK += (want - curlK) * (1 - Math.exp(-dt * 3)); const v = curlK.toFixed(3); if (curlEl._v !== v) { curlEl._v = v; curlEl.style.setProperty('--c', v); } }
+        let pull = 0; // phones: how far the camera eases back while a leaf is in the air
         if (phase === 'turn') {
-          if (!manual) turnP = clamp(turnP + (turnTarget ? 1 : -1) * dt / 1.05);
+          if (!manual && landAt < 0) turnP = clamp(turnP + (turnTarget ? 1 : -1) * dt / 1.25);
           if (turnP <= 0 && !manual && !turnTarget) { cancelTurn(); }
-          focusTarget = 0;
-          const e = easeInOut(turnP), root = -180 * e, curl = 115 * Math.sin(Math.PI * turnP) * (-(1 - turnP) + turnP * .55);
-          let acc = root;
-          strips.forEach((st, i) => {
-            const w = Math.pow((i + 1) / N, 1.7) - Math.pow(i / N, 1.7), ang = (i === 0 ? root : 0) + curl * w;
-            acc += i === 0 ? curl * w : curl * w;
-            st.s.style.transform = `rotateY(${ang.toFixed(2)}deg)`;
-            const a = (acc - (i === 0 ? 0 : 0)) * Math.PI / 180, lit = Math.abs(Math.sin(a));
-            st.sf.style.opacity = (lit * .5).toFixed(3); st.sb.style.opacity = (lit * .45).toFixed(3);
-          });
-          shadowR.style.opacity = (Math.sin(Math.PI * Math.min(1, turnP * 1.6)) * .55).toFixed(3);
-          shadowL.style.opacity = (between(turnP, .45, .95) * (1 - between(turnP, .95, 1)) * .5).toFixed(3);
-          if (turnP > .08 && turnP < .92 && Math.random() < env.q) {
-            const r = strips[N - 1].s.getBoundingClientRect(); fx.trail(r.left + r.width / 2, r.top + R() * r.height, { life: 1.3, size: 1.6, vy: -25, spread: 4 });
+          else {
+            if (turnP >= 1 && !manual && landAt < 0) landAt = t;
+            bendLeaf(turnP, dt, manual);
+            if (landAt >= 0 && t - landAt > .42) finishTurn();
           }
-          if (single) leafEl.style.opacity = (1 - between(turnP, .58, .9)).toFixed(3);   // past the spine, the leaf slips out of view
-          if (turnP >= 1) { shadowR.style.opacity = 0; shadowL.style.opacity = 0; finishTurn(); }
+          focusTarget = 0;
+          pull = between(turnP, 0, .22) * (1 - between(turnP, .82, 1));
         }
         if (phase === 'dive') {
           dive = easeIn(clamp((t - phaseAt) / 1.8));
-          if (!ended && dive > .55) { ended = true; env.next({ transition: 'bloom', at: [env.W / 2, env.H / 2] }); }
+          if (!ended && dive > .55) { ended = true; env.next({ transition: 'sand', at: [env.W / 2, env.H * .48] }); } // the page crumbles into the sand of the next chapter
         }
         focus = lerp(focus, focusTarget, 1 - Math.exp(-dt * 2.2));
 
+        // ---------- camera targets: closed on the desk → the open spread → close on the page she reads ----------
+        const ce = easeInOut(coverP), reading = openedAt >= 0 && t - openedAt > .55;
+        const sxClosed = .5 - .522 * zClosed * pw / W;
+        let zT, sxT;
+        if (!reading) { zT = lerp(zClosed, zOpen, ce); sxT = lerp(sxClosed, .5, ce); }
+        else { zT = 1; sxT = sxRead + focus * pw * .5 / W; }
+        if (single && pull > 0) { zT = lerp(zT, .8, pull); sxT = lerp(sxT, .29, pull); }
+        spring(Math.min(dt, .05), zT, sxT, phase === 'turn' ? 3.6 : reading ? 2.3 : 2.8);
+
         // ---------- book transform ----------
-        const bob = Math.sin(t * .9) * 6 * rise, sway = Math.sin(t * .5) * 1.2 * rise;
+        const bob = Math.sin(t * .9) * 5 * rise * (1 - push * .7), sway = Math.sin(t * .5) * 1.1 * rise * (1 - push * .6);
         const tableY = portrait ? H * .3 : H * .27;
         const ty = lerp(tableY, portrait ? -H * .02 : -H * .015, rise) + bob;
-        const rx = lerp(64, 15, rise), sc = lerp(.52, 1, rise);
-        const closedShift = single ? -pw / 2 : -pw / 2 * (1 - easeInOut(coverP));
+        const rx = lerp(64, 15, rise) - 8 * push, sc = lerp(.52, 1, rise);
         const bp = view.at(1.12, tmp), bk = bp.s / map.s;
-        let x = closedShift + focus * pw / 2 + (bp.x + (W / 2 - map.x) * bk - W / 2), s = sc, y = ty + (bp.y + (H / 2 - map.y) * bk - H / 2);
-        if (dive > 0) { s = sc * (1 + dive * 5); x = lerp(x, -pw * .45 * (1 + dive * 5), dive); y = lerp(ty, ty + ph * .05 * dive * 5, dive); }
-        floatEl.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotateX(${(rx - dive * 12).toFixed(2)}deg) rotateZ(${sway.toFixed(2)}deg) scale(${s.toFixed(4)})`;
+        let s = sc * cam.z, spineX = cam.sx * W, y = ty + (bp.y + (H / 2 - map.y) * bk - H / 2);
+        spineX += (bp.x + (W / 2 - map.x) * bk - W / 2) * (1 - push * .6);
+        if (dive > 0) { const k = 1 + dive * 5, cx = spineX + pw * s * .5; s *= k; spineX = cx - (cx - spineX) * k; y += ph * .05 * dive * 5; }
+        floatEl.style.transform = `translate3d(${(spineX - W / 2).toFixed(1)}px,${y.toFixed(1)}px,0) rotateX(${(rx - dive * 10).toFixed(2)}deg) rotateZ(${sway.toFixed(2)}deg) scale3d(${s.toFixed(4)},${s.toFixed(4)},${s.toFixed(4)})`;
         coverEl.style.transform = `rotateY(${(-180 * easeInOut(coverP)).toFixed(2)}deg) translateZ(2px)`;
-        if (single) coverEl.style.opacity = (1 - between(coverP, .5, .82)).toFixed(3);
         bookEl.classList.toggle('is-open', coverP > .5);
-        camX = x; camY = y; camS = s;
-        if (rise > 0 && rise < 1 && Math.random() < .5) fx.trail(W / 2 + (R() - .5) * pw * 1.2, H / 2 + ty + ph * .3, { vy: -40, life: 1.4 });
+        // the hearth's light on the pages: warm from the fire's side, rising and sinking with the flames
+        if (fireAt && coverP > .3) {
+          const vx = (spineX - fireAt[0]), vy = (H / 2 + y - fireAt[1]), ang = Math.atan2(vx, -vy) * 180 / Math.PI, lv = (hearth.level || .7) * warm, near = clamp(1.3 - Math.hypot(vx, vy) / Math.max(W, H));
+          const o = (.07 + .1 * lv) * (.6 + .4 * near) * clamp((coverP - .3) / .4), css = `linear-gradient(${ang.toFixed(1)}deg,rgba(255,132,52,${o.toFixed(3)}),rgba(255,170,90,${(o * .35).toFixed(3)}) 45%,rgba(24,12,6,${(o * .5).toFixed(3)}))`;
+          if (css !== fireCss) { fireCss = css; fireL.forEach(e => { e.style.backgroundImage = css; }); }
+        }
+        camX = spineX + (single && coverP > .5 ? pw * s * .5 : 0); camY = H / 2 + y; camS = s;
       },
     };
   },

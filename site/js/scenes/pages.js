@@ -218,8 +218,8 @@ export function buildPages(assets) {
     return { dur: B.end + .6, draw(prog, time) {
       corners(g, w, h); latin(g, 'NOMEN AMORIS', w / 2, h * .1, w * .025);
       const a = drawText(g, T, prog, w, time); ornament(g, w / 2, h * .3, w * .26, SEPIA, between(prog, T.end, T.end + .6)); const b = drawText(g, B, prog, w, time);
-      // a small hand-drawn heart, signed in red ink
-      const k = between(prog, B.end - .3, B.end + .5); if (k > 0) inkLine(g, heartPts(w * .72, h * .84, w * .045), k, w * .004, '#8a2424');
+      // signed with a small sprig of rosemary, for remembrance, in red-brown ink
+      const k = between(prog, B.end - .3, B.end + 1.1); if (k > 0) sprig(g, w * .7, h * .855, w * .085, k, '#7d2c22');
       folio(g, w, h, 'vii'); return { pen: a || b };
     } };
   });
@@ -271,6 +271,16 @@ function trail(ids, n) {
     out.push({ x: lerp(pts[k][0], pts[k + 1][0], u) - Math.sin(a) * wob, y: lerp(pts[k][1], pts[k + 1][1], u) + Math.cos(a) * wob, a, side: side = -side });
   }
   return out;
+}
+/** A sprig drawn as the pen would: the stem in one stroke, then the needles one by one, alternating sides. */
+function sprig(g, x, y, s, k, col) {
+  const P = u => [x - s * .62 + u * s * 1.24, y + s * .22 - Math.sin(u * Math.PI * .9) * s * .3 - u * s * .14];
+  inkLine(g, Array.from({ length: 25 }, (_, i) => P(i / 24)), clamp(k * 1.8), s * .04, col);
+  for (let j = 0; j < 9; j++) {
+    const u = .12 + j * .095, kk = clamp((k - .45 - j * .05) / .12); if (kk <= 0) break;
+    const [px, py] = P(u), [qx, qy] = P(u + .02), a = Math.atan2(qy - py, qx - px) + (j % 2 ? 1 : -1) * .75, L = s * (.24 - j * .012);
+    inkLine(g, [[px, py], [px + Math.cos(a) * L, py + Math.sin(a) * L]], kk, s * .05, col);
+  }
 }
 function heartPts(cx, cy, s) { return Array.from({ length: 61 }, (_, i) => { const t = i / 60 * TAU; return [cx + s * 16 * Math.pow(Math.sin(t), 3) / 16, cy - s * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16]; }); }
 function drawStar(g, x, y, r, col) {

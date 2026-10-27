@@ -4,6 +4,7 @@ import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { Pups } from './pups.js';
 import { Gate } from './gate.js';
+import { primeClips } from './video.js';
 import prologue from './scenes/prologue.js';
 import book from './scenes/book.js';
 import journey from './scenes/journey.js';
@@ -154,7 +155,7 @@ async function go(i, { transition = 'cross', fast = false, at = null } = {}) {
   env.handoff = transition === 'bloom' && !fast && !env.reduced ? (at || [env.W / 2, env.H / 2]) : null;
   current = S.create({ ...env, el }); settle = performance.now() + 1600; gaps.length = 0;
   current.el = el; current.t = 0;
-  env.audio.cue(S.music, 1.6);
+  env.audio.cue(S.music, fast ? 1.8 : 3.4); env.audio.bed(S.bed || null, 4); env.audio.prepare(SCENES[i + 1]?.music);
   for (let k = i + 1; k < Math.min(SCENES.length, i + 3); k++) preload(k);
   history.replaceState(null, '', '#' + S.id);
   const fade = transition === 'gold' ? 1500 : transition === 'moon' ? 600 : transition === 'bloom' ? 2300 : 1300;
@@ -269,10 +270,19 @@ document.addEventListener('visibilitychange', () => { env.audio.pause(document.h
 const startIndex = Math.max(0, SCENES.findIndex(s => s.id === (params.get('scene') || location.hash.slice(1))));
 let started = false;
 const gate = new Gate(env, begin);
-// iOS only grants motion access (and audio) from inside a real gesture: ask on the first press of the moon
-const firstTouch = () => { enableTilt(); env.audio.unlock(); };
+// iOS only grants motion access (and audio) from inside a real gesture: ask on the first press of the moon. Sound is
+// (re)unlocked from every touch, because iOS can suspend it again after a call, Siri or a visit to the home screen.
+const firstTouch = () => {
+  enableTilt(); env.audio.unlock();
+  if (!env.reduced) { const p = env.portrait ? 'p' : ''; primeClips(['castle' + p, 'castle-hold' + p, env.portrait ? 'studyp' : 'study', env.portrait ? 'runp' : 'run', 'kiss', env.portrait ? 'lionsp' : 'lions']); } // Low Power Mode: films may only play once a tap has played them
+};
 $('#gate-moon').addEventListener('pointerdown', firstTouch, { once: true });
 $('#gate-moon').addEventListener('keydown', firstTouch, { once: true });
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, () => env.audio.unlock(), { passive: true, capture: true });
+// iPhone: no pinch-zoom on the stage (double-tap zoom is off via touch-action)
+for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+// a soft, woody tick for the controls
+document.addEventListener('click', e => { if (e.target.closest('#hud button, #menu button, #btn-next')) env.audio.sfx('tap', .7); }, true);
 Promise.all([preload(startIndex), document.fonts?.ready]).then(() => {
   film.classList.remove('is-loading'); $('#gate-loading').textContent = ''; gate.setReady();
 });

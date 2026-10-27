@@ -23,7 +23,7 @@ const B_LEN = 27;       // shot B runs this long once it starts
 const AUTO_AFTER = 4.5; // if nobody touches the screen, the horses set off on their own
 
 export default {
-  id: 'film', music: 'film',
+  id: 'film', music: 'film', bed: 'wind',
   async load(env) {
     // filmed plates for shot A (tools/video/): the gallop (a tall framing on phones) and the close-up
     if (!env.reduced && !clips) {
@@ -181,13 +181,13 @@ export default {
       // the wash: the clip squeezed into a few pixels and stretched back up, a soft blur of its colours
       const wg = washCv.getContext('2d'); wg.filter = 'blur(4px)'; wg.drawImage(v, -8, -8, washCv.width + 16, washCv.height + 16);
       g.globalAlpha = alpha; g.imageSmoothingEnabled = true; g.drawImage(washCv, -W * .1, b0 - bh * .05, W * 1.2, bh * 1.1);
-      g.fillStyle = 'rgba(26,13,5,.55)'; g.fillRect(0, b0, W, bh);
+      g.fillStyle = 'rgba(22,11,4,.7)'; g.fillRect(0, b0, W, bh);
       const m = { s, x: W / 2 - fx * iw * s, y };
       // the strip melts into the wash at its top and bottom edges (an alpha mask, so no seam shows)
       if (stripCv.width !== Math.round(W * rs) || stripCv.height !== Math.round(h * rs)) { stripCv.width = Math.round(W * rs); stripCv.height = Math.round(h * rs); }
       const sg = stripCv.getContext('2d'); sg.setTransform(rs, 0, 0, rs, 0, 0); sg.globalCompositeOperation = 'source-over'; sg.clearRect(0, 0, W, h);
       sg.drawImage(v, m.x, 0, iw * s, h);
-      const gr = sg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.2, '#000'); gr.addColorStop(.8, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      const gr = sg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.24, '#000'); gr.addColorStop(.76, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
       sg.globalCompositeOperation = 'destination-in'; sg.fillStyle = gr; sg.fillRect(0, 0, W, h);
       g.drawImage(stripCv, 0, y, W, h);
       return m;
@@ -195,7 +195,7 @@ export default {
     function shotKissFilmed(k, W, H, alpha) {
       const [b0, bh] = band(), v = clipKiss.v, iw = v.videoWidth || 1280, ih = v.videoHeight || 704;
       let m;
-      if (env.portrait) m = strip(clipKiss, NOSE.x, alpha); // neither of them is cut off
+      if (env.portrait) m = strip(clipKiss, NOSE.x, alpha, 1.82); // close, but neither of them is cut off
       else { g.globalAlpha = alpha; m = drawCover(g, clipKiss, 0, b0, W, bh, NOSE.x, .5, 1.02 + .04 * easeOut(clamp(k / 8))); }
       const nx = m.x + NOSE.x * iw * m.s, ny = m.y + NOSE.y * ih * m.s, r = Math.min(W, H) * (.3 + Math.sin(k * 1.3) * .03);
       g.globalCompositeOperation = 'lighter'; g.globalAlpha = alpha * .22 * between(k, .8, 3); g.drawImage(glowW, nx - r, ny - r, r * 2, r * 2); g.globalCompositeOperation = 'source-over';

@@ -26,8 +26,8 @@ const A = {};
 
 // timeline (seconds)
 const DIVE = 7.2;                         // the crane from the moon down to the castle
-const OWL0 = 4.4, OWL1 = 9.6;             // the owl's glide across the sky
-const DROP = 9.5, LAND = 13.4;            // the letter falls from its talons and settles in front of her
+const OWL0 = 3.0, OWL1 = 8.6;             // the owl's flight across the moon (the 3D film; the painted fallback uses the same times)
+const DROP = 8.75, LAND = 12.4;           // the letter falls from its talons and settles in front of her
 const FLIP_AUTO = 2.8, OPEN_AUTO = 6;     // she may turn it / open it herself; otherwise it happens
 // the opening, in seconds after she touches the star
 const O = { burst: .78, flap: .86, rise: 1.45, away: 2.5, forward: 2.65, unfold: 3.1, write: 4.55, covered: 4.45 };
@@ -74,7 +74,7 @@ function windowLights(img) {
 }
 
 export default {
-  id: 'prologue', music: 'prologue',
+  id: 'prologue', music: 'prologue', bed: 'wind',
   async load(env) {
     const [castle, owl] = await Promise.all([loadImage(asset('img/castle.webp')), loadImage(asset('img/owl-glide.webp')),
       ...['letter', 'env-front', 'env-back', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in'].map(n => loadImage(asset(`img/${n}.webp`)))]);
@@ -119,6 +119,7 @@ export default {
         <button class="pro-seal" type="button" aria-label="轻触金色的星星，拆开这封信">${STAR}</button>
         <i class="pro-flash"></i>
       </div>
+      <i class="pro-warm" aria-hidden="true"></i>
       <p class="pro-hint"></p>`;
     const $ = s => wrap.querySelector(s);
     const card = $('.pro-card'), envEl = $('.pro-env'), paper = $('.pro-paper'), inner = $('.pro-paper-inner'), seal = $('.pro-seal'), hint = $('.pro-hint');
@@ -132,9 +133,22 @@ export default {
       for (const ch of line) { const s = document.createElement('span'); s.textContent = ch; p.appendChild(s); chars.push(s); }
       inner.appendChild(p);
     });
+    // the voice memo: a small golden gramophone that fades in under the last line (only when a recording exists)
+    const memo = document.createElement('button'); memo.type = 'button'; memo.className = 'pro-memo'; memo.setAttribute('aria-label', '播放一段我想对你说的话');
+    memo.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 46h22M25 46v-7"/><circle cx="25" cy="35" r="4"/><path d="M28 32 44 16c4 6 9 9 14 9-1-6-7-14-14-17l-1 6"/><path d="M44 16c2 3 5 5 8 6"/></g>
+      <g class="w" fill="currentColor"><rect x="40" y="38" width="2.2" height="8" rx="1.1"/><rect x="45" y="35" width="2.2" height="14" rx="1.1"/><rect x="50" y="38" width="2.2" height="8" rx="1.1"/><rect x="55" y="40" width="2.2" height="4" rx="1.1"/></g></svg><span>轻触，听我说</span>`;
     const sign = document.createElement('p'); sign.className = 'sign';
     for (const ch of SIGN) { const s = document.createElement('span'); s.textContent = ch; sign.appendChild(s); chars.push(s); }
     inner.appendChild(sign);
+    paper.appendChild(memo);
+    let memoAt = Infinity, memoState = 'off', resumeAt = Infinity;   // off -> shown -> playing -> done
+    memo.addEventListener('click', async e => {
+      e.stopPropagation(); if (memoState === 'playing') return;
+      memoState = 'playing'; memo.classList.add('playing'); env.audio.unlock();
+      const d = await env.audio.playVoice(() => { memoState = 'done'; memo.classList.remove('playing'); memo.classList.add('heard'); resumeAt = T + 2.2; });
+      if (!d) { memoState = 'done'; memo.classList.remove('playing'); resumeAt = T + .5; }
+    });
     let at = 0; const times = [];
     chars.forEach(s => { times.push(at); const ch = s.textContent; at += '，。—：'.includes(ch) ? .17 : .042; if (s === s.parentNode.lastChild) at += .22; });
     const WRITE_LEN = at;
@@ -147,11 +161,11 @@ export default {
     card.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; });
     addEventListener('pointerup', e => { if (drag && landed && flipAt === Infinity) { flipAt = T; env.audio.sfx('page', .5); say(''); } drag = null; });
     envEl.addEventListener('click', () => { if (flipped && !opened && T > flipAt + 1.1) openAt = T; }); // the star, or anywhere on the envelope
-    const cues = env.cues([[.6, 4.8, '有一封信，在月光下飞了很远的路。'], [5.6, 9.4, '雪白的猫头鹰，替一个人把它送来。']]);
+    const cues = env.cues([[.6, 4.4, '有一封信，在月光下飞了很远的路。'], [5.0, 8.8, '雪白的猫头鹰，替一个人把它送来。']]);
 
     const inst = {
       progress: () => clamp(T / (LAND + 6 + WRITE_LEN + 3)),
-      destroy() { if (A.film) stop(A.film); if (A.hold) stop(A.hold); },
+      destroy() { if (A.film) stop(A.film); if (A.hold) stop(A.hold); env.audio.stopVoice(); },
       resize() {
         res = env.res(true);
         cv.width = Math.round(env.W * res); cv.height = Math.round(env.H * res);
@@ -175,7 +189,8 @@ export default {
           if (done && A.hold && !inst.holdOn) { inst.holdOn = true; A.hold.v.loop = true; play(A.hold, 1, 0); }
           const src = inst.holdOn && drawable(A.hold) ? A.hold : film;
           g.globalAlpha = 1; drawCover(g, src, 0, 0, W, H, .5 + env.look.x * .015, .5 + env.look.y * .01, 1.03);
-          if (!inst.hoot && t > 6) { inst.hoot = true; env.audio.sfx('whoosh', .3); }
+          if (!inst.wing1 && t > 3.4) { inst.wing1 = true; env.audio.sfx('wings', .55, { pan: .35, verb: .25 }); }   // she is almost silent: a few soft wingbeats
+          if (!inst.wing2 && t > 6.1) { inst.wing2 = true; env.audio.sfx('wings', .35, { pan: -.4, verb: .35 }); }
           owlXY = [W * .14, -H * .04, 0];
         }
         if (!film && !covered) {
@@ -228,7 +243,7 @@ export default {
             const lift = Math.sin(t * 2.1 + .6); // a glide, not a flap: the wings flex a little with the air
             g.save(); g.translate(x, y); g.rotate(-.04 + Math.sin(t * 1.3) * .03); g.scale(1, 1 + lift * .025);
             g.globalAlpha = clamp(ko * 8) * clamp((1 - ko) * 8); g.drawImage(A.owl, -ow / 2, -oh / 2, ow, oh); g.restore(); g.globalAlpha = 1;
-            if (!inst.hoot && ko > .25) { inst.hoot = true; env.audio.sfx('whoosh', .3); }
+            if (!inst.hoot && ko > .25) { inst.hoot = true; env.audio.sfx('wings', .45, { pan: .2, verb: .3 }); }
           }
           owlXY = [W * .14, -H * .04, 0]; // it let the letter go as it left the frame
         }
@@ -261,8 +276,14 @@ export default {
             const sp = chars[written++]; sp.classList.add('on');
             if (written % 4 === 0) { const r = sp.getBoundingClientRect(); fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.4, vy: -16, color: '140,220,170' }); }
           }
-          if (written >= chars.length && !done) { done = true; doneAt = t; paper.classList.add('glow'); env.audio.sfx('sparkle', .6); }
-          if (done && t > doneAt + 1.7 && !leaving) { leaving = true; const r = paper.getBoundingClientRect(); env.next({ transition: 'bloom', at: [r.left + r.width / 2, r.top + r.height * .55] }); }
+          if (written >= chars.length && !done) {
+            done = true; doneAt = t; paper.classList.add('glow'); env.audio.sfx('sparkle', .6);
+            if (env.audio.hasVoice) { memoAt = t + .9; memoState = 'shown'; }
+          }
+          if (t > memoAt && !memo.classList.contains('on')) memo.classList.add('on');
+          // with a recording, the letter waits for her (and for the message to finish); left alone it moves on after a while
+          const wait = memoState === 'off' ? doneAt + 1.7 : memoState === 'shown' ? doneAt + 14 : memoState === 'playing' ? Infinity : resumeAt;
+          if (done && t > wait && !leaving) { leaving = true; env.audio.stopVoice(); const r = paper.getBoundingClientRect(); env.next({ transition: 'bloom', at: [r.left + r.width / 2, r.top + r.height * .55] }); }
         }
         // a hush falls once the letter is in front of her
         const dim = between(t, LAND - 1.5, LAND + .5) * .45 + (opened ? between(t - openStart, 0, 2) * .25 : 0);
@@ -311,7 +332,8 @@ export default {
         folds[1].style.setProperty('--shade', (1 - u0) * .6);
       }
       if (u0 >= 1 && !paper.classList.contains('lifted')) { paper.classList.add('lifted'); paper.style.transformStyle = 'flat'; }
-      if (!inst.paperSnd && k > O.unfold) { inst.paperSnd = true; env.audio.sfx('page', .7); }
+      if (!inst.flapSnd && k > O.flap) { inst.flapSnd = true; env.audio.sfx('rustle', .55); }
+      if (!inst.paperSnd && k > O.unfold) { inst.paperSnd = true; env.audio.sfx('page', .55); env.audio.sfx('rustle', .3, { delay: .25 }); }
     };
     inst.resize();
     return inst;

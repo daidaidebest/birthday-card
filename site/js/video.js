@@ -3,14 +3,14 @@
 // Mode, an old browser) reports failed, and the scene falls back to its painted 2.5D shot.
 import { asset } from './util.js';
 
-const cache = new Map();
+const cache = new Map(), created = [];
 
 /** Loads a clip; resolves once its first frame can be drawn (or failed is set). Never rejects. */
 export function loadClip(name) {
   if (cache.has(name)) return cache.get(name);
   const v = document.createElement('video');
   v.muted = true; v.defaultMuted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
-  v.preload = 'auto'; v.crossOrigin = 'anonymous'; v.src = asset(`video/${name}.mp4`);
+  v.preload = 'auto'; v.crossOrigin = 'anonymous'; v.src = asset(`video/${name}.mp4`); created.push(v);
   const clip = { v, name, failed: false, ready: false, rate: 1, wanted: false };
   clip.loaded = new Promise(res => {
     const done = ok => { if (clip.ready || clip.failed) return; ok ? clip.ready = true : clip.failed = true; res(clip); };
@@ -26,7 +26,7 @@ export function loadClip(name) {
 /** Starts (or resumes) a clip at a playback rate; marks it failed if the browser refuses to play it. */
 export function play(clip, rate = 1, from) {
   if (!clip || clip.failed) return;
-  const v = clip.v; clip.wanted = true;
+  const v = clip.v; clip.wanted = true; v._wanted = true;
   if (from != null && Math.abs(v.currentTime - from) > .01) try { v.currentTime = from; } catch { /* not seekable yet */ }
   setRate(clip, rate);
   const p = v.play();
@@ -38,7 +38,7 @@ export function setRate(clip, rate) {
   if (Math.abs(clip.v.playbackRate - r) > .01) clip.v.playbackRate = r;
   clip.rate = r;
 }
-export function stop(clip) { if (clip && !clip.failed) { clip.wanted = false; clip.v.pause(); } }
+export function stop(clip) { if (clip && !clip.failed) { clip.wanted = false; clip.v._wanted = false; clip.v.pause(); } }
 /** Fraction of the clip played, 0..1. */
 export const progress = clip => clip && clip.v.duration ? clip.v.currentTime / clip.v.duration : 0;
 /** True when the clip's picture can be drawn this frame. */
@@ -50,6 +50,16 @@ export function drawCover(g, clip, x, y, w, h, fx = .5, fy = .5, zoom = 1) {
   const dw = iw * s, dh = ih * s;
   g.drawImage(v, x + (w - dw) * fx, y + (h - dh) * fy, dw, dh);
   return { s, x: x + (w - dw) * fx, y: y + (h - dh) * fy };
+}
+
+/** iPhone in Low Power Mode lets a video play only if it was first played from a tap. Called from the first touch of the
+ *  moon: every clip the film will need is created and played-then-paused inside that gesture, so later plays succeed. */
+export function primeClips(names) {
+  for (const n of names) loadClip(n);   // creates (and starts loading) any clip not made yet, synchronously
+  for (const el of created) if (!el.dataset.primed) {
+    el.dataset.primed = '1'; const pr = el.play();
+    if (pr && pr.then) pr.then(() => { if (!el._wanted) el.pause(); }).catch(() => {});
+  }
 }
 
 // the director's pause button pauses filmed plates too

@@ -3,11 +3,12 @@
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeOutBack, rng, glowSprite, TAU } from '../util.js';
 import { PHOTOS, LETTER } from '../content-shim.js';
 import { loadDepth, depthNameFor, DepthView, wander } from '../depth.js';
+import { Hearth, FIRE } from '../hearth.js';
 
 const DROP = 3.0;
 const DEPTHS = {}, ROOM = {};
 export default {
-  id: 'memories', music: 'memories',
+  id: 'memories', music: 'memories', bed: 'fire',
   async load() {
     // the photos hang in the same cozy study as the book and the cake, its lights and fire far out of focus behind them
     if (!ROOM.land) await Promise.all(['land', 'port'].map(async k => {
@@ -25,7 +26,8 @@ export default {
     const R = rng(31);
     const bokeh = Array.from({ length: Math.round(18 + 18 * env.q) }, () => ({ x: R(), y: R(), r: 12 + R() * 60, s: .002 + R() * .008, p: R() * TAU, c: R() < .7 ? '255,196,120' : '255,170,150', a: .08 + R() * .2 }));
     const sprites = {}; const spr = c => sprites[c] || (sprites[c] = glowSprite(c, 128, 1.2));
-    const bulb = glowSprite('255,214,150', 64, 2.2);
+    const bulb = glowSprite('255,214,150', 64, 2.2), ember = glowSprite('255,140,60', 64, 1.6);
+    const hearth = new Hearth(el, { before: el.querySelector('.mm-wall'), wash: .8 });   // the fire, out of focus behind the photos, still breathes
 
     // polaroids
     const cards = PHOTOS.map((p, i) => {
@@ -99,7 +101,11 @@ export default {
         // ---------- background: bokeh and fairy lights ----------
         g.setTransform(rs, 0, 0, rs, 0, 0);
         { const r = env.portrait ? ROOM.port : ROOM.land, k = 1.12, s = Math.max(W / r.width, H / r.height) * k; // the study, out of focus
-          g.drawImage(r, (W - r.width * s) / 2 - lx * .5, (H - r.height * s) / 2 - ly * .5, r.width * s, r.height * s);
+          const x0 = (W - r.width * s) / 2 - lx * .5, y0 = (H - r.height * s) / 2 - ly * .5;
+          g.drawImage(r, x0, y0, r.width * s, r.height * s);
+          const F = FIRE[env.portrait ? 'study-port' : 'study-land'], hx = x0 + F.x * r.width * s, hy = y0 + F.y * r.height * s, hw = F.w * r.width * s;
+          g.globalCompositeOperation = 'lighter'; g.globalAlpha = .35 + .12 * Math.sin(t * 5.3) + .08 * Math.sin(t * 2.1); g.drawImage(ember, hx - hw * .7, hy - hw * .75, hw * 1.4, hw * .9); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+          hearth.update(t, hx, hy, hw, between(t, 0, 2.5) * (1 - between(t, LETTER_AT, LETTER_AT + 2) * .5));
           const vg = g.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .2, W / 2, H * .5, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(20,10,8,0)'); vg.addColorStop(1, 'rgba(10,5,6,.6)');
           g.fillStyle = vg; g.fillRect(0, 0, W, H); }
         g.globalCompositeOperation = 'lighter';
@@ -172,7 +178,7 @@ export default {
           if (folded && !ended && t > WRITE_END + 25) { ended = true; env.offerNext(null); env.next({ transition: 'bloom', at: [env.W / 2, env.H * .45] }); }
         }
       },
-      destroy() { env.offerNext(null); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); },
+      destroy() { env.offerNext(null); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); hearth.remove(); },
     };
   },
 };

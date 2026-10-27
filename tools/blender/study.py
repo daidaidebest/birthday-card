@@ -1,7 +1,8 @@
 """The cozy study at night (book, memories and cake scenes), built in Blender from Poly Haven CC0 models/textures
 plus procedural books, fireplace, fire, fairy lights and a two-tier birthday cake with sugar roses.
 blender -b --factory-startup --python study.py -- OUT.blend VARIANT ORIENT [preview]
-  VARIANT: book (looping camera drift, no cake) | cake-unlit | cake-lit | cake-after | cake-depth
+  VARIANT: book (looping camera drift, no cake) | cake-base (everything for the cake stills: both cameras, the flame
+           lights hidden; cake_variants.py renders unlit / lit / after / mask, wide and close, from it)
   ORIENT: portrait | landscape"""
 import bpy, bmesh, math, random, sys, os, json
 from mathutils import Vector, Matrix, Euler, noise
@@ -160,14 +161,14 @@ def fireplace():
     tm = bpy.data.materials.new('tongue'); tm.use_nodes = True; nt = tm.node_tree; N = nt.nodes; N.remove(N['Principled BSDF'])
     tc = N.new('ShaderNodeTexCoord'); sp = N.new('ShaderNodeSeparateXYZ'); link(nt, tc.outputs['Generated'], sp.inputs[0])
     cr = N.new('ShaderNodeValToRGB'); link(nt, sp.outputs['Z'], cr.inputs[0])
-    cr.color_ramp.elements[0].color = (1, .09, .004, 1); cr.color_ramp.elements[1].color = (1, .42, .06, 1); cr.color_ramp.elements[1].position = .8
-    em = N.new('ShaderNodeEmission'); em.inputs[1].default_value = .75; link(nt, cr.outputs[0], em.inputs[0])
+    cr.color_ramp.elements[0].color = (1, .16, .01, 1); cr.color_ramp.elements[1].color = (1, .62, .2, 1); cr.color_ramp.elements[1].position = .75
+    em = N.new('ShaderNodeEmission'); em.inputs[1].default_value = 2.6; link(nt, cr.outputs[0], em.inputs[0])
     fr = N.new('ShaderNodeLayerWeight'); fr.inputs['Blend'].default_value = .45
     tr = N.new('ShaderNodeBsdfTransparent'); mx = N.new('ShaderNodeMixShader')
     inv = N.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1; link(nt, fr.outputs['Facing'], inv.inputs[1])
     link(nt, inv.outputs[0], mx.inputs[0]); link(nt, tr.outputs[0], mx.inputs[1]); link(nt, em.outputs[0], mx.inputs[2]); link(nt, mx.outputs[0], N['Material Output'].inputs[0])
     rr = random.Random(5)
-    for i in range(9):
+    for i in range(13):
         bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=10, radius=1)
         for v in bm.verts:
             z = (v.co.z + 1) / 2; k = (1 - z) ** .8 * (.35 + .65 * min(1, z * 4))
@@ -385,29 +386,24 @@ if CAKE:
         c = Vector((TABLE.x + math.cos(ang) * rr, TABLE.y + math.sin(ang) * rr, zz))
         rose(c, sz * 1.45, tilt=-1.1, rz=ang + math.pi / 2)
         leaf(c + Vector((math.cos(ang + .4) * .02, math.sin(ang + .4) * .02, -.01)), ang - .8)
-    # six slim candles on the top tier
+    # six slim candles in one gentle arc right across the top tier (wide apart, so each is easy to touch on a phone)
     for i in range(6):
-        a = math.radians(-90 + (i - 2.5) * 22); rr = .062 if i % 2 else .07
-        x, y = TABLE.x + math.cos(a) * rr * 1.1, TABLE.y + .015 + math.sin(a) * rr * .55
+        u = (i - 2.5) / 2.5
+        x, y = TABLE.x + u * .084, TABLE.y + .006 + .034 * (1 - u * u)
         hgt = .085
         bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=16, radius1=.0055, radius2=.0055, depth=hgt, matrix=Matrix.Translation((x, y, z2 + hgt / 2)))
         o = obj_from_bm('candle', bm, [wax], col=CK, smooth=True)
         bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=.0008, radius2=.0006, depth=.009, matrix=Matrix.Translation((x, y, z2 + hgt + .0045)))
         obj_from_bm('wick', bm, [wick], col=CK)
         CANDLES.append(Vector((x, y, z2 + hgt + .009)))
-    # candle light (only when lit)
-    if VAR == 'cake-lit':
-        for i, c in enumerate(CANDLES): point(f'flame{i}', c + Vector((0, 0, .014)), 2.2, (1, .6, .25), .006)
-    # a soft warm key over the table so the cake reads (dimmer while it waits in the dark)
+    # candle light (shown only in the lit stills)
+    for i, c in enumerate(CANDLES): point(f'flame{i}', c + Vector((0, 0, .014)), 2.2, (1, .6, .25), .006).hide_render = True
+    # a soft warm key over the table so the cake reads (its strength is set per still)
     key = bpy.data.objects.new('cake_key', bpy.data.lights.new('cake_key', 'AREA')); s.collection.objects.link(key)
-    key.data.size = .6; key.data.energy = {'cake-unlit': 6, 'cake-lit': 10, 'cake-after': 16}.get(VAR, 10); key.data.color = (1, .78, .55)
+    key.data.size = .6; key.data.energy = 10; key.data.color = (1, .78, .55)
     key.location = (TABLE.x - .5, TABLE.y - .6, top + .9); key.rotation_euler = (Vector((TABLE.x, TABLE.y, top)) - key.location).to_track_quat('-Z', 'Y').to_euler()
     key.visible_camera = False
-    # after the wish: the room's lamps come up a little
-    if VAR == 'cake-after':
-        bpy.data.objects['chandelier'].data.energy = 140; bpy.data.objects['oil_lamp'].data.energy = 70
-    if VAR == 'cake-unlit':
-        for n in ('chandelier', 'oil_lamp'): bpy.data.objects[n].data.energy *= .5
+    for n in ('chandelier', 'oil_lamp'): bpy.data.objects[n]['base_energy'] = bpy.data.objects[n].data.energy
 
 # ------------------------------------------------------------------ cameras
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); s.collection.objects.link(cam); s.camera = cam
@@ -429,6 +425,13 @@ else:
     cam.location = Vector((TABLE.x - .05, TABLE.y - 1.25, TOP + .05)) if ORIENT == 'portrait' else Vector((TABLE.x - .1, TABLE.y - 1.05, TOP + .08))
     tgt.location = focus + Vector((0, 0, .12 if ORIENT == 'portrait' else .05))
     cam.data.dof.focus_object = None; cam.data.dof.focus_distance = (cam.location - focus).length; cam.data.dof.aperture_fstop = 2.2
+    # the close-up for lighting the candles: the top tier fills the frame, seen a little from above
+    cc = bpy.data.objects.new('cam_close', bpy.data.cameras.new('cam_close')); s.collection.objects.link(cc)
+    cc.data.sensor_fit = 'AUTO'; cc.data.lens = 35; cc.data.dof.use_dof = True; cc.data.dof.aperture_fstop = 3.2
+    row = Vector((TABLE.x, TABLE.y + .02, TOP - .03)); d, el = (.6, math.radians(16)) if ORIENT == 'portrait' else (.78, math.radians(14))
+    cc.location = row + Vector((-.03, -d * math.cos(el), d * math.sin(el)))
+    aimc = row + Vector((0, 0, -.06 if ORIENT == 'portrait' else -.035))
+    cc.rotation_euler = (aimc - cc.location).to_track_quat('-Z', 'Y').to_euler(); cc.data.dof.focus_distance = (row - cc.location).length
 s.frame_set(1)
 
 # ------------------------------------------------------------------ the depth pass (a variant): view distance as grey, everything else off
@@ -462,14 +465,16 @@ if VAR == 'cake-mask':
     w.node_tree.nodes['Background'].inputs[1].default_value = 0
     s.cycles.samples = 24; s.cycles.use_denoising = False; s.view_settings.view_transform = 'Standard'
 
-# where the wicks land on screen (for the web's flames)
+# where the wicks land on screen (for the web's flames), for both cameras
 if CAKE:
     from bpy_extras.object_utils import world_to_camera_view
     bpy.context.view_layer.update()
     res = (1080, 1920) if ORIENT == 'portrait' else (1920, 1080)
     s.render.resolution_x, s.render.resolution_y = res
-    pts = [world_to_camera_view(s, cam, c) for c in CANDLES]
-    json.dump({'res': res, 'wicks': [[round(p.x, 5), round(1 - p.y, 5)] for p in pts]}, open(OUT.replace('.blend', '.wicks.json'), 'w'))
+    out = {'res': res}
+    for k, c_ in (('wicks', cam), ('wicks_close', bpy.data.objects['cam_close'])):
+        pts = [world_to_camera_view(s, c_, c) for c in CANDLES]; out[k] = [[round(p.x, 5), round(1 - p.y, 5)] for p in pts]
+    json.dump(out, open(OUT.replace('.blend', '.wicks.json'), 'w'))
 
 # ------------------------------------------------------------------ render settings
 blu.make_portable_all(1024)

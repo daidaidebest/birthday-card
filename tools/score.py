@@ -288,30 +288,37 @@ def book():
 
 JOURNEY_BPM = 116
 def journey():
-    """Two roads of sand: a light, walking pop groove in G (pizzicato, nylon guitar, glockenspiel, claps). One city per 2 bars."""
+    """Two roads of sand: a tender piece in G on the same 116 bpm grid the sand keeps (one city per 2 bars), felt as a
+    slow ballad — piano rolling softly, a solo cello singing the theme low and close, then the violins taking it up while
+    the strings swell as the two roads draw near, harp and celesta where they cross. No drums: the sand keeps the time."""
     S = Song('journey', JOURNEY_BPM)
-    S.ch('gtr', 'nylon', 92, 44, 45); S.ch('pizz', 'pizz', 88, 84, 55); S.ch('glock', 'glock', 74, 70, 70); S.ch('bass', 'fbass', 86, 64, 25)
-    S.ch('pno', 'epiano', 72, 60, 50); S.ch('str', 'strings', 66, 64, 70); S.ch('wh', 'whistle', 70, 52, 70)
-    S.ch('drums', 0, 84, drums=True, rev=35)
-    st = -5  # the theme in G (D -> G is +5 or -7)
-    ch = trc(THEME_CH, 5)
-    # 2-bar intro: guitar and clap
-    for k in range(2):
-        for h in range(8): S.note('gtr', k * 4 + h * .5, .4, voicing('G', 55, 4)[h % 4 if h % 2 else 0], 70 if h % 2 == 0 else 58)
-    groove(S, 4, 2, 'soft', 60)
+    S.ch('pno', 'piano', 98, 60, 58); S.ch('cello', 'cello', 88, 46, 64); S.ch('vln', 'violin', 84, 80, 68)
+    S.ch('str', 'slowstrings', 74, 64, 82); S.ch('pad', 'warmpad', 50, 64, 85); S.ch('harp', 'harp', 80, 84, 70); S.ch('cel', 'celesta', 58, 88, 78)
+    ch = trc(THEME_CH, 5); TH = tr(THEME, 5)
+    # intro (2 bars): the piano alone, the first chord unfolding; the cello breathes in under it
+    S.arp('pno', 0, 8, voicing('G', 55, 4) + [m('G5')], step=.5, vel=44, pattern=[0, 2, 1, 3, 2, 4, 3, 1], hold=2.2); S.pedal('pno', 0, 8)
+    S.note('cello', 4, 4, 'G2', 42)
     o = 8
-    # verse groove + theme (16 bars), then again with whistle + strings (16 bars)
     for rep in range(2):
         b0 = o + rep * 64
         for i, c in enumerate(ch):
-            b = b0 + i * 4; v = voicing(c, 55, 4)
-            for h in range(8): S.note('gtr', b + h * .5, .35, v[[0, 2, 1, 3, 0, 2, 1, 3][h]], 66 if h % 2 == 0 else 54)
-            S.chord('pizz', b + 1, .3, v[1:], 58); S.chord('pizz', b + 3, .3, v[1:], 58)
-        bassline(S, 'bass', b0, ch, 4, 'pop', 74)
-        groove(S, b0, 16, 'pop' if rep else 'soft', 66)
-        S.melody('glock' if rep == 0 else 'wh', b0, tr(THEME, 5), 70 if rep == 0 else 64, octave=0 if rep == 0 else 0)
-        if rep: comp(S, 'str', b0, ch, 4, 'pad', 46, lo=55, n=3); S.melody('pno', b0, tr(THEME, 5), 46, octave=-12)
-        crash(S, b0, 66)
+            b = b0 + i * 4; v = voicing(c, 50, 4)
+            S.note('pno', b, 4, bass_of(c, 36), 50 + 4 * rep)
+            S.arp('pno', b + .5, 3.5, v, step=.5, vel=38 + 4 * rep, pattern=[0, 1, 2, 3, 2, 1, 2], hold=2.0)
+            S.pedal('pno', b, b + 4)
+        comp(S, 'str', b0, ch, 4, 'pad', 36 + 12 * rep, lo=52, n=3)
+        if rep == 0:
+            S.melody('cello', b0, TH, 62, octave=-24, legato=1.03)            # her road and his, told low and close, like a voice
+            comp(S, 'pad', b0, ch, 4, 'pad', 30, lo=55, n=3)
+            S.ramp('str', b0, b0 + 64, 70, 96)
+        else:
+            S.melody('vln', b0, TH, 66, octave=-12, legato=1.03)             # the violins take it up as the roads draw near
+            for i, c in enumerate(ch): S.note('cello', b0 + i * 4, 4, bass_of(c, 38), 54)
+            S.ramp('str', b0, b0 + 48, 96, 124); S.ramp('str', b0 + 56, b0 + 64, 124, 84)
+            for k, bb in enumerate((b0 - 1, b0 + 31)):                       # harp glissandi into each half
+                for i, q in enumerate(['G4', 'A4', 'B4', 'D5', 'E5', 'G5', 'A5', 'B5', 'D6']): S.note('harp', bb + i * .11, 2.2, q, 44 + i * 2)
+            for i, c in enumerate(ch[8:]):                                     # celesta where the two roads cross
+                vv = voicing(c, 72, 3); S.note('cel', b0 + 32 + i * 4 + 2, 1.6, vv[-1], 40)
     end = o + 128
     return S.render(end)
 

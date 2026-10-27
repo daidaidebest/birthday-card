@@ -193,10 +193,10 @@ export class Pups {
     d.taps = (d.taps || 0) + 1;
     // a tap: a little jump and a bark; every third, a happy spin; the fifth, it stands up to 作揖; sometimes it fetches its ball
     d.mood = 'watch'; d.next = t + 3; d.tx = d.x; d.greet = 1;
-    if (d.taps % 5 === 0) { d.mood = 'beg'; d.moodAt = t; d.next = t + 3.2; this.say(d, pick(TRICKS.beg), 2400); }
-    else if (d.taps % 3 === 2) { d.spinAt = t; this.env.audio.sfx('sparkle', .25); this.say(d, pick(REPLIES[d.i]), 2000); }
+    if (d.taps % 5 === 0) { d.mood = 'beg'; d.moodAt = t; d.next = t + 3.2; this.say(d, pick(TRICKS.beg), 2400); this.snd(d, 'wag', .22); }
+    else if (d.taps % 3 === 2) { d.spinAt = t; this.snd(d, 'wag', .22); this.say(d, pick(REPLIES[d.i]), 2000); }
     else if (d.taps === 4 && !this.ball) { this.bringBall(d); }
-    else { d.hopAt = t; this.say(d, pick(TRICKS.bark), 1200); this.env.audio.sfx('yip', .3); }
+    else { d.hopAt = t; this.say(d, pick(TRICKS.bark), 1200); this.bark(d); }
     if (t - d.petAt > 2) { d.petAt = t; for (let k = 0; k < 2; k++) d.hearts.push({ x: (Math.random() - .5) * .3, age: -k * .22 }); }
   }
   petted(d, quiet) {
@@ -206,8 +206,17 @@ export class Pups {
     b.textContent = REPLIES[d.i][Math.floor(Math.random() * REPLIES[d.i].length)];
     b.style.left = d.x * this.env.W + 'px'; b.style.top = (gy - S * .86) + 'px'; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
     clearTimeout(b.t); b.t = setTimeout(() => b.classList.remove('on'), 2600);
-    if (!quiet) this.env.audio.sfx('sparkle', .3);
+    if (!quiet) this.snd(d, 'wag', .22);
   }
+  // ---------- their sounds: soft, from where each one stands, and never more than one every 1.2 s per puppy ----------
+  snd(d, name, vol, { voice = false } = {}) {
+    const t = this.t; if (t - (d.sndAt ?? -99) < 1.2 || t - (this.sndAt ?? -99) < .3 || d.alpha < .3 || !this.active()) return false;
+    d.sndAt = this.sndAt = t;
+    // a voice is its own: the cream one a touch higher, and never quite the same twice
+    const rate = voice ? (d.i ? 1.06 : .96) * (.97 + Math.random() * .06) : 1;
+    this.env.audio.sfx(name, vol, { pan: (d.x * 2 - 1) * .6, rate }); return true;
+  }
+  bark(d) { const n = (d.barks || 0) + 1; if (this.snd(d, n % 2 ? 'bark1' : 'bark2', .3, { voice: true })) d.barks = n; }
   // ---------- keeping clear of buttons, hints and the next arrow ----------
   keepOut() {
     if (this.t < this.koAt) return this.ko;
@@ -259,9 +268,10 @@ export class Pups {
     const b = this.ball; if (!b || b.state === 'carried') return;
     const W = this.env.W, dir = px < b.x * W ? 1 : -1;
     b.state = 'fly'; b.vx = dir * (.32 + Math.random() * .25); b.vh = 330 + Math.random() * 140; b.at = this.t;
-    this.env.audio.sfx('page', .25);
+    this.env.audio.sfx('page', .25, { pan: (b.x * 2 - 1) * .6 });
     // the nearer puppy gives chase
     const d = this.dogs.reduce((a, c) => Math.abs(a.x - b.x) < Math.abs(c.x - b.x) ? a : c);
+    if (d.mood !== 'fetch') this.snd(d, 'patter', .25);
     d.mood = 'fetch'; d.next = this.t + 8; d.home = d.home ?? d.x; d.hopAt = this.t;
   }
   stepBall(dt) {
@@ -307,7 +317,7 @@ export class Pups {
       if (ball.state !== 'carried') {
         d.tx = ball.x; d.next = t + 3;
         if (Math.abs(ball.x - d.x) * W < S * .25 && ball.h < S * .2 && Math.abs(ball.vx) < .25) { ball.state = 'carried'; ball.owner = d; d.tx = d.home ?? lerp(z[0], z[1], .5); this.say(d, pick(TRICKS.fetch), 1800); }
-      } else if (Math.abs(d.tx - d.x) * W < 3) { d.mood = 'watch'; d.next = t + 2; d.greet = 1; d.home = null; this.dropBall(); for (let k = 0; k < 2; k++) d.hearts.push({ x: (Math.random() - .5) * .3, age: -k * .2 }); }
+      } else if (Math.abs(d.tx - d.x) * W < 3) { d.mood = 'watch'; d.next = t + 2; d.greet = 1; d.home = null; this.dropBall(); this.snd(d, 'wag', .22); for (let k = 0; k < 2; k++) d.hearts.push({ x: (Math.random() - .5) * .3, age: -k * .2 }); }
     } else if (d.mood === 'fetch') d.mood = 'watch';
     if (!petted && !M.rest && t > d.next && !d.follow && d.mood !== 'fetch') {
       if (M.party) { d.mood = Math.random() < .55 ? 'hop' : Math.random() < .3 ? 'chase' : 'trot'; d.next = t + 1.2 + Math.random() * 1.2; }
@@ -319,8 +329,10 @@ export class Pups {
       if (d.mood === 'visit') { const o = this.dogs[1 - d.i]; d.home = d.x; d.tx = clamp(o.x + (d.x < o.x ? -1 : 1) * S * .9 / W, .05, .95); if (!this.free(d.tx) || o.alpha < .5) { d.mood = 'watch'; d.home = null; } }
       if (d.mood === 'hop') d.hopAt = t;
       if (d.mood === 'chase') { d.spinAt = t; d.spin2At = t + 1.05; }
-      if (d.mood === 'bark') { d.hopAt = t + .05; this.say(d, pick(TRICKS.bark), 1300); this.env.audio.sfx('yip', .3); }
-      if (d.mood === 'sneeze') { d.sneezeAt = t + .45; setTimeout(() => this.say(d, pick(TRICKS.sneeze), 1200), 450); }
+      if (d.mood === 'bark') { d.hopAt = t + .05; this.say(d, pick(TRICKS.bark), 1300); this.bark(d); }
+      if (d.mood === 'sneeze') { d.sneezeAt = t + .45; setTimeout(() => { this.say(d, pick(TRICKS.sneeze), 1200); this.snd(d, 'sneeze', .3, { voice: true }); }, 450); }
+      if (d.mood === 'zoom' || d.mood === 'chase' || d.mood === 'visit') this.snd(d, 'patter', .25);   // off they run: once per run
+      if (d.mood === 'greet') this.snd(d, 'wag', .22);
       if (d.mood === 'beg') this.say(d, pick(TRICKS.beg), 2400);
       // now and then, a word about what is happening in the story; or the ball, brought over to play
       if (t > this.chatAt && CHATTER[this.mode] && !(t - (d.saidAt || -9) < 4)) { this.chatAt = t + 16 + Math.random() * 12; this.say(d, pick(CHATTER[this.mode]), 2600); }

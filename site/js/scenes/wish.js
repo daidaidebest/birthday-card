@@ -143,7 +143,7 @@ export default {
     const nextUp = () => ORDER.find(i => !flames[i].lit && !busy(i));
     function light(i) {
       if (flames[i].lit) return; flames[i].lit = .01; lit++; lastLight = T;
-      const [tx, ty] = tip(i); fx.burst(tx, ty - 10, { n: 8, speed: 34, life: 1.4, size: 1.3, sparkle: 0, color: '255,214,150', lift: 14 }); env.audio.sfx('light', .6); env.audio.sfx('glint', .14);
+      const [tx, ty] = tip(i); fx.burst(tx, ty - 10, { n: 8, speed: 34, life: 1.4, size: 1.3, sparkle: 0, color: '255,214,150', lift: 14 }); env.audio.sfx('light', .45); env.audio.hit ? env.audio.hit('candle', { index: lit - 1 }) : env.audio.sfx('glint', .14);   // six candles, one phrase of the theme
       env.say(WHISPERS[Math.min(lit, WHISPERS.length) - 1]); clearTimeout(sayTimer); sayTimer = setTimeout(() => env.say(null), 2600);
     }
     // a star from the night sky (the first one, the fallback, the relight), or the flame hopping over from a lit candle
@@ -171,6 +171,21 @@ export default {
       if (e.type === 'pointerup' && !tp.moved && phase === 'light') tapAt(tp.x0, tp.y0);
     };
     addEventListener('pointermove', onMove, { passive: true }); addEventListener('pointerup', onUp); addEventListener('pointercancel', onUp);
+    // after the wish she can light the sky herself: a tap sends a shell up behind the glass to open where she touched;
+    // every fifth one opens into a heart
+    let myShells = 0, lastMine = -9, fwHinted = false;
+    el.addEventListener('pointerdown', e => {
+      if (!c3 || phase !== 'blown' || cardOn || ending || T - blowAt < FW_START || T - lastMine < .35 || shells.length > 5) return;
+      if (e.target.closest('button, a, .ks, .ws-end')) return;
+      const [wx, wy, x1, y1] = c3.glass, ww = x1 - wx, wh = y1 - wy;
+      let sx = e.clientX; if (look && el.classList.contains('look')) sx = (sx - look.tx - look.ox) / look.z + look.ox;
+      const x = clamp((sx - wT.x) / wT.s, wx + ww * .12, x1 - ww * .12);
+      lastMine = T; myShells++; fwHinted = true; hint(null);
+      const sh = { x, y: wy + wh * 1.05, ty: wy + wh * lerp(c3.band[0], c3.band[1], .25 + R() * .5), col: FW[(R() * FW.length) | 0], big: 1, heart: myShells % 5 === 0 };
+      const when = env.audio.launch ? env.audio.launch(screenX(sh.x), 1) : (env.audio.firework?.(screenX(sh.x), 'launch', 1), null);
+      if (when != null) { sh.t0 = T; sh.y0 = sh.y; sh.at = T + Math.max(.55, env.audio.until(when)); sh.timed = true; }   // the burst lands on the beat
+      shells.push(sh); nextShell = Math.max(nextShell, T + 2.4);
+    });
 
     function layout() {
       const W = env.W, H = env.H;
@@ -194,7 +209,7 @@ export default {
     }
     layout();
 
-    function startWish() { if (phase !== 'ask') return; phase = 'wish'; phaseAt = T; el.classList.add('wishing'); el.classList.remove('asking'); env.audio.duck(.4, 2.5); env.pups.set('quiet'); }
+    function startWish() { if (phase !== 'ask') return; phase = 'wish'; phaseAt = T; el.classList.add('wishing'); el.classList.remove('asking'); env.audio.duck(.4, 2.5); env.audio.hit?.('wish'); env.pups.set('quiet'); }
     function blow() {
       if (phase !== 'wish' || T - phaseAt < 5) return;
       phase = 'blown'; blowAt = T; step = {}; fwStop = Infinity; el.classList.remove('wishing', 'w-close', 'w-heart', 'w-breath', 'w-ready'); el.classList.add('blown');
@@ -212,7 +227,7 @@ export default {
     function showCard() { cardOn = true; fwStop = Math.min(fwStop, T + 3); el.classList.add('keepsake'); keep.show(T); env.pups.set(null); env.say(null); }
     function startEnding() {
       ending = true; endAt = T; closing.start(T); env.pups.set(null); env.say(null); hint(null);
-      env.audio.duck(.32, 5); env.audio.bed(null, 6); // leaving the room: the fire's crackle goes, the music sinks low
+      if (env.audio.end) env.audio.end('finale'); else env.audio.duck(.32, 5); env.audio.bed(null, 6); // leaving the room: the fire's crackle goes, the music finds its last chord
     }
     async function startMic(btn) {
       try {
@@ -237,11 +252,17 @@ export default {
         shells.push(sh); nextShell = t + 2.2 + R() * 2.6; env.audio.firework?.(screenX(sh.x), 'launch', sh.big);
       }
       for (let i = shells.length - 1; i >= 0; i--) {
-        const sh = shells[i]; sh.y += (sh.ty - sh.y) * Math.min(1, sdt * 2.6); sparks.push({ x: sh.x, y: sh.y, vx: 0, vy: 0, life: .5, max: .5, col: '255,230,190', tr: true });
-        if (sh.y - sh.ty < 2) {
-          shells.splice(i, 1); const n = 64, r = Math.min(Math.max(ww, wh * .6), ww * 1.1) * (.2 + .1 * sh.big);
-          for (let j = 0; j < n; j++) { const a = j / n * TAU, q = .75 + R() * .25; sparks.push({ x: sh.x, y: sh.y, vx: Math.cos(a) * q * r * 1.5, vy: Math.sin(a) * q * r * 1.5, life: 2.8 + R() * 1.2, max: 3.6, col: sh.col }); }
-          flashA = .45 * sh.big; flashC = sh.col; env.audio.firework?.(screenX(sh.x), 'burst', sh.big);
+        const sh = shells[i];
+        if (sh.timed) sh.y = lerp(sh.y0, sh.ty, 1 - Math.pow(1 - clamp((T - sh.t0) / (sh.at - sh.t0)), 2.2)); else sh.y += (sh.ty - sh.y) * Math.min(1, sdt * 2.6);
+        sparks.push({ x: sh.x, y: sh.y, vx: 0, vy: 0, life: .5, max: .5, col: '255,230,190', tr: true });
+        if (sh.timed ? T >= sh.at : sh.y - sh.ty < 2) {
+          shells.splice(i, 1); const n = sh.heart ? 90 : 64, r = Math.min(Math.max(ww, wh * .6), ww * 1.1) * (.2 + .1 * sh.big);
+          for (let j = 0; j < n; j++) {
+            const a = j / n * TAU, q = .75 + R() * .25;
+            if (sh.heart) { const hx = 16 * Math.sin(a) ** 3, hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); sparks.push({ x: sh.x, y: sh.y, vx: hx / 16 * r * 1.35, vy: hy / 16 * r * 1.35, life: 3 + R() * .6, max: 3.6, col: '250,200,175' }); }
+            else sparks.push({ x: sh.x, y: sh.y, vx: Math.cos(a) * q * r * 1.5, vy: Math.sin(a) * q * r * 1.5, life: 2.8 + R() * 1.2, max: 3.6, col: sh.col });
+          }
+          flashA = .45 * sh.big; flashC = sh.col; if (!sh.timed) { env.audio.firework?.(screenX(sh.x), 'burst', sh.big); env.audio.hit?.('burst', { pan: screenX(sh.x) * 1.6 - .8 }); }
         }
       }
     }
@@ -334,7 +355,7 @@ export default {
         g.setTransform(env.dpr, 0, 0, env.dpr, 0, 0); g.clearRect(0, 0, W, H);
         tg.setTransform(rs, 0, 0, rs, 0, 0); if (topDirty || phase === 'blown') { tg.clearRect(0, 0, W, H); topDirty = phase === 'blown'; }
         const warm = flames.reduce((a, f) => a + f.lit * (1 - f.out), 0) / N, fs = flameSize(), sp = spacing();
-        const darkness = .55 * (phase === 'wish' ? .45 + between(t - phaseAt, 0, 2.5) * .4 : phase === 'blown' ? lerp(.8, .22, between(t - blowAt, LAMPS - .3, LAMPS + 3.7)) : .62 - warm * .3);
+        const darkness = .38 * (phase === 'wish' ? .45 + between(t - phaseAt, 0, 2.5) * .4 : phase === 'blown' ? lerp(.62, .12, between(t - blowAt, LAMPS - .3, LAMPS + 3.7)) : .62 - warm * .3);
         // warm pool of light around the candles
         { const [mx, my] = tip(FIRST), r = sp * 4.6; g.globalCompositeOperation = 'lighter'; g.globalAlpha = warm * (I?.passes ? .12 : .28) * (.92 + Math.sin(t * 9) * .05); g.drawImage(glowW, mx - r, my - r * .7, r * 2, r * 1.6); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
         // the room falls into shadow except where the candles reach
@@ -417,6 +438,7 @@ export default {
         // ---------- after the wish ----------
         if (phase === 'blown') {
           const k = t - blowAt;
+          if (!fwHinted && c3 && k > FW_START + 3.5 && !cardOn && !ending) { fwHinted = true; hint('轻点夜空，放一朵你的烟花'); setTimeout(() => { if (!cardOn) hint(null); }, 6500); }
           if (k > .3 && !step.pups) { step.pups = 1; env.pups.set('tender'); }
           if (k > .7 && !step.dust) { step.dust = 1; const [x, y] = tip(FIRST); fx.burst(x, y - 20, { n: 18, speed: 34, life: 2.8, size: 1.3, color: '255,226,170', sparkle: 0, lift: 10 }); } // a breath of golden dust where the flames were
           if (k > 1.2 && !step.music) { step.music = 1; env.audio.cue('finale', 3); }

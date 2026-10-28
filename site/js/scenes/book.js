@@ -212,14 +212,14 @@ export default {
     function startTurn(byHand) {
       if (phase !== 'hold' && phase !== 'write') return;
       hint(null); curlK = 0; curlEl.style.setProperty('--c', 0);
-      if (isLast()) { phase = 'dive'; phaseAt = T; env.audio.sfx('whoosh', .45); return; }
+      if (isLast()) { phase = 'dive'; phaseAt = T; env.audio.sfx('whoosh', .45); env.audio.hit?.('dive'); return; }
       manual = !!byHand; turnTarget = 1; curlS = 0; landAt = -1;
       if (single) { leafF = cur; leafB = -2; sliceLeaf(); idxR = ++cur; }
       else { leafF = idxR; leafB = (spread + 1) * 2; sliceLeaf(); idxR = (spread + 1) * 2 + 1; }
       // the page underneath is the next page, still unwritten
       inst.R = makePage(idxR, pageR); writeR = 0; render(inst.R, 0, T);
       leafEl.style.display = ''; phase = 'turn'; phaseAt = T; turnP = 0;
-      env.audio.sfx('page', .9);
+      env.audio.sfx('page', .9); env.audio.hit?.('page');
     }
     function finishTurn() {
       turnsDone++; leafEl.style.display = 'none'; leafF = leafB = -1; landAt = -1;
@@ -244,7 +244,7 @@ export default {
       if (e.target.closest('#hud,#menu,#btn-next')) return;
       dragX = e.clientX; downAt = T; dragP = 0;
       if (phase === 'hold' && !isLast() && (single || e.clientX > env.W * .35)) startTurn(true);
-      else if (phase === 'cover-wait') { phase = 'cover'; phaseAt = T; manual = true; coverP = 0; hint(null); coverEl.classList.remove('invite'); env.audio.sfx('whoosh', .4); }
+      else if (phase === 'cover-wait') { phase = 'cover'; phaseAt = T; manual = true; coverP = 0; hint(null); coverEl.classList.remove('invite'); env.audio.sfx('whoosh', .4); env.audio.hit?.('cover'); env.audio.section?.('theme'); }
     });
     addEventListener('pointermove', e => {
       if (!manual) return;
@@ -320,7 +320,7 @@ export default {
         }
         if (phase === 'cover-wait') {
           if (t - phaseAt > 1.2) hint('轻触封面，或向左拨开，翻开这本书');
-          if (env.auto && t - phaseAt > IDLE_OPEN) { phase = 'cover'; phaseAt = t; manual = false; turnTarget = 1; hint(null); coverEl.classList.remove('invite'); env.audio.sfx('whoosh', .4); }
+          if (env.auto && t - phaseAt > IDLE_OPEN) { phase = 'cover'; phaseAt = t; manual = false; turnTarget = 1; hint(null); coverEl.classList.remove('invite'); env.audio.sfx('whoosh', .4); env.audio.hit?.('cover'); env.audio.section?.('theme'); }
         }
         if (phase === 'cover') {
           if (!manual) coverP = clamp(coverP + (turnTarget ? 1 : -1) * dt / 1.5);

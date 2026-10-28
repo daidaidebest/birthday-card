@@ -301,7 +301,7 @@ export class Keepsake {
     if (this.sealed || !this.base) return; this.sealed = true; this.touch();
     const d = new Date(), R = this.L.mark[2];
     this.mark = { s: postmark(R, d, this.L.mark[3]), R, at: this.t, rot: -.15 + (Math.random() - .5) * .08, hit: false, done: false };
-    this.el.classList.add('sealed'); this.sealBtn.hidden = true;
+    this.el.classList.add('sealed'); this.sealBtn.hidden = true; this.env.audio.hit?.('stamp', { at: this.env.audio.ctx ? this.env.audio.ctx.currentTime + .22 : null });   // the ink meets the card
     this.tipEl.textContent = `邮戳记下了这一刻：${d.getMonth() + 1}月${d.getDate()}日 ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
   async save() {

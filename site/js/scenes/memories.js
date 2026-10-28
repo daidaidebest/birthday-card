@@ -14,7 +14,7 @@ export default {
     if (!ROOM.land) await Promise.all(['land', 'port'].map(async k => {
       const img = await loadImage(asset(`img/study-${k}.webp`)), w = k === 'land' ? 480 : 270, h = Math.round(w * img.height / img.width), c = canvas(w, h), cg = c.getContext('2d');
       cg.filter = 'blur(9px) saturate(1.15)'; cg.drawImage(img, -12, -12, w + 24, h + 24); cg.filter = 'none';
-      cg.fillStyle = 'rgba(14,8,10,.36)'; cg.fillRect(0, 0, w, h); ROOM[k] = c;
+      cg.fillStyle = 'rgba(14,8,10,.16)'; cg.fillRect(0, 0, w, h); ROOM[k] = c;
     }));
     await Promise.all(PHOTOS.map(p => Promise.all([loadImage(p.src).catch(() => null), loadDepth(depthNameFor(p.src)).then(d => { DEPTHS[p.src] = d; }).catch(() => null)]))); },
   create(env) {
@@ -32,7 +32,8 @@ export default {
     // polaroids
     const cards = PHOTOS.map((p, i) => {
       const c = document.createElement('figure'); c.className = 'mm-card';
-      c.innerHTML = `<i class="clip"></i><div class="ph"><img src="${p.src}" alt="${p.title}" style="object-position:${p.pos}"></div><figcaption><b>${p.title}</b><span>${p.caption}</span></figcaption>`;
+      c.innerHTML = `<div class="mm-turn"><i class="clip"></i><div class="ph"><img src="${p.src}" alt="${p.title}" style="object-position:${p.pos}"></div><figcaption><b>${p.title}</b><span>${p.caption}</span></figcaption>
+        <div class="mm-backface" aria-hidden="true"><p>${(p.back || '想把这一刻，\n留给你。').replace(/\n/g, '<br>')}</p><small>${p.title}</small></div></div>`;
       wall.appendChild(c);
       // living photo: the picture's depth planes, re-composited by a slow camera while it is in focus
       const dm = DEPTHS[p.src], view = dm ? new DepthView(dm, { amp: .05, focus: .3 }) : null;
@@ -46,13 +47,21 @@ export default {
     addP(LETTER.greeting, 'greet'); LETTER.paragraphs.forEach(t => addP(t)); addP(LETTER.closing, 'close'); addP(LETTER.ps, 'ps');
     let at = 0; const times = chars.map(s => { const t0 = at; const ch = s.textContent; at += '，。；：！？♡'.includes(ch) ? .15 : .038; if (s === s.parentNode.lastChild) at += .32; return t0; });
     let LETTER_AT = 1e9, WRITE_AT = 1e9, WRITE_END = 1e9;
-    const openLetter = t => { if (LETTER_AT < 1e9) return; LETTER_AT = t + .3; WRITE_AT = LETTER_AT + 1.1; WRITE_END = WRITE_AT + at; env.offerNext(null); hint(null); };
+    const openLetter = t => { if (LETTER_AT < 1e9) return; LETTER_AT = t + .3; env.audio.hit?.('letter'); env.audio.section?.('bloom'); WRITE_AT = LETTER_AT + 1.1; WRITE_END = WRITE_AT + at; env.offerNext(null); hint(null); };
     // ---------- looking at photos: tap one to take it down, tap again to hang it back ----------
     const AUTO_IDLE = 4.5, HOLD_LOOK = 5;
     let focusIdx = -1, focusAt = 0, lastInput = 0, lookE = 0; const seen = new Set();
     const hintEl = document.createElement('p'); hintEl.className = 'mm-hint'; el.appendChild(hintEl);
     const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
-    const focus = i => { focusIdx = i; focusAt = T; if (i >= 0) { seen.add(i); env.audio.sfx('page', .35); } };
+    const focus = i => { focusIdx = i; focusAt = T; if (i >= 0) { seen.add(i); env.audio.sfx('page', .3); env.audio.hit?.('photo', { index: seen.size - 1 }); if (!turnHinted) { turnHinted = true; setTimeout(() => { if (focusIdx >= 0 && !cards.some(c => c.flipped)) hint('再轻点一下，看看照片背面'); }, 1800); } } };
+    // the back of a photo: a line written for her. The card squashes edge-on and opens again on its other side
+    let turnHinted = false;
+    function turnOver(c, on) {
+      if (!c || !!c.flipped === on) return; c.flipped = on; hint(null);
+      c.el.classList.remove('turning'); void c.el.offsetWidth; c.el.classList.add('turning');
+      setTimeout(() => c.el.classList.toggle('flipped', on), 230);
+      if (on) { lastInput = T + 4; env.audio.hit ? env.audio.hit('flip', { quantize: '8th' }) : env.audio.sfx('page', .45); }
+    }
     let drag = null;
     el.addEventListener('pointerdown', e => {
       if (e.target.closest('#hud,#menu,#btn-next') || LETTER_AT < 1e9) return;
@@ -64,6 +73,8 @@ export default {
     const release = () => {
       if (!drag) return; const d = drag; drag = null;
       if (Math.hypot(d.dx || 0, d.dy || 0) > .03) return; // that was a look around, not a tap
+      if (d.i >= 0 && d.i === focusIdx && cards[d.i].e > .6) { turnOver(cards[d.i], !cards[d.i].flipped); return; } // a second tap turns the photo over
+      cards.forEach(c => turnOver(c, false));
       if (d.i >= 0 && d.i !== focusIdx) focus(d.i); else if (focusIdx >= 0) focus(-1);
     };
     addEventListener('pointerup', release); addEventListener('pointercancel', release);
@@ -106,7 +117,7 @@ export default {
           const F = FIRE[env.portrait ? 'study-port' : 'study-land'], hx = x0 + F.x * r.width * s, hy = y0 + F.y * r.height * s, hw = F.w * r.width * s;
           g.globalCompositeOperation = 'lighter'; g.globalAlpha = .35 + .12 * Math.sin(t * 5.3) + .08 * Math.sin(t * 2.1); g.drawImage(ember, hx - hw * .7, hy - hw * .75, hw * 1.4, hw * .9); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
           hearth.update(t, hx, hy, hw, between(t, 0, 2.5) * (1 - between(t, LETTER_AT, LETTER_AT + 2) * .5));
-          const vg = g.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .2, W / 2, H * .5, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(20,10,8,0)'); vg.addColorStop(1, 'rgba(10,5,6,.6)');
+          const vg = g.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .2, W / 2, H * .5, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(20,10,8,0)'); vg.addColorStop(1, 'rgba(10,5,6,.36)');
           g.fillStyle = vg; g.fillRect(0, 0, W, H); }
         g.globalCompositeOperation = 'lighter';
         bokeh.forEach(b => { const dz = b.r / 40 - .6, x = ((b.x + t * b.s) % 1.2 - .1) * W - lx * dz * 1.6, y = (b.y + Math.sin(t * .3 + b.p) * .02) * H - ly * dz * 1.6; g.globalAlpha = b.a * (.7 + .3 * Math.sin(t + b.p)); g.drawImage(spr(b.c), x - b.r, y - b.r, b.r * 2, b.r * 2); });

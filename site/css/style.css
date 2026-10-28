@@ -179,3 +179,14 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .pup-ball-sh{position:absolute;left:0;top:0;z-index:19;border-radius:50%;background:radial-gradient(ellipse,rgba(10,8,14,.55),transparent 70%);opacity:0;pointer-events:none}
 .pup-ball.on{opacity:1;pointer-events:auto}.pup-ball.held{pointer-events:none}
 .pup-ball:focus-visible{outline:2px solid #ffe7b8}
+
+/* v18 · the opening, romantic rather than astronomical: a dusk-to-night sky with a rose glow at the horizon (the lake, the
+   far castle, clouds and fireflies are painted in js/gate.js), the moon warmer, and only a thin halo left of the orrery */
+#gate{background:linear-gradient(180deg,#060818 0%,#0d1132 30%,#1c1c47 58%,#33264f 76%,#3c2a4c 86%,#2c2040 100%)}
+.gate-dial .tick,.gate-dial .gem,.gate-dial .dial-text,.gate-dial .dots,.gate-dial .orbit,.gate-dial .dial-words{display:none}
+.gate-dial .hair{stroke:#f3dcc0;opacity:.16}.gate-dial .hair.faint{opacity:.08}
+.gate-dial .progress{stroke:#ffe9c8;stroke-width:1.6;filter:drop-shadow(0 0 4px rgba(255,226,180,.95)) drop-shadow(0 0 12px rgba(255,200,150,.5))}
+#gate-moon canvas{filter:sepia(.16) saturate(1.15) brightness(1.06) drop-shadow(0 0 calc(14px + var(--phase) * 34px) rgba(255,236,206,calc(.3 + var(--phase) * .5)))}
+.gate-halo{background:radial-gradient(circle,rgba(255,232,206,calc(.14 + var(--phase) * .3)) 0%,rgba(230,200,220,calc(.06 + var(--phase) * .14)) 40%,transparent 70%)!important}
+.gate-eyebrow{color:#efcfb2}
+#gate h1{text-shadow:0 0 40px rgba(255,200,170,.3),0 0 2px rgba(0,0,0,.4)}

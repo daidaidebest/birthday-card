@@ -1,7 +1,9 @@
-// The opening: a crescent moon at the heart of a hairline-gold orrery. Pressing and holding the moon
+// The opening (v18): a crescent moon over a sleeping lake — soft clouds drifting past, a castle far off with a few candles
+// in its windows, the moon's path trembling on the water, fireflies rising. A thin halo around the moon fills as she holds.
+// (Before v18: a crescent moon at the heart of a hairline-gold orrery.) Pressing and holding the moon
 // lets it wax to full; letting go early lets it wane again. When it is full, moonlight floods the
 // screen and the story begins on the moonlit lake.
-import { asset, loadImage, canvas, clamp, lerp, smooth, rng, TAU } from './util.js';
+import { asset, loadImage, canvas, clamp, lerp, smooth, rng, TAU, fbm, noise1, glowSprite } from './util.js';
 
 const HOLD = 2.6;      // seconds of holding to go from crescent to full
 const WANE = 1.4;      // seconds to fall back when released
@@ -20,6 +22,9 @@ export class Gate {
     const R = rng(23);
     this.stars = Array.from({ length: 170 }, () => ({ x: R(), y: R(), r: R() * R() * 1.3 + .25, p: R() * TAU, s: .4 + R() * 1.6, warm: R() < .2 }));
     this.shoot = { at: 4 + R() * 4, x: 0, y: 0, k: 1 };
+    this.clouds = [0, 1, 2, 3].map(i => ({ img: cloudSprite(11 + i * 7.3), x: R(), y: .2 + i * .13 + R() * .05, s: .7 + R() * .5, v: .004 + R() * .006, a: .35 + R() * .25 }));
+    this.flies = Array.from({ length: 34 }, () => ({ x: R(), y: .55 + R() * .45, p: R() * TAU, s: .4 + R() * .9, v: .01 + R() * .02, r: .6 + R() * 1.4 }));
+    this.warm = glowSprite('255,206,140', 64, 2); this.cool = glowSprite('226,234,255', 128, 1.6);
     loadImage(asset('img/moon.webp')).then(img => { this.moon = img; this.resize(); });
     this.resize(); addEventListener('resize', () => this.resize());
     const down = e => { if (!this.ready || this.done) return; e.preventDefault(); this.press(true); };
@@ -64,6 +69,7 @@ export class Gate {
     this.cv.width = Math.max(1, Math.round(r.width * dpr)); this.cv.height = Math.max(1, Math.round(r.height * dpr));
     this.sky.width = Math.round(innerWidth * Math.min(dpr, 1.5)); this.sky.height = Math.round(innerHeight * Math.min(dpr, 1.5));
     this.shadowCv = canvas(this.cv.width, this.cv.height);
+    this.land = landscape(this.sky.width, this.sky.height);
   }
   /** Draws the moon lit to fraction f (0 new … 1 full), waxing from the right. */
   drawMoon(f, glow) {
@@ -80,10 +86,9 @@ export class Gate {
       sg.moveTo(c, c - R * 1.05); sg.arc(c, c, R * 1.05, -Math.PI / 2, Math.PI / 2, true);
       sg.ellipse(c, c, Math.max(.001, R * Math.abs(k)), R * 1.05, 0, Math.PI / 2, -Math.PI / 2, k > 0);
       sg.closePath(); sg.fill(); sg.filter = 'none';
-      // colour the mask night-blue; it keeps a faint earthshine of the disc showing through
-      sg.globalCompositeOperation = 'source-in'; sg.fillStyle = 'rgba(6,11,30,.88)'; sg.fillRect(0, 0, W, W);
-      sg.globalCompositeOperation = 'source-over';
-      g.save(); g.globalCompositeOperation = 'source-atop'; g.drawImage(s, 0, 0); g.restore();
+      // the unlit side melts into the sky: erased almost entirely, a ghost of earthshine left
+      g.save(); g.globalCompositeOperation = 'destination-out'; g.globalAlpha = .9; g.drawImage(s, 0, 0); g.restore();
+      g.save(); g.globalAlpha = .22 * (1 - f); g.strokeStyle = '#c9cff2'; g.lineWidth = Math.max(1, W * .006); g.beginPath(); g.arc(c, c, R * .985, Math.PI * .55, Math.PI * 1.45); g.stroke(); g.restore();
     }
     // a breath of warm light on the bright limb as it fills
     if (glow > 0) { g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = glow * .22; const gr = g.createRadialGradient(c + R * .3, c - R * .2, 0, c, c, R); gr.addColorStop(0, 'rgba(255,236,200,1)'); gr.addColorStop(1, 'rgba(255,236,200,0)'); g.fillStyle = gr; g.beginPath(); g.arc(c, c, R, 0, TAU); g.fill(); g.restore(); }
@@ -91,9 +96,11 @@ export class Gate {
   drawSky(dt) {
     const { sg, sky } = this, W = sky.width, H = sky.height, t = this.t, lift = this.shown;
     sg.clearRect(0, 0, W, H);
+    const hzY = this.land ? this.land.hz : H;
     for (const s of this.stars) {
       const a = (.35 + .65 * (.5 + .5 * Math.sin(s.p + t * s.s))) * (1 - lift * .55);
       sg.globalAlpha = a; sg.fillStyle = s.warm ? '#ffe9c4' : '#e8eeff';
+      if (s.y * H > hzY - 4) continue;
       sg.beginPath(); sg.arc(s.x * W, s.y * H, s.r * W / 1400 + .4, 0, TAU); sg.fill();
     }
     const sh = this.shoot;
@@ -105,6 +112,35 @@ export class Gate {
       if (sh.k >= 1) sh.at = t + 7 + Math.random() * 9;
     }
     sg.globalAlpha = 1;
+    // clouds drifting slowly past, lit at their edges by the moon (brighter as it fills)
+    for (const c of this.clouds) {
+      const w = W * c.s * 1.1, h = w * c.img.height / c.img.width, x = ((c.x + t * c.v) % 1.6 - .3) * W - w / 2, y = c.y * H - h / 2;
+      sg.globalAlpha = c.a * (.8 + lift * .5); sg.drawImage(c.img, x, y, w, h);
+    }
+    sg.globalAlpha = 1;
+    const L = this.land; if (!L) return;
+    sg.drawImage(L.c, 0, 0);
+    // the moon's path on the water: short trembling strokes under the moon, wider as it fills
+    const r = this.btn.getBoundingClientRect(), k = W / innerWidth, mx = (r.left + r.width / 2) * k, hz = L.hz, mw = r.width * k * (.35 + lift * .35);
+    sg.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 46; i++) {
+      const v = i / 46, y = hz + 3 + v * (H - hz), wob = noise1(i * 3.1 + t * 1.7) * mw * (.3 + v), len = mw * (.25 + .6 * Math.abs(noise1(i * 7.7 + t * 2.3))) * (1 - v * .4);
+      sg.globalAlpha = (.18 + .3 * Math.abs(noise1(i * 1.9 + t * 3.1))) * (1 - v * .6) * (.6 + lift * .6);
+      sg.fillStyle = '#e8eeff'; sg.fillRect(mx + wob - len / 2, y, len, Math.max(1, H * .0018));
+    }
+    // candles in the castle's windows, and their trembling reflections
+    for (const wl of L.lights) {
+      const f = .6 + .3 * noise1(t * 1.3 + wl.p) + .1 * noise1(t * 5 + wl.p), s2 = wl.r * 4;
+      sg.globalAlpha = f * .9; sg.drawImage(this.warm, wl.x - s2, wl.y - s2, s2 * 2, s2 * 2);
+      sg.globalAlpha = f * .35; sg.drawImage(this.warm, wl.x - s2 + noise1(t * 2 + wl.p) * 2, 2 * hz - wl.y - s2, s2 * 2, s2 * 2.6);
+    }
+    // fireflies rising over the shore
+    for (const fl of this.flies) {
+      const y = ((fl.y - t * fl.v) % .5 + .5) % .5 + .5, x = fl.x * W + Math.sin(t * fl.s + fl.p) * W * .02, a = Math.max(0, Math.sin(t * fl.s * 2.1 + fl.p)) ** 2;
+      if (a < .02) continue; const s2 = fl.r * W / 260;
+      sg.globalAlpha = a * .8; sg.drawImage(this.warm, x - s2 * 3, y * H - s2 * 3, s2 * 6, s2 * 6);
+    }
+    sg.globalCompositeOperation = 'source-over'; sg.globalAlpha = 1;
   }
   loop(now) {
     if (this.gone) return;
@@ -136,4 +172,44 @@ export class Gate {
     setTimeout(() => this.onOpen(), 900);
   }
   close() { this.root.classList.add('gone'); setTimeout(() => { this.gone = true; }, 1600); }
+}
+
+/** A soft cloud: fractal noise shaped into a long, low bank, pale lavender with a brighter, moonlit upper edge. */
+function cloudSprite(seed, w = 420, h = 130) {
+  const c = canvas(w, h), g = c.getContext('2d'), d = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = (x / w - .5) * 2, v = (y / h - .5) * 2, r = Math.max(0, 1 - (u * u * .9 + v * v * 1.6));
+    const n = fbm(x / 70 + seed, y / 38 + seed * 1.3, 5) * .5 + .5, a = clamp((n * r - .2) * 2.2), lit = 1 - y / h * .5;
+    const i = (y * w + x) * 4; d.data[i] = 200 + 40 * lit; d.data[i + 1] = 196 + 40 * lit; d.data[i + 2] = 228 + 27 * lit; d.data[i + 3] = a * 120;
+  }
+  g.putImageData(d, 0, 0); return c;
+}
+/** The far shore: low hills and a small castle in silhouette on the horizon, and the dark, still lake below. */
+function landscape(W, H) {
+  const c = canvas(W, H), g = c.getContext('2d'), hz = Math.round(H * (H > W ? .885 : .83)), R = rng(41), lights = [];
+  const ridge = x => hz - H * (.012 + .022 * (fbm(x / W * 3.2, 7.1, 3) * .5 + .5) + .018 * Math.exp(-((((x / W) - .2) / .12) ** 2)));
+  const sil = new Path2D(); sil.moveTo(0, hz);
+  for (let x = 0; x <= W; x += 4) sil.lineTo(x, ridge(x));
+  // the castle, small and far: towers with pointed roofs on a rise right of the moon
+  const cx = W * .66, base = ridge(cx) - H * .004, u = Math.min(W, H) * .012;
+  [[-6, 5, 1.1], [-3.4, 8.5, 1.2], [-1, 6, 1], [1.4, 11, 1.4], [3.6, 7, 1.1], [5.8, 4.5, .9], [7.6, 6.2, 1]].forEach(([dx, hh, ww]) => {
+    const x0 = cx + dx * u, w = ww * u, top = base - hh * u;
+    sil.rect(x0 - w / 2, top, w, base - top + 2); sil.moveTo(x0 - w * .62, top); sil.lineTo(x0, top - w * 2.1); sil.lineTo(x0 + w * .62, top); sil.closePath();
+    for (let k = 0; k < Math.max(1, hh / 3.4); k++) if (R() < .7) lights.push({ x: x0 + (R() - .5) * w * .4, y: top + u * (1.2 + k * 2.1), r: u * .16, p: R() * 9 });
+  });
+  sil.rect(cx - 7 * u, base - 3 * u, 15 * u, 3 * u + 2);   // the curtain wall
+  sil.lineTo(W, hz); sil.lineTo(W, hz + 2); sil.lineTo(0, hz + 2); sil.closePath();
+  // a rose glow low in the sky, behind the far shore
+  let gr = g.createLinearGradient(0, hz - H * .2, 0, hz); gr.addColorStop(0, 'rgba(120,80,130,0)'); gr.addColorStop(1, 'rgba(150,100,140,.22)');
+  g.fillStyle = gr; g.fillRect(0, hz - H * .2, W, H * .2);
+  g.fillStyle = '#0a0b1c'; g.fill(sil);
+  // the lake: a deep, still blue, a little lighter toward the far shore
+  gr = g.createLinearGradient(0, hz, 0, H); gr.addColorStop(0, '#1a1a38'); gr.addColorStop(.25, '#0e1026'); gr.addColorStop(1, '#05060f');
+  g.fillStyle = gr; g.fillRect(0, hz + 1, W, H - hz);
+  // the far shore mirrored, faint and broken by ripples
+  g.save(); g.globalAlpha = .55; g.translate(0, 2 * hz); g.scale(1, -1);
+  for (let y = 0; y < H * .06; y += 2) { g.save(); g.beginPath(); g.rect(0, hz - y - 2, W, 2); g.clip(); g.translate(Math.sin(y * .7) * 2, 0); g.fillStyle = '#080917'; g.fill(sil); g.restore(); }
+  g.restore();
+  g.fillStyle = 'rgba(190,200,240,.08)'; g.fillRect(0, hz, W, 1);
+  return { c, hz, lights };
 }

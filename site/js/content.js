@@ -4,9 +4,9 @@
 //   (see README); photos without depth planes simply get a gentle Ken Burns move.
 window.GIFT_CONTENT = window.GIFT_CONTENT || {};
 window.GIFT_CONTENT.PHOTOS = [
-  { src: 'assets/img/photo-ocean-evening.webp', title: '把黄昏留给你', caption: '希望往后的日子，有很多可以一起慢慢看的落日。', credit: 'Veronica MORENO-ALVAREZ / Unsplash', pos: '50% 50%' },
-  { src: 'assets/img/photo-sunlit-book.webp', title: '寻常的一页，也会发光', caption: '愿我们在普通的日子里，也能找到一点小小的魔法。', credit: 'Aaron Burden / Unsplash', pos: '50% 62%' },
-  { src: 'assets/img/photo-night-sky.webp', title: '给愿望留一片星空', caption: '今晚，所有温柔的星光，都想把祝福送给你。', credit: 'Nathan Anderson / Unsplash', pos: '50% 50%' },
+  { src: 'assets/img/photo-ocean-evening.webp', title: '把黄昏留给你', caption: '希望往后的日子，有很多可以一起慢慢看的落日。', back: '下一次的落日，\n换我陪你看完。', credit: 'Veronica MORENO-ALVAREZ / Unsplash', pos: '50% 50%' },
+  { src: 'assets/img/photo-sunlit-book.webp', title: '寻常的一页，也会发光', caption: '愿我们在普通的日子里，也能找到一点小小的魔法。', back: '有你在的日子，\n每一页都值得收藏。', credit: 'Aaron Burden / Unsplash', pos: '50% 62%' },
+  { src: 'assets/img/photo-night-sky.webp', title: '给愿望留一片星空', caption: '今晚，所有温柔的星光，都想把祝福送给你。', back: '今晚的每一颗星，\n都替我说一句生日快乐。', credit: 'Nathan Anderson / Unsplash', pos: '50% 50%' },
 ];
 // The letter is your original birthday letter, word for word; the P.S. is the only added line.
 window.GIFT_CONTENT.LETTER = {

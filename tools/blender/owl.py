@@ -180,13 +180,15 @@ def fluff(name, parent, c, r, n, L, seed, mat_, taper=None, back=(0, -1, 0), lif
 root = empty('owl', None)
 root.rotation_mode = 'QUATERNION'
 def body_taper(x, y, z):
-    k = 1 - .36 * max(0, -y) ** 1.5
-    return x * k, y, (z - .16 * max(0, -y) ** 2 + .05 * max(0, y)) * (1 - .1 * max(0, -y))
-BODY_R = (.13, .205, .125)
+    """A flying owl is streamlined: the chest full, the belly flat, the body narrowing early into the tail."""
+    k = 1 - .44 * max(0, -y) ** 1.25
+    zz = (z - .13 * max(0, -y) ** 2 + .04 * max(0, y)) * (1 - .14 * max(0, -y))
+    return x * k, y, zz * (.8 if z < 0 else 1)
+BODY_R = (.104, .228, .1)
 body = ellipsoid('owl_body', (0, 0, 0), BODY_R, root, [BODYM], taper=body_taper)
 NH = 9000 if PREVIEW else 42000
-fluff('owl_body_fluff', root, (0, 0, 0), BODY_R, NH, .03, 1, HAIR, taper=body_taper, lift=.55)
-head = empty('owl_head', root, (0, .2, .075))
+fluff('owl_body_fluff', root, (0, 0, 0), BODY_R, NH, .024, 1, HAIR, taper=body_taper, lift=.38)
+head = empty('owl_head', root, (0, .215, .066))
 HEAD_R = (.104, .1, .1)
 ellipsoid('owl_head_m', (0, 0, 0), HEAD_R, head, [BODYM])
 fluff('owl_head_fluff', head, (0, 0, 0), HEAD_R, NH // 3, .022, 2, HAIR, back=(0, -1, .1), lift=.45, keep=lambda d: d[:, 1] < .55)
@@ -201,7 +203,7 @@ for sx in (-1, 1):
 bk = bmesh.new(); bmesh.ops.create_cone(bk, cap_ends=True, segments=10, radius1=.013, radius2=.002, depth=.03, matrix=Matrix.Translation((0, .112, -.02)) @ Matrix.Rotation(math.radians(-62), 4, 'X'))
 for v in bk.verts: v.co.y += .006 * max(0, -(v.co.z + .02) / .015)   # a slight hook
 obj_from_bm('owl_beak', bk, [BEAK], col=OWL, smooth=True).parent = head
-tail_e = empty('owl_tail', root, (0, -.175, .0))
+tail_e = empty('owl_tail', root, (0, -.2, .004))
 cards_object('owl_tail_f', [((0, (k - 5.5) * .009, .002 * abs(k - 5.5)), -90 + (k - 5.5) * 3.2, .2 - abs(k - 5.5) * .004, .052, .06, .1, 0) for k in range(12)], tail_e, [F_TAIL], 1)
 # feet tucked up under the tail, holding the letter
 for sx in (-1, 1):

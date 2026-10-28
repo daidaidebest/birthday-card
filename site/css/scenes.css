@@ -28,10 +28,10 @@
   clip-path:polygon(0 0,100% 0,50% 72%);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 /* the crimson wax seal: she presses it, light cracks through it and it shatters */
 .pro-seal{position:absolute;left:var(--seal-x);top:var(--seal-y);width:calc(var(--seal-w)*.5);aspect-ratio:1;transform:translate(-50%,-50%);z-index:6;pointer-events:auto;cursor:pointer;border-radius:50%;padding:0;border:0;background:none;-webkit-tap-highlight-color:transparent}
-.pro-seal::before{content:'';position:absolute;inset:-60%;border-radius:50%;background:radial-gradient(circle,rgba(255,226,150,.45),rgba(255,200,110,0) 62%);animation:starhalo 2.4s ease-in-out infinite;pointer-events:none}
+.pro-seal::before{content:'';position:absolute;inset:-35%;border-radius:50%;background:radial-gradient(circle,rgba(255,214,200,.38),rgba(255,190,170,0) 62%);animation:starhalo 2.4s ease-in-out infinite;pointer-events:none}
 @keyframes starhalo{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.08)}}
 .pro-env.on .pro-seal svg{animation:startwinkle 2.4s ease-in-out infinite}
-@keyframes startwinkle{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(8deg) scale(1.07)}}
+@keyframes startwinkle{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 .low-power .pro-env.on .pro-seal svg,.low-power .pro-seal::before{animation:none}
 .pro-letter-wrap.open .pro-seal{pointer-events:none}.pro-letter-wrap.open .pro-seal::before,.pro-letter-wrap.open .pro-seal svg{animation:none}
 .pro-env{cursor:pointer}
@@ -311,3 +311,32 @@
 .bk-single .bk-hint{bottom:auto;top:calc(10svh + var(--safe-t,0px))}
 .bk-cover.invite .bk-cover-front b{animation:coverInvite 3.6s ease-in-out infinite}
 @keyframes coverInvite{0%,100%{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 10px rgba(255,210,130,.25))}50%{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 18px rgba(255,214,140,.55))}}
+
+/* v18 · turning a polaroid over: the paper lives on an inner card that squashes edge-on and opens on its other side */
+.scene-memories .mm-card{padding:0;background:none;box-shadow:none}
+.mm-turn{position:relative;padding:calc(var(--cw)*.06) calc(var(--cw)*.06) calc(var(--cw)*.2);background:#f7f1e6;box-shadow:0 14px 30px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.32)}
+.mm-backface{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1em;padding:14%;text-align:center;opacity:0;visibility:hidden;
+  background:repeating-linear-gradient(180deg,transparent 0 calc(var(--cw)*.11),rgba(120,92,60,.08) calc(var(--cw)*.11) calc(var(--cw)*.113)),radial-gradient(ellipse at 40% 30%,#fbf5ea,#efe3cc);color:#4a3220}
+.mm-backface p{font-size:calc(var(--cw)*.075);line-height:1.9;letter-spacing:.06em;transform:rotate(-1.2deg)}
+.mm-backface small{font-family:var(--latin);font-style:italic;font-size:calc(var(--cw)*.045);letter-spacing:.18em;color:#9a7742}
+.mm-card.flipped .mm-backface{opacity:1;visibility:visible}
+.mm-card.turning .mm-turn{animation:mmturn .46s ease-in-out}
+@keyframes mmturn{0%{transform:scaleX(1)}50%{transform:scaleX(.02)}100%{transform:scaleX(1)}}
+
+/* v18 · a satin ribbon instead of the gold star: a band across the envelope and a bow on the flap's point. Touch the bow:
+   its loops slip loose, the knot gives, the tails fall away and the two halves of the band slide off to either side */
+.pro-seal,.pro-bow-img{width:calc(var(--seal-w)*1.65);aspect-ratio:120/96;transform:translate(-50%,-44%)}
+.pro-ribbon,.pro-ribbon-static{position:absolute;left:-1.5%;right:-1.5%;top:var(--seal-y);height:calc(var(--eh)*.075);transform:translateY(-50%);z-index:5;pointer-events:none}
+.pro-ribbon i,.pro-ribbon-static{background:linear-gradient(180deg,#f3d3cd 0,#dca39d 38%,#c58683 70%,#a96e6e 100%);box-shadow:0 2px 4px rgba(60,25,20,.35)}
+.pro-ribbon i{position:absolute;top:0;bottom:0;width:50%;transition:transform 1s cubic-bezier(.5,0,.2,1) .3s,opacity .8s ease .5s}
+.pro-ribbon i.l{left:0}.pro-ribbon i.r{right:0}
+.pro-ribbon i::after,.pro-ribbon-static::after{content:"";position:absolute;left:0;right:0;top:18%;height:16%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45) 30%,transparent 60%,rgba(255,255,255,.3) 85%,transparent)}
+.pro-letter-wrap.open .pro-ribbon i.l{transform:translateX(-112%);opacity:0}
+.pro-letter-wrap.open .pro-ribbon i.r{transform:translateX(112%);opacity:0}
+.pro-bow g{transform-box:fill-box;transition:transform .75s cubic-bezier(.5,0,.25,1),opacity .6s ease}
+.pro-bow .l{transform-origin:100% 50%}.pro-bow .r{transform-origin:0 50%}.pro-bow .tl,.pro-bow .tr{transform-origin:50% 0}.pro-bow .k{transform-origin:50% 50%}
+.pro-letter-wrap.open .pro-seal .l{transform:translate(-8px,4px) rotate(-38deg) scale(.35);opacity:0}
+.pro-letter-wrap.open .pro-seal .r{transform:translate(8px,4px) rotate(38deg) scale(.35);opacity:0}
+.pro-letter-wrap.open .pro-seal .tl{transform:translate(-6px,26px) rotate(18deg);opacity:0;transition-delay:.12s}
+.pro-letter-wrap.open .pro-seal .tr{transform:translate(6px,26px) rotate(-18deg);opacity:0;transition-delay:.12s}
+.pro-letter-wrap.open .pro-seal .k{transform:scale(.2);opacity:0;transition-delay:.18s}

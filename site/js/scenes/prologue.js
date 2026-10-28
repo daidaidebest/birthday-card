@@ -19,6 +19,7 @@ const LETTER = [
   '请跟着烛光，去书房找那本魔法书。',
 ];
 const SIGN = '—— 一个在远方，很想你的人';
+const DUST_HINT = '用手指划过夜空，撒一点星光';
 const ADDRESS = ['师宝宝 收', '月光湖畔 · 最高的塔楼', '朝东的那扇窗'];
 const A = {};
 // The castle is a real 3D scene now (tools/blender/castle.py, rendered in Cycles): a 14 s drone flight from the moon
@@ -34,14 +35,15 @@ const O = { burst: .78, flap: .86, rise: 1.45, away: 2.5, forward: 2.65, unfold:
 // the flap's seams in envelope units (100 wide): from its point out to the two top corners (tools/parchment.py)
 const SEAM = { tip: [50, 45.2], l: [1.6, .9], r: [98.4, .9] };
 
-const STAR = `<svg class="pro-star-svg" viewBox="-50 -50 100 100" aria-hidden="true"><defs>
-  <radialGradient id="psg" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#fff6cf"/><stop offset=".35" stop-color="#f1cf7a"/><stop offset=".75" stop-color="#b98a2e"/><stop offset="1" stop-color="#7d5a17"/></radialGradient>
-  <linearGradient id="psh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
-  <circle r="44" fill="#6e4f14" opacity=".18"/>
-  <path d="${starPath(36, 15)}" fill="url(#psg)" stroke="#8a6420" stroke-width="1.4"/>
-  <path d="${starPath(36, 15)}" fill="url(#psh)" transform="scale(.82)"/>
-  <path d="${starPath(10, 4.2)}" fill="#fff8de" opacity=".9"/></svg>`;
-function starPath(R, r) { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r : R; d += (i ? 'L' : 'M') + (Math.cos(a) * q).toFixed(2) + ' ' + (Math.sin(a) * q).toFixed(2); } return d + 'Z'; }
+// the envelope is tied with a dusty-rose satin ribbon: a bow on the flap's point that slips loose when she touches it
+const BOW = `<svg class="pro-bow" viewBox="-60 -42 120 96" aria-hidden="true"><defs>
+  <linearGradient id="rbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dcd6"/><stop offset=".45" stop-color="#dfa9a3"/><stop offset="1" stop-color="#b67575"/></linearGradient>
+  <linearGradient id="rbs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+  <g class="tl"><path d="M-4 4C-10 20-15 33-25 47L-14 49C-8 35-3 22 3 7Z" fill="url(#rbg)"/><path d="M-25 47L-14 49L-17 43Z" fill="#a86868"/></g>
+  <g class="tr"><path d="M4 4C11 19 18 31 29 44L19 48C12 35 6 22-2 7Z" fill="url(#rbg)"/><path d="M29 44L19 48L23 41Z" fill="#a86868"/></g>
+  <g class="l"><path d="M-2 0C-16-24-50-31-51-8C-52 13-22 12-2 2Z" fill="url(#rbg)"/><path d="M-6 -1C-17-14-38-18-40-7C-41 3-24 4-8 1Z" fill="#b97b7a" opacity=".45"/><path d="M-4-2C-18-22-46-27-47-10" fill="none" stroke="url(#rbs)" stroke-width="3"/></g>
+  <g class="r"><path d="M2 0C16-24 50-31 51-8C52 13 22 12 2 2Z" fill="url(#rbg)"/><path d="M6 -1C17-14 38-18 40-7C41 3 24 4 8 1Z" fill="#b97b7a" opacity=".45"/><path d="M4-2C18-22 46-27 47-10" fill="none" stroke="url(#rbs)" stroke-width="3"/></g>
+  <g class="k"><rect x="-8" y="-9" width="16" height="18" rx="6" fill="url(#rbg)"/><rect x="-5" y="-7" width="5" height="13" rx="2.5" fill="#fff" opacity=".35"/></g></svg>`;
 
 function puff(seed, w = 420, h = 220) {   // a soft moonlit cloud
   const c = canvas(w, h), g = c.getContext('2d'), d = g.createImageData(w, h);
@@ -107,7 +109,7 @@ export default {
     wrap.innerHTML = `
       <div class="pro-card">
         <div class="pro-face pro-front"><img src="${asset('img/env-front.webp')}" alt=""><div class="pro-addr">${ADDRESS.map((l, i) => `<p class="a${i}">${l}</p>`).join('')}</div></div>
-        <div class="pro-face pro-back"><img src="${asset('img/env-back.webp')}" alt=""><span class="pro-star-img">${STAR}</span></div>
+        <div class="pro-face pro-back"><img src="${asset('img/env-back.webp')}" alt=""><i class="pro-ribbon-static"></i><span class="pro-star-img pro-bow-img">${BOW}</span></div>
       </div>
       <div class="pro-env">
         <i class="pro-env-shadow"></i>
@@ -116,7 +118,8 @@ export default {
         <img class="pro-env-pocket" src="${asset('img/env-pocket.webp')}" alt="">
         <div class="pro-env-flap"><img class="out" src="${asset('img/env-flap.webp')}" alt=""><img class="in" src="${asset('img/env-flap-in.webp')}" alt=""><i></i></div>
         <svg class="pro-seam" viewBox="0 0 100 ${(100 / PRO.envAspect).toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">${['l', 'r'].map(k => `<path d="M${SEAM.tip} L${SEAM[k]}" pathLength="1"/>`).join('')}</svg>
-        <button class="pro-seal" type="button" aria-label="轻触金色的星星，拆开这封信">${STAR}</button>
+        <div class="pro-ribbon" aria-hidden="true"><i class="l"></i><i class="r"></i></div>
+        <button class="pro-seal" type="button" aria-label="轻轻拉开丝带，拆开这封信">${BOW}</button>
         <i class="pro-flash"></i>
       </div>
       <i class="pro-warm" aria-hidden="true"></i>
@@ -161,11 +164,22 @@ export default {
     card.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; });
     addEventListener('pointerup', e => { if (drag && landed && flipAt === Infinity) { flipAt = T; env.audio.sfx('page', .5); say(''); } drag = null; });
     envEl.addEventListener('click', () => { if (flipped && !opened && T > flipAt + 1.1) openAt = T; }); // the star, or anywhere on the envelope
+    // the night sky answers her finger: stardust trails after it, and every stroke rings a soft note
+    let dust = null, dustAt = -9, dusted = false;
+    const brush = (x, y, first) => {
+      if (opened) return; dusted = true; if (hint.textContent === DUST_HINT) say('');
+      for (let i = 0; i < (first ? 16 : 3); i++) fx.trail(x + (Math.random() - .5) * 12, y + (Math.random() - .5) * 12, { life: 1.3 + Math.random() * 1.1, size: 1.1 + Math.random() * 1.3, vy: -6 - Math.random() * 16, spread: 6, color: Math.random() < .55 ? '255,236,190' : '214,226,255' });
+      if (T - dustAt > .2) { dustAt = T; const pan = (x / env.W * 2 - 1) * .7; env.audio.hit ? env.audio.hit('twinkle', { quantize: '16th', pan, vel: .5 }) : env.audio.sfx('glint', .22, { pan }); }
+    };
+    const dustDown = e => { if (e.target.closest('.pro-card, .pro-env, .pro-memo, button, #hud, #menu')) return; dust = true; brush(e.clientX, e.clientY, true); };
+    const dustMove = e => { if (dust) brush(e.clientX, e.clientY); };
+    const dustUp = () => { dust = null; };
+    el.addEventListener('pointerdown', dustDown); addEventListener('pointermove', dustMove, { passive: true }); addEventListener('pointerup', dustUp); addEventListener('pointercancel', dustUp);
     const cues = env.cues([[.6, 4.4, '有一封信，在月光下飞了很远的路。'], [5.0, 8.8, '雪白的猫头鹰，替一个人把它送来。']]);
 
     const inst = {
       progress: () => clamp(T / (LAND + 6 + WRITE_LEN + 3)),
-      destroy() { if (A.film) stop(A.film); if (A.hold) stop(A.hold); env.audio.stopVoice(); },
+      destroy() { if (A.film) stop(A.film); if (A.hold) stop(A.hold); env.audio.stopVoice(); removeEventListener('pointermove', dustMove); removeEventListener('pointerup', dustUp); removeEventListener('pointercancel', dustUp); },
       resize() {
         res = env.res(true);
         cv.width = Math.round(env.W * res); cv.height = Math.round(env.H * res);
@@ -179,6 +193,7 @@ export default {
       },
       update(dt, t) {
         T = t; cues(t);
+        if (!inst.dustHint && t > 1.6 && !dusted && !opened) { inst.dustHint = true; say(DUST_HINT); setTimeout(() => { if (hint.textContent === DUST_HINT) say(''); }, 4200); }
         const W = env.W, H = env.H, portrait = env.portrait; g.setTransform(res, 0, 0, res, 0, 0);
         const covered = opened && t - openStart > O.covered;
         const film = A.film && drawable(A.film) ? A.film : null;
@@ -189,7 +204,7 @@ export default {
           if (done && A.hold && !inst.holdOn) { inst.holdOn = true; A.hold.v.loop = true; play(A.hold, 1, 0); }
           const src = inst.holdOn && drawable(A.hold) ? A.hold : film;
           g.globalAlpha = 1; drawCover(g, src, 0, 0, W, H, .5 + env.look.x * .015, .5 + env.look.y * .01, 1.03);
-          if (!inst.wing1 && t > 3.4) { inst.wing1 = true; env.audio.sfx('wings', .55, { pan: .35, verb: .25 }); }   // she is almost silent: a few soft wingbeats
+          if (!inst.wing1 && t > 3.4) { inst.wing1 = true; env.audio.sfx('wings', .55, { pan: .35, verb: .25 }); env.audio.hit?.('owl', { pan: .3 }); env.audio.layer?.('lead', 1, 2.5); }   // she is almost silent: a few soft wingbeats
           if (!inst.wing2 && t > 6.1) { inst.wing2 = true; env.audio.sfx('wings', .35, { pan: -.4, verb: .35 }); }
           owlXY = [W * .14, -H * .04, 0];
         }
@@ -259,15 +274,15 @@ export default {
           const bob = k >= 1 ? Math.sin(t * 1.6) * 5 : 0, sc = lerp(.12, 1, e) * (1 + lift * .06);
           card.style.opacity = clamp(kf * 6).toFixed(3);
           card.style.transform = `translate(${(x - W / 2).toFixed(1)}px,${(y - H / 2 + bob).toFixed(1)}px) scale(${sc.toFixed(3)}) rotateX(${(tumble + lift * 8).toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${rz.toFixed(1)}deg)`;
-          if (k >= 1 && !landed) { landed = true; wrap.classList.add('landed'); env.audio.sfx('chime', .4); fx.burst(W / 2, H / 2 + H * .06, { n: 12, speed: 46, life: 1.8, size: 1.3, sparkle: 0, color: '236,226,206', drag: 2 }); } // a breath of dust where it settles
+          if (k >= 1 && !landed) { landed = true; wrap.classList.add('landed'); env.audio.hit ? env.audio.hit('land') : env.audio.sfx('chime', .4); env.audio.section?.('bloom'); fx.burst(W / 2, H / 2 + H * .06, { n: 12, speed: 46, life: 1.8, size: 1.3, sparkle: 0, color: '236,226,206', drag: 2 }); } // a breath of dust where it settles
           if (landed && flipAt === Infinity) {
             if (t > LAND + 1.2 && !inst.h1) { inst.h1 = true; say('轻触信封，把它翻过来'); }
             if (env.auto && t > LAND + FLIP_AUTO + 1.5) { flipAt = t; say(''); env.audio.sfx('page', .5); } // a visitor turns it over herself
           }
-          if (flipped) { card.style.opacity = 0; card.style.visibility = 'hidden'; envEl.classList.add('on'); inst.flipDone = t; say('轻触金色的星星，拆开这封信'); }
+          if (flipped) { card.style.opacity = 0; card.style.visibility = 'hidden'; envEl.classList.add('on'); inst.flipDone = t; say('轻轻拉开丝带，拆开这封信'); }
         }
         if (env.auto && flipped && !opened && openAt === Infinity && t > inst.flipDone + OPEN_AUTO) openAt = t; // test mode only: she touches the star herself
-        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('seal', .7); env.audio.sfx('glint', .3); }
+        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('rustle', .55); env.audio.hit ? env.audio.hit('open') : env.audio.sfx('seal', .7); setTimeout(() => env.audio.section?.('hb'), 1600); }   // the birthday tune comes in as the letter starts to write
         if (opened) {
           const k2 = t - openStart;
           openRig(k2);
@@ -277,7 +292,7 @@ export default {
             if (written % 4 === 0) { const r = sp.getBoundingClientRect(); fx.trail(r.right, r.top + r.height * .6, { life: .9, size: 1.4, vy: -16, color: '140,220,170' }); }
           }
           if (written >= chars.length && !done) {
-            done = true; doneAt = t; paper.classList.add('glow'); env.audio.sfx('sparkle', .6);
+            done = true; doneAt = t; paper.classList.add('glow'); env.audio.hit ? env.audio.hit('done') : env.audio.sfx('sparkle', .6);
             if (env.audio.hasVoice) { memoAt = t + .9; memoState = 'shown'; }
           }
           if (t > memoAt && !memo.classList.contains('on')) memo.classList.add('on');
@@ -297,7 +312,7 @@ export default {
           }
         }
         // a hush falls once the letter is in front of her
-        const dim = between(t, LAND - 1.5, LAND + .5) * .45 + (opened ? between(t - openStart, 0, 2) * .25 : 0);
+        const dim = between(t, LAND - 1.5, LAND + .5) * .22 + (opened ? between(t - openStart, 0, 2) * .12 : 0);   // a hush, not a blackout: the castle stays readable
         if (dim > 0 && !covered) { g.fillStyle = `rgba(4,6,14,${dim.toFixed(3)})`; g.fillRect(0, 0, W, H); }
       },
     };
@@ -307,9 +322,9 @@ export default {
       const W = env.W, ew = Math.min(520, W * .86), eh = ew / PRO.envAspect, lw = parseFloat(wrap.style.getPropertyValue('--lw')), lh = parseFloat(wrap.style.getPropertyValue('--lh'));
       // the star: pressed, it spins and flares; then two threads of light run along the flap's seams to its corners
       const er = envEl.getBoundingClientRect(), ux = er.width / 100, toPx = q => [er.left + q[0] * ux, er.top + q[1] * ux];
-      const press = k < .3 ? Math.sin(clamp(k / .3) * Math.PI) * .12 : 0, gone = easeIn(clamp((k - .18) / .4));
-      seal.style.transform = `translate(-50%,-50%) scale(${(1 - press + gone * .5).toFixed(3)}) rotate(${(easeOut(clamp(k / .6)) * 144).toFixed(1)}deg)`;
-      seal.style.opacity = (1 - gone).toFixed(3);
+      const press = k < .3 ? Math.sin(clamp(k / .3) * Math.PI) * .12 : 0;
+      seal.style.transform = `translate(-50%,-50%) scale(${(1 - press).toFixed(3)})`;   // the bow itself unties in CSS (.open)
+      seal.style.opacity = (1 - easeIn(clamp((k - .45) / .4))).toFixed(3);
       const run = easeInOut(clamp((k - .12) / (O.burst - .12)));
       seams.forEach((p, i) => {
         p.style.strokeDashoffset = (1 - run).toFixed(3); p.style.opacity = (k < O.burst + .9 ? 1 : clamp(1 - (k - O.burst - .9) / .6)).toFixed(3);

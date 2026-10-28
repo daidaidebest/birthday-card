@@ -114,7 +114,7 @@ export default {
       if (how === 'pan') { lane.pan = 0; lane.p = 9; } else { lane.p = 0; lane.pan = -1; }
       const m = lane.meta; lane.root.classList.remove('swap'); void lane.root.offsetWidth; lane.root.classList.add('swap');
       setTimeout(() => { m.h3.textContent = P.region ? `${P.region} · ${P.city}` : P.city; m.school.textContent = P.school || ''; m.line.textContent = P.line; }, how === 'pan' ? PAN * 450 : 450);
-      env.audio.sfx('sand', .22);
+      env.audio.sfx('sand', .22); if (lane.n === 0) env.audio.hit?.('station');   // one chord for the two tables, on the bar
     }
     // One frame of sand. A new city is poured (the drawing appears along its reveal order) or walked to: the
     // camera pans across the table, the old city sliding out as the next slides in, the dunes in front passing

@@ -126,6 +126,29 @@ env.offerNext = (label, cb, { quiet = false } = {}) => {
 };
 nextBtn.addEventListener('click', () => { const cb = nextCb; env.offerNext(null); cb && cb(); });
 
+// ---------- the dock: subtitle, hint and the way on share one column at the bottom, so they never cover each other ----------
+// Scenes keep their own words above the dock's reserved band (env.safe().b), and ask for hints here instead of
+// placing their own: env.hint(text) at the bottom, env.hint(text, { top: true }) under the top edge when the bottom
+// of the frame is where her finger works.
+const hintEls = { b: $('#hint'), t: $('#hint-top') };
+env.hint = (text, { top = false } = {}) => {
+  const k = top ? 't' : 'b', other = top ? 'b' : 't';
+  if (!text) { for (const e of Object.values(hintEls)) e.classList.remove('on'); return; }
+  hintEls[other].classList.remove('on');
+  if (hintEls[k].textContent !== text) hintEls[k].textContent = text;
+  hintEls[k].classList.add('on');
+};
+/** The usable frame in CSS px: the safe-area insets, with the dock's reserved band added to the bottom one (b). */
+const probe = $('#safe-probe');
+env.safe = () => {
+  const r = probe.getBoundingClientRect();
+  return { t: r.top, l: r.left, r: env.W - r.right, b: env.H - r.bottom, w: r.width, h: r.height };
+};
+/** While she reads (book pages, letters) the grain and the vignette step back from the text. */
+env.reading = on => film.classList.toggle('reading', !!on);
+/** Resolution for text-bearing canvases (book pages): the screen's real density, never the performance cap. */
+env.textDpr = () => Math.min(devicePixelRatio || 1, software || env.q < 1 ? 2 : 3);   // even a software rasteriser gets 2x for text
+
 // ---------- veil ----------
 const veil = document.createElement('div');
 Object.assign(veil.style, { position: 'absolute', inset: '0', zIndex: 41, background: '#000', opacity: 0, pointerEvents: 'none', transition: 'opacity 1.2s ease' });
@@ -143,7 +166,7 @@ env.next = opts => go(currentIndex + 1, opts);
 /** Scenes crossfade: the outgoing frame freezes while the next one fades in over it. */
 async function go(i, { transition = 'cross', fast = false, at = null, tint = null } = {}) {
   if (switching || i < 0 || i >= SCENES.length) return;
-  switching = true; env.offerNext(null); env.say(null);
+  switching = true; env.offerNext(null); env.say(null); env.hint(null); env.reading(false);
   const old = current;
   if ((transition === 'bloom' || transition === 'sand' || transition === 'star') && (fast || env.reduced)) transition = 'cross';
   const evolve = transition === 'sand' || transition === 'star';   // something of the last shot becomes the next one
@@ -160,7 +183,8 @@ async function go(i, { transition = 'cross', fast = false, at = null, tint = nul
   if (transition === 'moon') setTimeout(() => env.veil(0, 2200, '#eef1ff'), 300); stage.appendChild(el);
   env.letterbox(false);
   env.handoff = (transition === 'bloom' || evolve) && !fast && !env.reduced ? (at || [env.W / 2, env.H / 2]) : null;
-  current = S.create({ ...env, el }); settle = performance.now() + 1600; gaps.length = 0;
+  // the scene's env inherits from the live one (not a copy), so W, H, portrait, dpr and q stay current through resizes and rotation
+  current = S.create(Object.assign(Object.create(env), { el })); settle = performance.now() + 1600; gaps.length = 0;
   current.el = el; current.t = 0;
   env.audio.cue(S.music, fast ? 1.8 : 3.4); env.audio.bed(S.bed || null, 4); env.audio.prepare(SCENES[i + 1]?.music);
   for (let k = i + 1; k < Math.min(SCENES.length, i + 3); k++) preload(k);
@@ -297,14 +321,18 @@ function frame(now) {
 }
 // Adaptive quality: if frames are consistently slow, lower canvas density once.
 setInterval(() => {
-  if (!paused && !document.hidden && frameAvg > 40 && env.q > .5) { env.q = .5; env.dpr = 1; film.classList.add('low-power'); resize(); }
+  if (!paused && !document.hidden && frameAvg > 40 && env.q > .5) { env.q = .5; env.dpr = 1; film.classList.add('low-power'); resize(true); }
 }, 4000);
 
-function resize() {
+function resize(force) {
+  if (force !== true && env.W === innerWidth && env.H === innerHeight && env.portrait === isPortrait()) return;
   env.W = innerWidth; env.H = innerHeight; env.portrait = isPortrait(); film.classList.toggle('portrait', env.portrait);
   env.fx.resize(); env.pups.resize(); current?.resize?.();
 }
-addEventListener('resize', () => { clearTimeout(resize.t); resize.t = setTimeout(resize, 120); });
+// rotation, the browser's bars sliding in and out, split screen: one debounced relayout (scenes get resize() and, when the
+// orientation flipped, env.portrait already tells them which way they now face)
+const onResize = () => { clearTimeout(resize.t); resize.t = setTimeout(resize, 120); };
+addEventListener('resize', onResize); addEventListener('orientationchange', onResize); window.visualViewport?.addEventListener('resize', onResize);
 
 // ---------- HUD ----------
 let idleTimer = 0;

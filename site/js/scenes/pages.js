@@ -21,12 +21,14 @@ export const HIS_ROUTE = ['wuhan', 'nanjing', 'shanghai', 'shenzhen', 'tokyo'];
 
 // ---------------- paper ----------------
 const paperCache = new Map();
-export function paper(w, h, side, tex, tint = '#ecdcb7') {
-  const key = [w, h, side, tint].join();
+/** A page's paper, w × h device pixels; k = device pixels per CSS pixel, so the fibres keep their real size at any density. */
+export function paper(w, h, side, tex, tint = '#ecdcb7', k = 1) {
+  const key = [w, h, side, tint, k].join();
   if (paperCache.has(key)) return paperCache.get(key);
+  if (paperCache.size > 12) paperCache.clear();   // rotation/resizes: don't keep every size ever drawn
   const c = canvas(w, h), g = c.getContext('2d');
   g.fillStyle = tint; g.fillRect(0, 0, w, h);
-  if (tex) { g.globalAlpha = .55; g.globalCompositeOperation = 'multiply'; const p = g.createPattern(tex, 'repeat'); g.fillStyle = p; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
+  if (tex) { g.save(); g.scale(k, k); g.globalAlpha = .55; g.globalCompositeOperation = 'multiply'; const p = g.createPattern(tex, 'repeat'); g.fillStyle = p; g.fillRect(0, 0, w / k, h / k); g.restore(); }
   const R = rng(side === 'left' ? 3 : 9);
   for (let i = 0; i < 9; i++) { // foxing: soft age spots
     const x = R() * w, y = R() * h, r = (R() * 18 + 4) * w / 500;

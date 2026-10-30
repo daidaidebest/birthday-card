@@ -3,11 +3,12 @@
 // glides across the sky and lets go of a letter as it leaves the frame; the heavy parchment envelope tumbles down
 // in 3D and lands addressed in emerald ink. She turns it over and touches the little gold-foil star on its flap:
 // two threads of light run along the flap's seams, it springs open, and the letter slides out, unfolds and writes
-// itself while the birthday tune plays.
+// itself to its own quiet motif.
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, easeOut, easeIn, rng, fbm, noise1, glowSprite, sparkleSprite, TAU } from '../util.js';
 import { loadDepth, DepthView, wander } from '../depth.js';
 import { PRO } from './prologue-art.js';
 import { loadClip, play, stop, drawable, drawCover } from '../video.js';
+import { loadRibbon, ribbonStill, Ribbon } from '../ribbon.js';
 
 const LETTER = [
   '亲爱的师宝宝：', '',
@@ -80,7 +81,7 @@ export default {
   async load(env) {
     const [castle, owl] = await Promise.all([loadImage(asset('img/castle.webp')), loadImage(asset('img/owl-glide.webp')),
       ...['letter', 'env-front', 'env-back', 'env-inside', 'env-pocket', 'env-flap', 'env-flap-in'].map(n => loadImage(asset(`img/${n}.webp`)))]);
-    Object.assign(A, { castle, owl }); A.depth = await loadDepth('castle');
+    Object.assign(A, { castle, owl }); A.depth = await loadDepth('castle'); A.ribbon = await loadRibbon();
     if (!env.reduced && A.film === undefined) {
       const k = env.portrait ? 'p' : '';
       [A.film, A.hold] = await Promise.all([loadClip('castle' + k), loadClip('castle-hold' + k)]);
@@ -109,7 +110,7 @@ export default {
     wrap.innerHTML = `
       <div class="pro-card">
         <div class="pro-face pro-front"><img src="${asset('img/env-front.webp')}" alt=""><div class="pro-addr">${ADDRESS.map((l, i) => `<p class="a${i}">${l}</p>`).join('')}</div></div>
-        <div class="pro-face pro-back"><img src="${asset('img/env-back.webp')}" alt=""><i class="pro-ribbon-static"></i><span class="pro-star-img pro-bow-img">${BOW}</span></div>
+        <div class="pro-face pro-back"><img src="${asset('img/env-back.webp')}" alt="">${ribbonStill() || `<i class="pro-ribbon-static"></i><span class="pro-star-img pro-bow-img">${BOW}</span>`}</div>
       </div>
       <div class="pro-env">
         <i class="pro-env-shadow"></i>
@@ -119,13 +120,14 @@ export default {
         <div class="pro-env-flap"><img class="out" src="${asset('img/env-flap.webp')}" alt=""><img class="in" src="${asset('img/env-flap-in.webp')}" alt=""><i></i></div>
         <svg class="pro-seam" viewBox="0 0 100 ${(100 / PRO.envAspect).toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">${['l', 'r'].map(k => `<path d="M${SEAM.tip} L${SEAM[k]}" pathLength="1"/>`).join('')}</svg>
         <div class="pro-ribbon" aria-hidden="true"><i class="l"></i><i class="r"></i></div>
-        <button class="pro-seal" type="button" aria-label="轻轻拉开丝带，拆开这封信">${BOW}</button>
+        <i class="ribbon-halo" aria-hidden="true"></i>
+        <button class="pro-seal" type="button" aria-label="轻轻拉开丝带，拆开这封信">${A.ribbon?.m ? '' : BOW}</button>
         <i class="pro-flash"></i>
       </div>
       <i class="pro-warm" aria-hidden="true"></i>
-      <p class="pro-hint"></p>`;
+`;
     const $ = s => wrap.querySelector(s);
-    const card = $('.pro-card'), envEl = $('.pro-env'), paper = $('.pro-paper'), inner = $('.pro-paper-inner'), seal = $('.pro-seal'), hint = $('.pro-hint');
+    const card = $('.pro-card'), envEl = $('.pro-env'), paper = $('.pro-paper'), inner = $('.pro-paper-inner'), seal = $('.pro-seal');
     const flap = $('.pro-env-flap'), flash = $('.pro-flash'), envParts = ['.pro-env-shadow', '.pro-env-inside', '.pro-env-pocket'].map($);
     const folds = [0, 1, 2].map(k => $('.pro-fold.f' + k)), seams = [...wrap.querySelectorAll('.pro-seam path')];
     let openRig = null, seamDone = false;
@@ -158,16 +160,24 @@ export default {
 
     let T = 0, res = 1, flipAt = Infinity, flipped = false, openAt = Infinity, opened = false, openStart = 0, written = 0, done = false, doneAt = 0, leaving = false, landed = false;
     let owlXY = null;
-    const say = text => { hint.textContent = text; wrap.classList.toggle('hinted', !!text); };
+    let hintText = ''; const say = text => { hintText = text; env.hint(text); };   // hints live in the dock (main.js)
     // turn it over: tap the envelope, or swipe across it
     let drag = null;
     card.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; });
     addEventListener('pointerup', e => { if (drag && landed && flipAt === Infinity) { flipAt = T; env.audio.sfx('page', .5); say(''); } drag = null; });
-    envEl.addEventListener('click', () => { if (flipped && !opened && T > flipAt + 1.1) openAt = T; }); // the star, or anywhere on the envelope
+    // the rendered satin ribbon (js/ribbon.js): she tugs the tail or taps; the envelope opens when the loop slips through the knot
+    const openEnv = () => { if (flipped && !opened && openAt === Infinity && T > flipAt + 1.1) openAt = T; };
+    let ribbon = null;
+    if (A.ribbon?.m) {
+      wrap.classList.add('has-ribbon');
+      ribbon = new Ribbon(envEl, { onStart: () => { say(''); env.audio.sfx('rustle', .4); }, onLoose: openEnv });
+      seal.addEventListener('click', e => { if (e.detail === 0) ribbon.play(); });   // the keyboard's way in
+    }
+    envEl.addEventListener('click', () => { if (!ribbon) openEnv(); });   // without the ribbon: anywhere on the envelope
     // the night sky answers her finger: stardust trails after it, and every stroke rings a soft note
     let dust = null, dustAt = -9, dusted = false;
     const brush = (x, y, first) => {
-      if (opened) return; dusted = true; if (hint.textContent === DUST_HINT) say('');
+      if (opened) return; dusted = true; if (hintText === DUST_HINT) say('');
       for (let i = 0; i < (first ? 16 : 3); i++) fx.trail(x + (Math.random() - .5) * 12, y + (Math.random() - .5) * 12, { life: 1.3 + Math.random() * 1.1, size: 1.1 + Math.random() * 1.3, vy: -6 - Math.random() * 16, spread: 6, color: Math.random() < .55 ? '255,236,190' : '214,226,255' });
       if (T - dustAt > .2) { dustAt = T; const pan = (x / env.W * 2 - 1) * .7; env.audio.hit ? env.audio.hit('twinkle', { quantize: '16th', pan, vel: .5 }) : env.audio.sfx('glint', .22, { pan }); }
     };
@@ -177,23 +187,41 @@ export default {
     el.addEventListener('pointerdown', dustDown); addEventListener('pointermove', dustMove, { passive: true }); addEventListener('pointerup', dustUp); addEventListener('pointercancel', dustUp);
     const cues = env.cues([[.6, 4.4, '有一封信，在月光下飞了很远的路。'], [5.0, 8.8, '雪白的猫头鹰，替一个人把它送来。']]);
 
+    // turning the phone: the film for the other orientation is fetched and takes over at the same moment of the flight
+    let clipK = A.film ? (A.film.name.endsWith('p') ? 'p' : '') : null;
+    const swapClips = async () => {
+      const k = env.portrait ? 'p' : ''; if (clipK === null || clipK === k) return; clipK = k;
+      const [f, h] = await Promise.all([loadClip('castle' + k), loadClip('castle-hold' + k)]);
+      if (clipK !== k || f.failed) return;   // turned again meanwhile, or this one cannot play: the painted castle stands in
+      const old = A.film, oldH = A.hold; A.film = f; A.hold = h.failed ? null : h;
+      if (inst.filmOn) { if (inst.holdOn && A.hold) { A.hold.v.loop = true; play(A.hold, 1, oldH ? oldH.v.currentTime : 0); } else play(f, 1, old ? old.v.currentTime : 0); }
+      if (old !== f) stop(old); if (oldH && oldH !== A.hold) stop(oldH);
+    };
     const inst = {
       progress: () => clamp(T / (LAND + 6 + WRITE_LEN + 3)),
-      destroy() { if (A.film) stop(A.film); if (A.hold) stop(A.hold); env.audio.stopVoice(); removeEventListener('pointermove', dustMove); removeEventListener('pointerup', dustUp); removeEventListener('pointercancel', dustUp); },
+      destroy() { ribbon?.destroy(); if (A.film) stop(A.film); if (A.hold) stop(A.hold); env.audio.stopVoice(); removeEventListener('pointermove', dustMove); removeEventListener('pointerup', dustUp); removeEventListener('pointercancel', dustUp); },
       resize() {
         res = env.res(true);
         cv.width = Math.round(env.W * res); cv.height = Math.round(env.H * res);
-        const W = env.W, H = env.H;
-        let lw = Math.min(540, W * .88), lh = lw * 1.34; if (lh > H * .9) { lh = H * .9; lw = lh / 1.34; }
-        const fs = Math.max(14, Math.min(21, lw * .041));
-        const ew = Math.min(520, W * .86), eh = ew / PRO.envAspect;
+        const W = env.W, H = env.H, sf = env.safe();
+        // the envelope and the letter live in the free frame (notch, home bar and the dock's band taken out)
+        wrap.style.top = sf.t + 'px'; wrap.style.bottom = sf.b + 'px'; wrap.style.left = sf.l + 'px'; wrap.style.right = sf.r + 'px';
+        const fh = sf.h - 12, fw = sf.w;
+        // a short landscape screen gets a landscape sheet: an upright one would have to shrink the writing below reading size
+        const wide = fw > fh * 1.25 && fh < 520, asp = wide ? 1 / 1.34 : 1.34;
+        let lw = Math.min(wide ? 760 : 540, fw * (wide ? .8 : .88)), lh = lw * asp; if (lh > fh * .97) { lh = fh * .97; lw = lh / asp; }
+        const fs = wide ? Math.max(13.5, Math.min(19, lh * .05)) : Math.max(15, Math.min(21, lw * .045));
+        paper.classList.toggle('wide', wide);
+        const ew = Math.min(520, fw * .86, fh * .9 * PRO.envAspect), eh = ew / PRO.envAspect;
         const v = { '--lw': lw + 'px', '--lh': lh + 'px', '--fs': fs + 'px', '--ew': ew + 'px', '--eh': eh + 'px', '--sx': ew * .86 / lw, '--sy': eh * .8 / lh };
         for (const k in v) wrap.style.setProperty(k, v[k]);
         if (!opened && openRig) openRig(0); // the folded letter waits inside
+        ribbon?.resize(); swapClips();
       },
       update(dt, t) {
         T = t; cues(t);
-        if (!inst.dustHint && t > 1.6 && !dusted && !opened) { inst.dustHint = true; say(DUST_HINT); setTimeout(() => { if (hint.textContent === DUST_HINT) say(''); }, 4200); }
+        if (ribbon) { ribbon.enabled = flipped && !opened && t > flipAt + 1.1; ribbon.update(dt); }
+        if (!inst.dustHint && t > 1.6 && !dusted && !opened) { inst.dustHint = true; say(DUST_HINT); setTimeout(() => { if (hintText === DUST_HINT) say(''); }, 4200); }
         const W = env.W, H = env.H, portrait = env.portrait; g.setTransform(res, 0, 0, res, 0, 0);
         const covered = opened && t - openStart > O.covered;
         const film = A.film && drawable(A.film) ? A.film : null;
@@ -273,7 +301,14 @@ export default {
           if (t > flipAt) { const f = easeInOut(clamp((t - flipAt) / 1)); ry = 180 * f; lift = Math.sin(f * Math.PI); if (f >= 1) flipped = true; }
           const bob = k >= 1 ? Math.sin(t * 1.6) * 5 : 0, sc = lerp(.12, 1, e) * (1 + lift * .06);
           card.style.opacity = clamp(kf * 6).toFixed(3);
-          card.style.transform = `translate(${(x - W / 2).toFixed(1)}px,${(y - H / 2 + bob).toFixed(1)}px) scale(${sc.toFixed(3)}) rotateX(${(tumble + lift * 8).toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${rz.toFixed(1)}deg)`;
+          if (k >= 1 && t <= flipAt) {   // landed and waiting: a flat, pixel-aligned float, so the inked address reads crisply
+            const d = env.textDpr(), q = v => (Math.round(v * d) / d).toFixed(3);
+            if (card.style.willChange !== 'auto') card.style.willChange = 'auto';
+            card.style.transform = `translate(${q(x - W / 2)}px,${q(y - H / 2 + bob)}px)`;
+          } else {
+            if (card.style.willChange === 'auto') card.style.willChange = '';
+            card.style.transform = `translate(${(x - W / 2).toFixed(1)}px,${(y - H / 2 + bob).toFixed(1)}px) scale(${sc.toFixed(3)}) rotateX(${(tumble + lift * 8).toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${rz.toFixed(1)}deg)`;
+          }
           if (k >= 1 && !landed) { landed = true; wrap.classList.add('landed'); env.audio.hit ? env.audio.hit('land') : env.audio.sfx('chime', .4); env.audio.section?.('bloom'); fx.burst(W / 2, H / 2 + H * .06, { n: 12, speed: 46, life: 1.8, size: 1.3, sparkle: 0, color: '236,226,206', drag: 2 }); } // a breath of dust where it settles
           if (landed && flipAt === Infinity) {
             if (t > LAND + 1.2 && !inst.h1) { inst.h1 = true; say('轻触信封，把它翻过来'); }
@@ -281,8 +316,8 @@ export default {
           }
           if (flipped) { card.style.opacity = 0; card.style.visibility = 'hidden'; envEl.classList.add('on'); inst.flipDone = t; say('轻轻拉开丝带，拆开这封信'); }
         }
-        if (env.auto && flipped && !opened && openAt === Infinity && t > inst.flipDone + OPEN_AUTO) openAt = t; // test mode only: she touches the star herself
-        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('rustle', .55); env.audio.hit ? env.audio.hit('open') : env.audio.sfx('seal', .7); setTimeout(() => env.audio.section?.('hb'), 1600); }   // the birthday tune comes in as the letter starts to write
+        if (env.auto && flipped && !opened && openAt === Infinity && t > inst.flipDone + OPEN_AUTO) { if (ribbon) ribbon.play(); else openAt = t; } // test mode only: she touches the star herself
+        if (!opened && t > openAt) { opened = true; openStart = t; wrap.classList.add('open'); say(''); env.audio.sfx('rustle', .55); env.audio.hit ? env.audio.hit('open') : env.audio.sfx('seal', .7); setTimeout(() => env.audio.section?.('letter'), 1600); }   // the letter's own motif comes in as it starts to write (the birthday tune waits for the last chapter)
         if (opened) {
           const k2 = t - openStart;
           openRig(k2);
@@ -357,7 +392,12 @@ export default {
         folds[0].style.setProperty('--shade', (Math.abs(Math.sin(a0 * Math.PI / 360)) * .8).toFixed(3));
         folds[1].style.setProperty('--shade', (1 - u0) * .6);
       }
-      if (u0 >= 1 && !paper.classList.contains('lifted')) { paper.classList.add('lifted'); paper.style.transformStyle = 'flat'; }
+      if (u0 >= 1 && !paper.classList.contains('lifted')) {
+        // open and still: the sheet leaves 3D for good (no transform, no layer hint), so the writing is drawn by the browser
+        // at the screen's own resolution instead of being resampled from a texture
+        paper.classList.add('lifted'); paper.style.transformStyle = 'flat'; paper.style.transform = 'none'; paper.style.willChange = 'auto';
+        folds.forEach(f => { f.style.transform = 'none'; });
+      }
       if (!inst.flapSnd && k > O.flap) { inst.flapSnd = true; env.audio.sfx('rustle', .55); }
       if (!inst.paperSnd && k > O.unfold) { inst.paperSnd = true; env.audio.sfx('page', .55); env.audio.sfx('rustle', .3, { delay: .25 }); }
     };

@@ -1,0 +1,15 @@
+/* The envelope's satin ribbon (js/ribbon.js). The canvas and the card's still are placed by ribbon.json (inline %). */
+.ribbon-cv,.ribbon-still{position:absolute;display:block;pointer-events:none}
+.ribbon-cv{z-index:5}                                  /* over the flap (4), under the seams (5, later in the DOM) and the flash */
+.ribbon-still{z-index:1;max-width:none}
+.pro-face>.ribbon-still{right:auto;bottom:auto}     /* .pro-face>img stretches images over the face */
+/* a soft breath of light behind the bow while it waits for her (replaces the old star halo) */
+.ribbon-halo{position:absolute;left:var(--seal-x);top:calc(var(--seal-y) + 2%);width:calc(var(--seal-w)*2.1);aspect-ratio:1.5;transform:translate(-50%,-50%);z-index:4;pointer-events:none;
+  border-radius:50%;background:radial-gradient(closest-side,rgba(255,226,214,.30),rgba(255,206,190,.10) 55%,rgba(255,200,180,0));mix-blend-mode:screen;animation:ribbonHalo 3.2s ease-in-out infinite}
+@keyframes ribbonHalo{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(.94)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.04)}}
+.pro-letter-wrap.open .ribbon-halo{opacity:0;animation:none;transition:opacity .4s ease}
+.low-power .ribbon-halo{animation:none;opacity:.5}
+@media (prefers-reduced-motion:reduce){.ribbon-halo{animation:none;opacity:.5}}
+/* the rendered ribbon replaces the CSS ribbon and the old halo; the seal stays as an invisible button over the bow */
+.has-ribbon .pro-ribbon,.has-ribbon .pro-seal::before{display:none}
+.pro-letter-wrap:not(.has-ribbon) .ribbon-halo{display:none}

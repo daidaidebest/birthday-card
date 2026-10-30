@@ -1,27 +1,34 @@
 """The film's original score, composed here as MIDI and performed by real sampled instruments
 (MuseScore General SoundFont, MIT) through FluidSynth, then mixed and mastered to seamless loops.
 
-v17: one theme, seven characters. "The dream theme" (原创主题, 16 bars) runs through every chapter, each time in its own
-colour, and the keys move by at most one sharp from chapter to chapter, so the long crossfades never clash:
+v19: a score that builds toward one moment. Each chapter has its own tune, colour and key; the keys move by at most one
+sharp from chapter to chapter, so the handoffs never clash. Happy Birthday is kept back for the last chapter (no chapter
+before it, no stinger, no cadence may play even a fragment of it: tools/check_hb.py proves this and fails otherwise).
 
-  prologue  B minor -> D   76 bpm  mysterious, romantic: tremolo strings, harp, celesta; the theme asked low on a flute in
-                                   the dark, then blooming on a solo violin as the letter lands (bar 5 = 12.6 s);
-                                   a brief Happy Birthday on celesta and music box as the letter is complete.
-  book      A major        63 bpm  warm, peaceful: a fireside lullaby in 12/8 (nylon guitar rocking in triplets, felt
-                                   piano); the theme lilting on clarinet, then sung by the cello.
-  journey   D major       116 bpm  intimate, lyrical: a duet over a rolling piano. Her road (flute) carries the theme in
-                                   long notes, his road (cello) walks below and climbs toward it; on bar 15 (29 s, Tokyo)
-                                   they meet in octaves on the theme's opening while the strings lift; then in harmony.
-  memories  E minor -> G   66 bpm  nostalgic: a piano nocturne remembering the theme in minor, blooming into G on a
-                                   violin with cello, vibraphone like light on old photographs.
-  film      D Mixolydian   96 bpm  free, expansive: strings galloping in triplets, horns calling the theme in open
-            -> G Lydian -> G       fifths; a tender flute for the horses' close-up; the savanna broad on horn, strings
-                                   and voices; celesta stars, and the falling star on Happy Birthday's first notes.
-  wish      G major (3/4)  84 bpm  Happy Birthday on a music box, then harp and celesta with a cello counter-line; the
-                                   theme's opening returns on celesta before it comes round again.
-  finale    G -> D         72 bpm  grand yet moving, orchestral (no drum kit): the theme on a solo violin under the
-            (rit. 66, 60)          letter, the full orchestra in D for the credits, the piano and then the cello for the
-                                   postcard, Happy Birthday's last line on celesta, a long last chord.
+  prologue  B minor -> D   76 bpm  moonlit mystery, then wonder: tremolo strings, harp harmonics, celesta; the night
+                                   motif low on a flute; the moonlit tune on a solo violin when the letter lands ('bloom',
+                                   bar 5); the letter motif (a rising sixth, a quill's stepwise fall) on celesta and harp
+                                   as the letter writes itself ('letter', bar 13), answered by violin and flute.
+  book      A major        63 bpm  warm, intimate: a fireside lullaby in 12/8 (nylon guitar, felt piano); the story theme
+                                   (the dream theme, 16 bars, the score's main tune) lilting on clarinet, sung by the cello.
+  journey   D major       116 bpm  a tender travelling ballad, felt in half time: her road (flute) sings the journey's own
+                                   tune, his (cello) climbs toward it; in Tokyo (bar 15) they meet in octaves on the story
+                                   theme's opening; the road home in harmony. The sand keeps this grid (34 bars, 70.34 s).
+  memories  E minor -> G   66 bpm  nostalgic, close: a piano nocturne of its own; her letter ('bloom') brings the letter
+                                   motif back in G on a solo violin, the cello beneath, vibraphone light.
+  film      D Mixolydian   96 bpm  expansive: strings galloping, the horses' horn call in open fifths, a tender flute for
+            -> G Lydian -> G       the close-up, the savanna's broad tune on horn, strings and voices, the stars' own tune
+                                   on celesta (its last note the falling star), the gallop gathering again.
+  wish      G major (3/4)  76 bpm  the last chapter. 'glow', held while she lights the candles: a G pedal, and the tunes
+                                   of the story return one by one (the letter, the story theme, her road); each candle
+                                   rings the next note of Happy Birthday's first line (she plays it herself). 'song', once
+                                   all six burn: a bar's breath on the dominant, then Happy Birthday, the first time it is
+                                   heard: felt piano and celesta, the cello answering with the story theme; a second verse
+                                   on violin and flute.
+  finale    G major (3/4)  72 bpm  the climax, after the wish, orchestral (no drum kit): Happy Birthday in full as the
+            (rit. 66, 60)          fireworks rise, the horns weaving the story theme round it; the story theme as a waltz
+                                   for the credits; the postcard: the waltz on piano, then cello with the letter motif
+                                   above; Happy Birthday's last line, slowing, and a long last chord.
 
 Needs: fluidsynth, the MuseScore General soundfont (apt: fluidsynth musescore-general-soundfont), ffmpeg,
 python: numpy, scipy, mido.   Run: python3 tools/score.py [name ...]  ->  site/assets/audio/<name>.mp3
@@ -29,9 +36,10 @@ Keep js/audio.js MUSIC (loop lengths, printed below) and GRID (bpm, beats per ba
 Tempos that scenes keep time with: journey 116 bpm 4/4, bar 1 at 0 s, 34 bars, 2 bars per city (site/js/scenes/journey.js).
 """
 import os, sys, json, math, random, subprocess, tempfile, functools, itertools
-import numpy as np, mido, warnings
+import numpy as np, warnings
 warnings.filterwarnings("ignore", message="Chunk")
-from scipy.io import wavfile
+try: import mido; from scipy.io import wavfile
+except ImportError: mido = wavfile = None   # (composing alone, e.g. tools/check_hb.py, needs neither)
 
 SF = '/usr/share/sounds/sf3/MuseScore_General.sf3'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'site', 'assets', 'audio')
@@ -343,63 +351,128 @@ def sparkle(S, ch, beat, notes, vel=60, step=.25):
     for i, p in enumerate(notes): S.note(ch, beat + i * step, 1.5, p, vel - i * 2)
 PENTA = lambda lo, hi, pcs=(2, 4, 7, 9, 11): [p for p in range(m(lo), m(hi) + 1) if p % 12 in pcs]   # G/D pentatonic: in every key here
 
+# ================================================================ v19: the motifs (all original, except Happy Birthday)
+# The score builds toward one moment. Each chapter has its own tune and its own colour, and Happy Birthday is kept back
+# for the last chapter (tools/check_hb.py proves it): she lights its first line herself, candle by candle; it is sung for
+# the first time once all six burn; after the wish it returns in full, the whole orchestra, the earlier tunes woven round.
+def L(s, semis=0):
+    """'F#5:1.5 A5:.5 r:1 | D6:2' -> [(midi or None, beats)] ('|' marks bars, for the eye)"""
+    out = []
+    for tok in s.replace('|', ' ').split():
+        p, d = tok.split(':'); out.append((None if p == 'r' else m(p) + semis, float(d)))
+    return out
+def at(start, seq, semis=0, scale=1.0):
+    """[(pitch, beats)] -> events [(beat, beats, midi)] from `start` (rests skipped)"""
+    out = []; b = start
+    for p, d in seq:
+        if p is not None: out.append((b, d * scale, m(p) + semis))
+        b += d * scale
+    return out
+def diat(evts, steps, scale=D_MAJOR):
+    """each note moved `steps` degrees along the scale (a third above: 2, a sixth below: -5)"""
+    P = [p for p in range(128) if p % 12 in scale]
+    return [(e[0], e[1], P[min(range(len(P)), key=lambda i: abs(P[i] - e[2])) + steps]) + tuple(e[3:]) for e in evts]
+G_MAJOR = [7, 9, 11, 0, 2, 4, 6]
+
+# the prologue's night motif (B minor, low flute): it asks, rising, and never quite lands
+NIGHT = L('B4:2 C#5:1 D5:1 | F#5:3 E5:1 | G5:2 E5:1 F#5:1 | E5:4')
+NIGHT_HOME = L('B4:2 C#5:1 D5:1 | F#5:3 E5:1 | G5:2 E5:1 F#5:1 | C#5:2 A#4:2')
+# the moonlit tune (D, solo violin), when the letter has landed: wonder, wide leaps that float down
+MOON = L('F#5:1.5 A5:.5 D6:2 | C#6:1 B5:1 A5:1 F#5:1 | G5:1.5 B5:.5 E6:2 | D6:1 C#6:1 A5:2 | B5:1.5 G5:.5 E5:1 G5:1 | F#5:1 E5:1 C#5:2 '
+         '| D5:1 F#5:1 B5:1 A5:1 | G5:1 F#5:1 E5:2')
+# the letter motif (D): a rising sixth, then a quill's stepwise fall; her letter in the prologue and in the memories, a
+# memory gathering in the last chapter, a descant on the postcard
+LETTER = L('A4:1 F#5:1.5 E5:.5 D5:1 | E5:1 C#5:.5 B4:.5 A4:2 | B4:1 G5:1.5 F#5:.5 E5:1 | F#5:1 E5:.5 D5:.5 E5:2')
+LETTER_ANSWER = L('A4:1 A5:1.5 G5:.5 F#5:1 | G5:1 E5:.5 D5:.5 E5:2 | G5:1 F#5:1 E5:1 D5:1 | E5:2 C#5:2')
+# the journey (D, in the ballad's half time: one unit = two of the sand's beats): her road, and the road home together
+ROAD = L('F#5:1.5 E5:.5 D5:1 A4:1 | B4:1 C#5:1 E5:2 | D5:1.5 C#5:.5 B4:1 F#4:1 | G4:1 A4:1 B4:2 | D5:1 F#5:1 A5:1 G5:1 | E5:2 D5:1 C#5:1')
+ROAD_HOME = L('D5:1 F#5:1 B5:1.5 A5:.5 | F#5:1.5 E5:.5 C#5:2 | D5:1 E5:1 G5:1.5 F#5:.5 | E5:1.5 F#5:.5 A5:2 | F#5:1.5 E5:.5 D5:1 B4:1 '
+              '| A4:1 C#5:1 D5:2')
+# the memories' nocturne (E minor, piano)
+MEMORY = L('B4:1 E5:1 G5:1.5 F#5:.5 | A5:1.5 F#5:.5 D5:1 B4:1 | C5:1 E5:1 G5:1.5 B5:.5 | A5:2 E5:1 C5:1 | B4:1 E5:1 G5:1.5 A5:.5 '
+           '| B5:1.5 G5:.5 A5:2 | C6:1 B5:.5 A5:.5 E5:1 G5:1 | F#5:2 D#5:2')
+# the film: the horses' horn call (D Mixolydian, open fifths), the tender close-up (flute), the savanna (G Lydian, broad),
+# the stars (celesta; the last note is the one that falls)
+HORN_CALL = L('D4:.5 A4:.5 D5:2 C5:.5 A4:.5 | G4:1.5 E4:.5 G4:1 C5:1 | B4:1.5 A4:.5 G4:1 E4:1 | D4:1 G4:1 B4:1 D5:1')
+CLOSE_UP = L('B4:1 D5:1 F#5:1.5 E5:.5 | D5:1.5 E5:.5 F#5:1 A5:1 | G5:2 E5:2')
+SAVANNA = L('D4:2 G4:1 A4:1 | B4:2 C#5:1 E5:1 | D5:3 A4:1 | F#4:2 A4:1 D5:1 | E5:2 D5:1 B4:1 | C5:2 G4:2')
+STARS = L('B5:.5 D6:.5 F#6:2 E6:1 | D6:.5 E6:.5 G6:2 F#6:1 | D6:2 B5:1 A5:1 | G5:1 C6:1 A5:1 D6:1 | B5:3 A5:.5 B5:.5 | G5:4')
+# the story theme (THEME, the book's) as a waltz, for the finale (D; a pickup into bars 1, 5, 9 and back to 1)
+WALTZ_PICK = L('A4:.5 D5:.5')
+WALTZ = [L(s) for s in ('F#5:2 E5:.5 D5:.5', 'C#5:1 E5:1 A4:1', 'B4:.5 C#5:.5 D5:1 F#5:.5 E5:.5', 'D5:1 B4:1 A4:.5 D5:.5',
+                        'F#5:1.5 A5:.5 G5:1', 'F#5:1 E5:.5 D5:.5 E5:1', 'G5:.5 F#5:.5 E5:1 D5:.5 B4:.5', 'C#5:1 E5:1 A4:.5 D5:.5',
+                        'F#5:1.5 E5:.5 D5:1', 'C#5:1 E5:1 A5:1', 'B5:1.5 A5:.5 F#5:.5 D5:.5', 'E5:1 F#5:.5 E5:.5 C#5:1',
+                        'D5:.5 E5:.5 G5:1.5 F#5:.5', 'E5:1 F#5:.5 G5:.5 A5:1', 'F#5:1 E5:.5 D5:.5 B4:.5 C#5:.5', 'D5:2 A4:.5 D5:.5')]
+WALTZ_CH = [[('D', 3)], [('A/C#', 3)], [('Bm', 3)], [('G', 3)], [('D/F#', 2), ('G', 1)], [('Bm7', 3)], [('Em7', 3)], [('A7', 3)],
+            [('D', 3)], [('A/C#', 3)], [('Bm', 3)], [('F#m7/A', 3)], [('G', 3)], [('A', 3)], [('D/F#', 2), ('A7', 1)], [('D', 3)]]
+def waltz(a, b, start, semis=0):
+    """the story theme as a waltz, bars a..b (1-based) from `start` (bar a's downbeat): (melody events, chord timeline)"""
+    ev, items = [], []
+    for k in range(a, b + 1): ev += at(start + (k - a) * 3, WALTZ[k - 1], semis); items += WALTZ_CH[k - 1]
+    return ev, timeline(start, [(trc([c], semis)[0], d) for c, d in items])
+HBG = tr(HB, 2)   # Happy Birthday in G, its pickup first (25 beats)
+
+def harpwaltz(S, ch, tl, vel, lo=55, b0=-1e9, b1=1e9, mel_=(), bass_lo=43):
+    """3/4 for a harp or a piano: the bass on the downbeat, the chord rolling up and back in eighths"""
+    for b, d, s in tl:
+        if b0 <= b < b1:
+            v = voicing(s, lo, 3, mel(mel_, b, b + d))
+            S.arp(ch, b, d, [bass_of(s, bass_lo)] + v, step=.5, vel=vel, pattern=[0, 1, 2, 3, 2, 1], hold=1.8)
+
 # ================================================================ the pieces
 def prologue():
-    """Castle, owl and letter: B minor night (tremolo strings, harp harmonics, a low flute asking the theme in minor);
-    the letter lands on bar 5 (12.6 s) and the theme blooms in D on a solo violin; Happy Birthday's first two lines on
-    celesta and music box as the letter completes (bar 13, 37.9 s); then the night again, F#7 turning back to B minor.
-    76 bpm, 20 bars."""
+    """Moonlit mystery, then wonder (76 bpm, 24 bars). The night in B minor: tremolo strings, harp harmonics, celesta
+    glints, the night motif low on a flute. The letter lands (bar 5, 'bloom'): the night opens into D and a solo violin
+    sings the moonlit tune. The letter writes itself (bar 13, 'letter'): its own motif on celesta and harp over a quill
+    of soft harp sixteenths, then the violin answers with the flute a third above; A7 turns back to the night, and F#7
+    brings it round to B minor."""
     S = Song('prologue', 76)
     S.ch('fl', 'flute', 86, 52, 74, mod=14); S.ch('vln', 'violin', 96, 74, 70, mod=30); S.ch('harp', 'harp', 86, 86, 70)
     S.ch('cel', 'celesta', 80, 42, 78); S.ch('trem', 'tremolo', 74, 60, 84); S.ch('str', 'slowstrings', 82, 66, 80); S.ch('cello', 'cello', 86, 46, 66, mod=12)
-    S.ch('choir', 'oohs', 58, 64, 96); S.ch('timp', 'timpani', 84, 60, 64); S.ch('box', 'musicbox', 74, 72, 72)
-    night = [('Bmadd9', 4), ('Gmaj7', 4), ('Em9', 4), ('A7sus4', 4)]
-    back = [('Bmadd9', 4), ('Gmaj7', 4), ('Em9', 4), ('F#7sus4', 2), ('F#7', 2)]
-    ask = [('F#4', .5), ('B4', .5), ('D5', 1.5), ('C#5', .5), ('B4', 1), ('A4', 1), ('C#5', 1), ('F#4', 2)]   # the theme's head, asked in minor
-    def dark(o, tl, end_line, crest):
-        line = []; t = o
-        for p, d in ask + end_line: line.append((t, d, m(p))); t += d
-        S.play('fl', line, 62); S.arch('fl', o, o + 8, 64, 100); S.arch('fl', o + 8, o + 16, 64, 96)
+    S.ch('choir', 'oohs', 58, 64, 96); S.ch('timp', 'timpani', 84, 60, 64); S.ch('celm', 'celesta', 92, 54, 76); S.ch('harpm', 'harp', 86, 76, 72)
+    def dark(o, tl, line, crest):
+        S.play('fl', line, 60); S.arch('fl', o, o + 8, 64, 98); S.arch('fl', o + 8, o + 16, 64, 94)
         for b, d, s in tl:
             v = voicing(s, 50, 4, mel(line, b, b + d)); S.chord('trem', b, d * 1.02, v, 46); S.chord('choir', b, d * 1.02, v[1:], 34)
             hi = [x + 24 for x in v if all(abs(x + 24 - q) % 12 != 1 for q in mel(line, b, b + d))] or [v[-1] + 24]
             if d == 4: S.note('harp', b, 3, hi[-1], 34); S.note('harp', b + 2.5, 1.5, hi[len(hi) // 2], 28)
-            if (b - o) % 8 == 0: sparkle(S, 'cel', b + 1, [x + 12 for x in hi[::-1]][:3], 30, step=.5)
+            if (b - o) % 8 == 0: sparkle(S, 'cel', b + 1, [x + 12 for x in hi[::-1]][:3], 28, step=.5)
         S.ramp('trem', o, o + 16, 44, crest)
-    # 1-4: night over the castle
-    dark(0, S.chords(timeline(0, night)), [('G4', .5), ('A4', .5), ('B4', 1.5), ('D5', .5), ('C#5', 1), ('B4', 1), ('A4', 1), ('E4', 2)], 88)
-    for p, b, d in (('B1', 0, 8), ('E2', 8, 4), ('A1', 12, 4)): S.note('cello', b, d * .98, m(p) + 12, 52)
+    # 1-4: the night over the castle
+    dark(0, S.chords(timeline(0, [('Bmadd9', 4), ('Gmaj7', 4), ('Em9', 4), ('A7sus4', 4)])), at(0, NIGHT), 88)
+    for p, b, d in (('B2', 0, 8), ('E3', 8, 4), ('A2', 12, 4)): S.note('cello', b, d * .98, p, 52)
     S.note('timp', 0, 2, 'B2', 44, human=False); roll(S, 'timp', 13, 16, 'A2', 22, 64)
     swell(S, 16, 54); gliss(S, 'harp', 16, PENTA('A3', 'A5', (9, 11, 2, 4)), 1.0, 40)
-    # 5-12: the letter has landed: the theme blooms in D on a solo violin; harp, strings, the cello beneath
-    o = 16; tl = S.chords(timeline(o, [(c, 4) for c in THEME_CH[:8]]))
-    mel_ = theme(1, 8, o); S.play('vln', mel_, 74)
+    # 5-12 (bloom): the letter has landed; the night opens into D and a solo violin sings the moonlit tune
+    o = 16; tl = S.chords(timeline(o, [('D', 4), ('Bm7', 4), ('Gmaj7', 4), ('D/F#', 4), ('Em7', 4), ('A/C#', 4), ('Bm7', 2), ('Gmaj7', 2), ('A7sus4', 2), ('A7', 2)]))
+    V = at(o, MOON); S.play('vln', V, 74)
     for a in range(4): S.arch('vln', o + a * 8, o + a * 8 + 8, 76, 110 if a in (1, 2) else 100)
-    comp(S, 'harp', o, THEME_CH[:8], 4, 'arp', 44, lo=50)
-    pads(S, 'str', tl, 44, lo=54, n=3, mel_=mel_); S.ramp('str', o, o + 32, 64, 104)
+    for b, d, s in tl: v = voicing(s, 50, 4, mel(V, b, b + d)); S.arp('harp', b, d, v + [v[0] + 12], step=.5, vel=40, pattern=[0, 1, 2, 3, 4, 3, 2, 1])
+    pads(S, 'str', tl, 44, lo=57, n=3, mel_=V); S.ramp('str', o, o + 32, 64, 100)
     S.note('timp', o, 2.5, 'D3', 54, human=False)
-    roots(S, 'cello', tl, 50, lo=38, b1=o + 16)
-    S.play('cello', [(o + 16 + b, d, m(p)) for b, d, p in [(0, 2, 'F#3'), (2, 2, 'A3'), (4, 2, 'B3'), (6, 2, 'D4'), (8, 2, 'G3'), (10, 2, 'E3'), (12, 4, 'A2')]], 56)
-    for b, d, s in tl[::2]: S.note('cel', b, 2, voicing(s, 79, 3)[-1], 32)
-    pads(S, 'choir', tl, 28, lo=60, n=3, b0=o + 16, mel_=mel_)
-    # 13-16: the letter is complete: Happy Birthday's first two lines, celesta and music box, the violin holding beneath
-    o = 48; hb = [(47, .75, 'A5'), (47.75, .25, 'A5'), (48, 2, 'B5'), (50, 1, 'A5'), (51, 1, 'D6'), (52, 3, 'C#6'),
-                  (55, .75, 'A5'), (55.75, .25, 'A5'), (56, 2, 'B5'), (58, 1, 'A5'), (59, 1, 'E6'), (60, 4, 'D6')]
-    S.play('cel', hb, 54); S.play('box', hb, 40, semis=-12)
-    tl = S.chords(timeline(o, [('D', 4), ('A7', 4), ('A7', 4), ('D', 4)]))
-    for b, d, s in tl: S.chord('harp', b, 3.5, voicing(s, 50, 4), 44, roll=.07); S.chord('harp', b + 2, 2, voicing(s, 62, 3), 34, roll=.05)
-    pads(S, 'str', tl, 40, lo=54, n=3); S.ramp('str', o, o + 16, 96, 70)
+    for p, b, d in (('D2', 0, 8), ('G2', 8, 4), ('F#2', 12, 4)): S.note('cello', o + b, d * .98, p, 50)
+    S.play('cello', counter(tl, o + 16, o + 32, 2, 'D3', 'B3', 'F#3', avoid=V), 54)
+    pads(S, 'choir', tl, 28, lo=60, n=3, b0=o + 16, mel_=V)
+    for b, d, s in tl[::2]: S.note('cel', b + 1, 2, voicing(s, 79, 3, mel(V, b, b + d))[-1], 30)
+    # 13-20 (letter): the letter writes itself: its motif on celesta and harp, a quill of harp sixteenths beneath; then
+    # the violin answers it, the flute a third above; A7 turns to the night
+    o = 48; tl = S.chords(timeline(o, [('D', 4), ('Bm7', 4), ('Gmaj7', 4), ('A7sus4', 2), ('A7', 2), ('D/F#', 4), ('G', 4), ('Em7', 4), ('A7sus4', 2), ('A7', 2)]))
+    M1 = at(o, LETTER); S.play('celm', M1, 64); S.play('harpm', M1, 44, semis=-12)
+    M2 = at(o + 16, LETTER_ANSWER); S.play('vln', M2, 70); S.play('fl', diat(M2, 2), 44)
+    for a in range(2): S.arch('vln', o + 16 + a * 8, o + 24 + a * 8, 78, 106); S.arch('fl', o + 16 + a * 8, o + 24 + a * 8, 70, 96)
+    for b, d, s in tl:
+        v = voicing(s, 55, 4, mel(M1 + M2, b, b + d)); S.arp('harp', b, d, v + [v[0] + 12, v[1] + 12], step=.25, vel=28, pattern=[0, 1, 2, 3, 4, 5, 4, 3, 2, 1], hold=1.3)
+    pads(S, 'str', tl, 40, lo=54, n=3, mel_=M1 + [(b, d, p - 12) for b, d, p in M1] + M2); S.ramp('str', o, o + 16, 90, 74); S.ramp('str', o + 16, o + 32, 74, 96)
     roots(S, 'cello', tl, 46, lo=38)
-    S.play('vln', [(o, 4, 'F#5'), (o + 4, 4, 'E5'), (o + 8, 4, 'G5'), (o + 12, 4, 'F#5')], 44); S.ramp('vln', o, o + 16, 72, 60)
-    sparkle(S, 'cel', o + 12.5, [m('D6'), m('F#6'), m('A6'), m('D7')], 40, step=.35)
-    # 17-20: the night again; F#7 leads home to B minor (the loop)
-    o = 64
-    dark(o, S.chords(timeline(o, back)), [('G4', .5), ('A4', .5), ('B4', 1.5), ('D5', .5), ('C#5', 1), ('C#5', 2), ('A#4', 2)], 70)
-    for p, b, d in (('B1', 0, 4), ('G1', 4, 4), ('E2', 8, 4), ('F#1', 12, 4)): S.note('cello', o + b, d * .98, m(p) + 12, 50)
-    # v18: the melody (flute, violin, celesta, music box) is its own layer: it comes in with the owl; Happy Birthday can be
-    # called up when the letter is complete (its pickup is the bar before)
-    S.meta = dict(stems=dict(lead=['fl', 'vln', 'cel', 'box']), key=2, scale=D_MAJOR, phrase=(8, 0), sections=dict(bloom=(16, 0), hb=(48, 1)))
-    return S, 80
+    pads(S, 'choir', tl, 24, lo=60, n=3, b0=o + 16, mel_=M2)
+    # 21-24: the night again; F#7 leads home to B minor (the loop)
+    o = 80
+    dark(o, S.chords(timeline(o, [('Bmadd9', 4), ('Gmaj7', 4), ('Em9', 4), ('F#7sus4', 2), ('F#7', 2)])), at(o, NIGHT_HOME), 70)
+    for p, b, d in (('B2', 0, 4), ('G2', 4, 4), ('E3', 8, 4), ('F#2', 12, 4)): S.note('cello', o + b, d * .98, p, 50)
+    # the melody (flute, violin, celesta, the letter's celesta and harp) is a layer: it comes in with the owl; the letter's
+    # motif can be called up as it starts to write itself
+    S.meta = dict(stems=dict(lead=['fl', 'vln', 'cel', 'celm', 'harpm']), key=2, scale=D_MAJOR, phrase=(8, 0), sections=dict(bloom=(16, 0), letter=(48, 0)))
+    return S, 96
 
 def book():
     """The study and the magic book: a fireside lullaby in A, 12/8 (63 bpm). Nylon guitar rocking in triplets and a felt
@@ -441,18 +514,19 @@ def book():
 
 JOURNEY_BPM = 116
 def journey():
-    """Two roads of sand: a duet in D on the 116 bpm grid the sand keeps (one city per 2 bars; bar 1 at 0 s), felt as a slow
-    ballad: the theme in long notes. Her road, a flute, carries the theme; his road, a cello, walks below and climbs toward
-    it; on bar 15 (29.0 s, the routes meet in Tokyo) they play the opening together in octaves while the strings lift and a
-    harp sweeps in; the peak (bar 19) and a calmer answer in harmony; the piano alone, and the two still talking, to close.
-    No drums: the piano's eighths keep the time. 34 bars, 70.344828 s."""
+    """Two roads of sand: a travelling ballad in D on the 116 bpm grid the sand keeps (one city per 2 bars; bar 1 at 0 s),
+    felt in half time. Her road, a flute, sings the journey's own tune; his road, a cello, walks below and climbs toward
+    it; on bar 15 (29.0 s, the routes meet in Tokyo) they play the story theme's opening together in octaves (the book's
+    tune: their story) while the strings lift and a harp sweeps in; then the road home, the cello in harmony beneath; the
+    piano alone, and the two still talking, to close. No drums: the piano's eighths keep the time. 34 bars, 70.344828 s."""
     S = Song('journey', JOURNEY_BPM)
     S.ch('pno', 'piano', 92, 62, 58); S.ch('fl', 'flute', 92, 78, 70, mod=14); S.ch('cello', 'cello', 94, 46, 64, mod=18)
     S.ch('str', 'slowstrings', 74, 64, 84); S.ch('harp', 'harp', 80, 88, 72); S.ch('cel', 'celesta', 56, 92, 80)
     tl = S.chords(timeline(0, [('D', 8)] + [(c, 8) for c in THEME_CH[:4]] + [('D/F#', 6), ('G', 2)] + [('Em7', 4), ('A7sus4', 2), ('A7', 2)] + [(c, 8) for c in THEME_CH[8:15]]
                   + [('A7sus4', 4), ('D', 4)] + [('Gmaj7', 4), ('D/F#', 4), ('Em7', 4), ('A7sus4', 4)]))
     assert sum(d for _, d, _ in tl) == 136
-    FL = theme(1, 6, 8, 0, 2.0) + theme(9, 10, 56, 0, 2.0) + theme(11, 16, 72, 0, 2.0)   # her line (for the accompaniment to keep clear of)
+    her = at(8, ROAD, scale=2.0); meet = theme(9, 10, 56, 0, 2.0); home = at(72, ROAD_HOME, scale=2.0)
+    FL = her + meet + home   # her line (for the accompaniment to keep clear of)
     # the piano: a bass note on each downbeat and a rolling eighth-note hand (the clock of the piece); bar 1 exactly at 0
     for bar in range(34):
         bb = bar * 4; lvl = 48 if bb < 8 else 45 if 56 <= bb < 80 else 41 if bb < 120 else 45
@@ -463,8 +537,8 @@ def journey():
             S.arp('pno', bb + h + .5, seg - .5, v, step=.5, vel=lvl, pattern=[0, 1, 2, 3, 2, 1, 2], hold=2.0)
         S.pedal('pno', bb, bb + 4)
     S.note('cello', 4, 4, 'D3', 38)
-    # 3-14: her road (flute: the theme's bars 1-6 in long notes) and his (cello: below, climbing toward her)
-    her = theme(1, 6, 8, 0, 2.0); S.play('fl', her, 64, legato=1.02)
+    # 3-14: her road (flute) and his (cello: below, climbing toward her)
+    S.play('fl', her, 64, legato=1.02)
     his = [('D3', 3), ('A2', 1), ('D3', 2), ('F#3', 1), ('E3', 1), ('E3', 4), ('A2', 2), ('C#3', 1), ('E3', 1), ('D3', 2), ('F#3', 2), ('B3', 2), ('F#3', 2),
            ('G3', 4), ('B3', 1), ('A3', 1), ('G3', 1), ('A3', 1), ('F#3', 2), ('A3', 2), ('D4', 2), ('B3', 2), ('D4', 2), ('B3', 1), ('G3', 1), ('A3', 2), ('C#4', 1), ('E4', 1)]
     S.melody('cello', 8, his, 54, legato=1.02)
@@ -472,75 +546,76 @@ def journey():
     S.ramp('cello', 8, 56, 70, 104)
     pads(S, 'str', tl, 40, lo=55, n=3, mel_=FL); S.ramp('str', 0, 8, 40, 40); S.ramp('str', 8, 40, 40, 58); S.ramp('str', 40, 56, 58, 92); S.ramp('str', 56, 76, 92, 98)
     S.ramp('str', 76, 100, 98, 70); S.ramp('str', 100, 136, 70, 40)
-    # 15-18: Tokyo: together, in octaves, on the theme's opening; a harp sweeps in, the celesta catches the light
+    # 15-18: Tokyo: together, in octaves, on the story theme's opening; a harp sweeps in, the celesta catches the light
     gliss(S, 'harp', 56, PENTA('A3', 'A5', (9, 11, 4, 6)), 1.2, 38, dur=1.6)
-    meet = theme(9, 10, 56, 0, 2.0); S.play('fl', meet, 68, legato=1.02); S.play('cello', meet, 62, semis=-12, legato=1.02)
+    S.play('fl', meet, 68, legato=1.02); S.play('cello', meet, 62, semis=-12, legato=1.02)
     S.arch('fl', 56, 72, 90, 106); S.ramp('cello', 56, 72, 100, 106)
     sparkle(S, 'cel', 56, [m('D6'), m('F#6'), m('A6'), m('D7')], 44, step=.3)
     for b, d, s in tl:
         if 56 <= b < 88: S.arp('harp', b, d, voicing(s, 62, 3) + [voicing(s, 62, 3)[0] + 12], step=1, vel=36, pattern=[0, 1, 2, 3, 2, 1, 2, 3], hold=1.05)
-        if 64 <= b < 96 and (b - 64) % 8 == 0: S.note('cel', b, 1.6, voicing(s, 77, 3)[-1], 34)
-    # 19-30: the peak, then the answer: the flute sings on, the cello in harmony beneath
-    rest = theme(11, 16, 72, 0, 2.0); S.play('fl', rest, 66, legato=1.02)
+        if 64 <= b < 96 and (b - 64) % 8 == 0: S.note('cel', b, 1.6, voicing(s, 77, 3, mel(FL, b, b + 2))[-1], 34)
+    # 19-30: the road home: the flute sings on, the cello in harmony beneath
+    S.play('fl', home, 66, legato=1.02)
     for a in range(6): S.arch('fl', 72 + a * 8, 80 + a * 8, 96 - a * 3, 108 - a * 3)
-    S.play('cello', counter(tl, 72, 120, 2, 'D3', 'B3', 'A3', avoid=rest), 54); S.ramp('cello', 72, 120, 100, 76)
+    S.play('cello', counter(tl, 72, 120, 2, 'D3', 'B3', 'A3', avoid=home), 54); S.ramp('cello', 72, 120, 100, 76)
     # 31-34: the piano alone, the two voices still talking (his echo, her question), back to the start
     S.melody('cello', 120, [('A3', 2), ('D4', 2), ('F#4', 4)], 48); S.melody('fl', 128, [('E5', 2), ('D5', 2), ('E5', 4)], 50)
     S.cc('cello', 119.9, 11, 84); S.cc('fl', 127.9, 11, 80)
-    # v18: the two voices (her flute, his cello) are a layer over the piano's clock; the grid is unchanged (the sand keeps it)
+    # the two voices (her flute, his cello) are a layer over the piano's clock; the grid is unchanged (the sand keeps it)
     S.meta = dict(stems=dict(lead=['fl', 'cello']), key=2, scale=D_MAJOR, phrase=(8, 0))
     return S, 136
 
 def memories():
-    """Photographs and her letter: a nocturne. The piano remembers the theme in E minor (degree for degree), the cello
-    joins; then it blooms into G on a solo violin with the cello beneath and a vibraphone like light on old photographs;
-    the piano alone, and B7 leads back. 66 bpm, 22 bars."""
+    """Photographs and her letter: a nocturne (66 bpm, 22 bars). A piano alone remembers in E minor, its own tune, the
+    cello joining; when her letter opens ('bloom') it turns to G and the letter motif from the prologue comes back on a
+    solo violin, the cello beneath, a vibraphone like light on old photographs; the piano alone again, B7 leads back."""
     S = Song('memories', 66)
     S.ch('pno', 'piano', 100, 64, 62); S.ch('vln', 'violin', 88, 76, 72, mod=28); S.ch('cello', 'cello', 84, 46, 66, mod=16)
     S.ch('str', 'slowstrings', 70, 60, 84); S.ch('vib', 'vibes', 60, 88, 80); S.ch('harp', 'harp', 70, 84, 72); S.ch('pnom', 'piano', 100, 64, 62)
     em = ['Em', 'Bm/D', 'Cmaj7', 'Am7', 'Em/G', 'Cmaj7', 'Am7', 'B7']
-    gch = trc(THEME_CH[8:], 5)
-    tl = S.chords(timeline(0, [('Emadd9', 4), ('Cmaj7', 4)] + [(c, 4) for c in em] + [(c, 4) for c in gch] + [('Em', 4), ('Bm/D', 4), ('Cmaj7', 4), ('B7sus4', 2), ('B7', 2)]))
+    tl = S.chords(timeline(0, [('Emadd9', 4), ('Cmaj7', 4)] + [(c, 4) for c in em]
+                  + [('G', 4), ('Em7', 4), ('Cmaj7', 4), ('D7sus4', 2), ('D7', 2), ('G/B', 4), ('C', 4), ('Am7', 4), ('D7sus4', 2), ('D7', 2)]
+                  + [('Em', 4), ('Bm/D', 4), ('Cmaj7', 4), ('B7sus4', 2), ('B7', 2)]))
+    assert sum(d for _, d, _ in tl) == 88
     def lh(b, d, s, vel):
         v = [bass_of(s, 40)] + voicing(s, 52, 3)
         S.arp('pno', b, d, v, step=.5, vel=vel, pattern=[0, 1, 2, 3, 2, 1, 2, 1], hold=2.4); S.pedal('pno', b, b + d); S.pedal('pnom', b, b + d)
     for b, d, s in tl: lh(b, d, s, 34 if 40 <= b < 72 else 42 if b < 8 else 38)
     S.note('vib', 0, 3, 'B5', 30); S.note('vib', 4, 3, 'G5', 28); S.note('cello', 0, 7.9, 'E3', 36)
-    # 3-10: the theme remembered in E minor on the piano (the leading tone raised over B7)
-    A = modal(theme(1, 8, 8), raise_at=[(36, 40)]); B = theme(9, 16, 40, 5 - 12); C = modal(theme(1, 2, 72)) + [(80, 2, m('G5')), (82, 2, m('F#5')), (84, 2, m('E5')), (86, 2, m('D#5'))]
+    A = at(8, MEMORY); B = at(40, LETTER, 5) + at(56, LETTER_ANSWER, 5); C = at(72, MEMORY[:8]) + at(80, L('C5:1 E5:1 G5:2 | F#5:2 D#5:2'))
+    # 3-10: the nocturne, remembered on the piano
     S.play('pnom', A, 62)
     S.play('cello', counter(tl, 24, 40, 2, 'B2', 'G3', 'E3', avoid=A), 46); S.ramp('cello', 24, 40, 70, 96)
-    pads(S, 'str', tl, 28, lo=55, n=3, mel_=A + B + C); S.ramp('str', 0, 16, 60, 40); S.ramp('str', 16, 40, 40, 70); S.ramp('str', 40, 64, 70, 100); S.ramp('str', 64, 88, 100, 60)
-    # 11-18: it blooms into G: the violin sings, the cello answers beneath, light on the photographs
-    S.play('vln', B, 70); S.play('str', B, 30, semis=12)
+    pads(S, 'str', tl, 28, lo=55, n=3, mel_=A + B + C, b1=72); pads(S, 'str', tl, 28, lo=58, n=3, mel_=A + B + C, b0=72); S.ramp('str', 0, 16, 60, 40); S.ramp('str', 16, 40, 40, 70); S.ramp('str', 40, 64, 70, 100); S.ramp('str', 64, 88, 100, 60)
+    # 11-18 (bloom): her letter: it turns to G, the letter motif on the violin, the cello answering beneath
+    S.play('vln', B, 70)
     for a in range(4): S.arch('vln', 40 + a * 8, 48 + a * 8, 78, 112)
     S.play('cello', counter(tl, 40, 72, 2, 'D3', 'B3', 'G3', avoid=B), 52)
     for b, d, s in tl:
-        if 40 <= b < 72: S.note('vib', b, 2.5, voicing(s, 76, 3)[-1], 34); S.note('vib', b + 2, 2, voicing(s, 72, 3)[1], 26)
+        if 40 <= b < 72 and d == 4: S.note('vib', b, 2.5, voicing(s, 76, 3, mel(B, b, b + d))[-1], 32); S.note('vib', b + 2, 2, voicing(s, 72, 3, mel(B, b, b + d))[1], 24)
     gliss(S, 'harp', 40, [m(x) for x in ['B3', 'F#4', 'A4', 'B4', 'F#5', 'A5', 'B5']], .8, 30, dur=.9)
-    # 19-22: the piano alone again, the head in E minor; B7 back to the start
+    # 19-22: the piano alone again, the nocturne's opening; B7 back to the start
     S.play('pnom', C, 54)
-    # v18: the piano's melody and the violin are a layer (they thin out while she reads); the bloom into G can be called up
-    S.meta = dict(stems=dict(lead=['pnom', 'vln']), key=7, scale=[7, 9, 11, 0, 2, 4, 6], phrase=(8, 0), sections=dict(bloom=(40, 0)))
+    # the piano's melody and the violin are a layer (they thin out while she reads); the bloom into G can be called up
+    S.meta = dict(stems=dict(lead=['pnom', 'vln']), key=7, scale=G_MAJOR, phrase=(8, 0), sections=dict(bloom=(40, 0)))
     return S, 88
 
 def film():
-    """Wild horses: strings galloping in triplets (12/8 feel), timpani, horns calling the theme in D Mixolydian (open
-    fifths, the flat seventh of free country); the close-up, tender, the theme's head on a flute; the savanna at sunset
-    and into night, broad: the theme in long notes on horn with strings and voices (G Lydian); the stars on celesta, and
-    the brightest falls on Happy Birthday's first notes; the gallop gathers again. 96 bpm, 24 bars, a seamless loop."""
+    """Wild horses (96 bpm, 24 bars, a seamless loop): strings galloping in triplets, timpani, the horses' own horn call
+    in D Mixolydian (open fifths, the flat seventh of free country); the close-up, tender, a flute; the savanna at sunset
+    and into night, broad: its tune in long notes on horn with strings and voices (G Lydian); the stars on celesta, a tune
+    of their own whose last note is the star that falls; the gallop gathers again."""
     S = Song('film', 96)
     S.ch('str', 'strings', 92, 64, 66); S.ch('gal', 'cello', 96, 46, 54); S.ch('hi', 'slowstrings', 84, 70, 80); S.ch('horn', 'horn', 92, 74, 72, mod=6)
     S.ch('timp', 'timpani', 90, 60, 58); S.ch('fl', 'flute', 86, 54, 72, mod=16); S.ch('choir', 'oohs', 66, 64, 92); S.ch('cel', 'celesta', 74, 40, 80)
     S.ch('harp', 'harp', 80, 86, 72); S.ch('bass', 'contrabass', 80, 60, 56)
-    S.ch('him', 'slowstrings', 84, 70, 80); S.ch('strm', 'strings', 92, 64, 66); S.ch('bassg', 'contrabass', 80, 60, 56)   # (v18 stems: melody, gallop)
-    mix = lambda evts: [(b, d, p - 1 if p % 12 == 1 else p) for b, d, p in evts]   # C# -> C: Mixolydian
+    S.ch('him', 'slowstrings', 84, 70, 80); S.ch('strm', 'strings', 92, 64, 66); S.ch('bassg', 'contrabass', 80, 60, 56)   # (stems: melody, gallop)
+    QUAL['5'] = [0, 7]
     tl = S.chords(timeline(0, [('D5', 8), ('D', 4), ('C', 4), ('Em7', 4), ('G', 4), ('D', 4)]   # 1-7 the run
                   + [('Gmaj7', 4), ('D/F#', 4), ('Em7', 2), ('A7sus4', 2)]            # 8-10 the close-up
                   + [('Gmaj7', 4), ('A/G', 4), ('D/F#', 4), ('D', 4), ('Em7', 4), ('Cmaj7', 4)]   # 11-16 the savanna
                   + [('Gmaj7', 4), ('Em7', 4), ('G', 4), ('C', 2), ('D', 2), ('Gadd9', 4), ('Cmaj7/G', 4)]   # 17-22 the stars
                   + [('Dsus4', 4), ('D5', 4)]))                                        # 23-24 the gallop gathers
-    QUAL['5'] = [0, 7]
     assert sum(d for _, d, _ in tl) == 96
     def gallop(b0, b1, root, v0, v1):
         n = int(round((b1 - b0)))
@@ -548,25 +623,25 @@ def film():
             v = v0 + (v1 - v0) * k / max(1, n - 1); r = bass_of(chord_at(tl, b0 + k), 43) if root is None else m(root)
             for j, (dv, oc) in enumerate(((1, 0), (.7, 0), (.82, 12))): S.note('gal', b0 + k + j / 3, .3, r + oc, v * dv)
             S.note('bassg', b0 + k, .45, r - 12, v * .8)
-    # 1-7: the run
+    # 1-7: the run: the horn call
     gallop(0, 28, None, 52, 66); S.ramp('gal', 0, 8, 80, 104)
     for b, d, s in tl:
         if b < 28:
             S.chord('str', b, d * 1.02, ([m('D4'), m('A4'), m('D5')] if s == 'D5' else voicing(s, 50, 4)), 48 + min(b, 24) * .7)
             S.note('timp', b, 1, 'D3' if parse(s)[0] in (2, 7) else 'A2', 64, human=False); S.note('timp', b + 2, 1, 'A2', 48, human=False)
     S.ramp('str', 0, 24, 70, 100)
-    H = swing(mix(theme(1, 4, 8, -12)), 8); S.play('horn', H, 72); S.play('horn', H, 50, semis=-12)
+    H = swing(at(8, HORN_CALL), 8); S.play('horn', H, 72); S.play('horn', H, 50, semis=-12)
     for a in range(2): S.arch('horn', 8 + a * 8, 16 + a * 8, 86, 118)
-    S.play('him', swing(mix(theme(1, 4, 8, 0)), 8), 40); S.ramp('him', 8, 24, 60, 90)
-    soar = swing(theme(5, 5, 24, 0), 24); S.cc('strm', 0, 11, 100); S.play('strm', soar, 68); S.play('him', soar, 50, semis=12)
+    S.play('him', swing(at(8, HORN_CALL, 12), 8), 40); S.ramp('him', 8, 24, 60, 90)
+    soar = swing(at(24, L('F#5:1 A5:1 D6:2')), 24); S.cc('strm', 0, 11, 100); S.play('strm', soar, 68); S.play('him', soar, 46, semis=-12)
     S.chord('horn', 24, 4, [m('D3'), m('A3'), m('D4')], 64)
-    # 8-10: the horses' close-up: the gallop stops, the theme's head on a flute, tender (Ionian again)
-    S.play('fl', swing(theme(1, 3, 28, 0), 28), 62); S.arch('fl', 28, 40, 70, 104)
+    # 8-10: the horses' close-up: the gallop stops; a flute, tender
+    S.play('fl', swing(at(28, CLOSE_UP), 28), 62); S.arch('fl', 28, 40, 70, 104)
     for b, d, s in tl:
         if 28 <= b < 40: S.chord('hi', b, d * 1.02, voicing(s, 55, 4), 44); S.arp('harp', b, d, voicing(s, 55, 4), step=1, vel=38, pattern=[0, 1, 2, 3])
         if 28 <= b < 64: S.note('bass', b, d * .98, bass_of(s, 28) + 12, 42)
-    # 11-16: the savanna, sunset into night: the theme broad on horn (G Lydian), strings wide, voices
-    sav = theme(9, 11, 40, 5 - 12, 2.0); S.play('horn', sav, 76)
+    # 11-16: the savanna, sunset into night: its tune broad on horn (G Lydian), strings wide, voices
+    sav = at(40, SAVANNA); S.play('horn', sav, 76)
     for a in range(3): S.arch('horn', 40 + a * 8, 48 + a * 8, 80, 112)
     for b, d, s in tl:
         if 40 <= b < 64:
@@ -574,145 +649,148 @@ def film():
             S.chord('str', b, d * 1.03, [bass_of(s, 43)] + voicing(s, 50, 2, av) + up, 50)
             S.chord('choir', b, d * 1.03, voicing(s, 60, 3, av), 42); S.arp('harp', b, d, up, step=1, vel=32, pattern=[0, 1, 2, 1])
     S.ramp('str', 40, 52, 80, 104); S.ramp('str', 52, 64, 104, 70); S.note('timp', 40, 3, 'G2', 50, human=False)
-    # 17-22: the stars: celesta, the theme's head; the brightest falls on Happy Birthday's first notes
-    CEL = theme(1, 2, 64, 5 + 12); t = 72
-    for p, d in HB[:6]: CEL.append((t, d * 1.5, m(p) + 2 + 12)); t += d * 1.5
-    S.play('cel', CEL[:8], 66); S.play('cel', CEL[8:], 72); S.play('fl', CEL[:8], 40, semis=-24)
+    # 17-22: the stars: their own tune on celesta (the flute an octave below at first); the last note is the one that falls
+    CEL = at(64, STARS)
+    S.play('cel', CEL, 68); S.play('fl', CEL[:8], 38, semis=-12)
     for b, d, s in tl:
         if 64 <= b < 88:
             av = mel(CEL, b, b + d); S.chord('hi', b, d * 1.03, voicing(s, 64, 3, av), 46); S.chord('choir', b, d * 1.03, voicing(s, 60, 3, av), 42)
             S.note('bass', b, d * .98, bass_of(s, 31), 44); S.arp('harp', b, d, voicing(s, 67, 3, av), step=1, vel=38, pattern=[0, 1, 2, 1])
-    sparkle(S, 'cel', 81, [m('G6'), m('B6'), m('D7'), m('G7')], 56, step=.3)
+    sparkle(S, 'cel', 84.5, [m('D7'), m('B6'), m('G6')], 44, step=.4)
     # 23-24: the gallop gathers again (the loop)
     gallop(88, 96, 'D3', 36, 52); S.ramp('gal', 88, 96, 74, 80)
     S.chord('str', 88, 8.1, [m('D4'), m('A4')], 40); S.ramp('str', 88, 96, 50, 70); roll(S, 'timp', 92, 96, 'D3', 18, 52)
-    # v18: three layers: the pads (bed), the melody (horn, flute, celesta) and the gallop (cello triplets, bass, timpani)
-    # that follows how fast she runs; the run holds (bars 1-7 come round again) until the horses meet
-    S.meta = dict(stems=dict(lead=['horn', 'him', 'strm', 'fl', 'cel'], pulse=['gal', 'bassg', 'timp']), key=7, scale=[7, 9, 11, 0, 2, 4, 6], phrase=(8, 0),
+    # three layers: the pads (bed), the melody (horn, strings, flute, celesta) and the gallop (cello triplets, bass,
+    # timpani) that follows how fast she runs; the run holds (bars 1-7 come round again) until the horses meet
+    S.meta = dict(stems=dict(lead=['horn', 'him', 'strm', 'fl', 'cel'], pulse=['gal', 'bassg', 'timp']), key=7, scale=G_MAJOR, phrase=(8, 0),
                   sections=dict(run=(0, 0, 28), close=(28, 0), savanna=(40, 0), stars=(64, 0), gather=(88, 0)))
     return S, 96
 
 def wish():
-    """The candles: Happy Birthday in G on a music box over a harp; then on harp and celesta, warmer, a cello counter-line
-    beneath; the dream theme's opening on celesta before it comes round again. 3/4, 84 bpm; bars start one beat in (the
-    song's pickup is beat 0). 63 beats = 45.0 s."""
-    S = Song('wish', 84, 3)
-    S.ch('box', 'musicbox', 92, 64, 66); S.ch('harp', 'harp', 84, 84, 66); S.ch('str', 'slowstrings', 70, 56, 84); S.ch('cel', 'celesta', 70, 40, 76)
-    S.ch('cello', 'cello', 80, 48, 66, mod=14); S.ch('harpm', 'harp', 84, 84, 66)
-    S.chords([(0, 1, 'D7sus4')] + [(o + b, d, trc([c], 2)[0]) for o in (0, 27) for b, d, c in HB_TL] + [(25, 3, 'G'), (52, 3, 'G'), (55, 3, 'D/F#'), (58, 3, 'Em7'), (61, 2, 'D7sus4')])
+    """The last chapter (G, 3/4, 76 bpm, 24 bars). 'glow' (held while she lights the candles, bars 1-7): the room holds
+    its breath on a G pedal, harp and strings, and the earlier tunes come back one by one, as memories gather: the letter
+    motif on celesta, the story theme on the cello, her road on the flute; each candle she lights rings the next note of
+    Happy Birthday's first line (js/audio.js 'candle'). 'song' (once all six burn): a bar of breath on the dominant, then
+    Happy Birthday, sung for the first time: a felt piano with celesta above it, the harp turning, the cello answering the
+    long notes with the story theme's opening; a second verse, warmer, on the violin with the flute and the strings open;
+    its last note is the glow's first chord."""
+    S = Song('wish', 76, 3)
+    S.ch('pnom', 'piano', 96, 60, 62); S.ch('celm', 'celesta', 64, 42, 76); S.ch('vln', 'violin', 92, 72, 70, mod=28); S.ch('fl', 'flute', 82, 54, 72, mod=14)
+    S.ch('cl', 'cello', 86, 50, 66, mod=16); S.ch('harp', 'harp', 84, 84, 66); S.ch('str', 'slowstrings', 72, 60, 84); S.ch('cello', 'cello', 80, 46, 66, mod=14)
+    S.ch('bass', 'contrabass', 70, 58, 60); S.ch('cel', 'celesta', 58, 86, 82); S.ch('choir', 'oohs', 54, 64, 96)
+    # 1-7 (glow): a G pedal; the tunes of the story come back, softly
+    glow = S.chords(timeline(0, [('Gmaj9', 3), ('Cmaj9/G', 3), ('Em9/G', 3), ('Cmaj7/G', 3), ('Gadd9', 3), ('Am9/G', 3), ('D/G', 3)]))
+    frag = at(0, L('D5:1 B5:1.5 A5:.5 | G5:2.5 r:.5')); S.play('celm', frag, 46)                       # the letter
+    ev, _ = waltz(1, 2, 6, 5 - 12); story = at(5, WALTZ_PICK, 5 - 12) + ev; S.play('cl', story, 48)    # the story theme
+    road = at(12, L('B5:1.5 A5:.5 G5:1 | D5:1 E5:1 F#5:1 | A5:3')); S.play('fl', road, 40)             # her road
+    S.arch('cl', 5, 12, 70, 100); S.arch('fl', 12, 21, 66, 96)
+    for b, d, s in glow:
+        av = mel(frag + story + road, b, b + d)
+        S.arp('harp', b, d, voicing(s, 55, 3, av) + [voicing(s, 55, 3, av)[0] + 12], step=1, vel=30, pattern=[0, 1, 2, 3, 2, 1], hold=1.6)
+        S.chord('str', b, d * 1.02, voicing(s, 55, 3, av), 30); S.note('bass', b, d * .99, 'G2', 34); S.chord('choir', b, d * 1.02, voicing(s, 60, 2, av), 22)
+    S.ramp('str', 0, 21, 60, 84)
+    sparkle(S, 'cel', 19, [m('D6'), m('A6'), m('D7')], 30, step=.5)
+    # 8 ('song'): the breath before: the dominant, a harp sweep, the pickup
+    S.chords([(21, 2, 'D7sus4'), (23, 1, 'D7')])
+    S.chord('str', 21, 3.05, voicing('D7sus4', 55, 3), 34); S.ramp('str', 21, 24, 70, 92); S.chord('choir', 21, 3, voicing('D7sus4', 60, 3), 26)
+    S.note('bass', 21, 3, 'D2', 40); S.note('cello', 21, 2, 'A2', 38); S.note('cello', 23, 1, 'C3', 40)
+    gliss(S, 'harp', 23, PENTA('D4', 'D6', (2, 7, 9)), 1.4, 30, dur=1.6)
+    # 9-16: Happy Birthday, the first time: a felt piano, the celesta an octave above, the harp turning beneath
+    hb1 = at(23, HBG[:-1] + [(HBG[-1][0], 2)]); S.play('pnom', hb1, 68); S.play('celm', hb1, 30, semis=12)
+    tl1 = S.chords([(23 + b, d, trc([c], 2)[0]) for b, d, c in HB_TL])
+    harpwaltz(S, 'harp', tl1, 36, mel_=hb1); pads(S, 'str', tl1, 34, lo=55, n=3, mel_=hb1); S.ramp('str', 24, 48, 76, 86)
+    roots(S, 'bass', tl1, 36, lo=31)
+    answers = [(27, 'A3:.5 D4:.5 F#4:2'), (33, 'D4:.5 G4:.5 B4:2'), (45, 'B3:.5 D4:.5 G4:2')]   # the story theme's opening, in the long notes
+    for b, s in answers: S.play('cello', at(b, L(s)), 52)
+    for b, p in ((24, 'G2'), (30, 'D3'), (36, 'G2'), (39, 'G2'), (42, 'C3')): S.note('cello', b, 2.9, p, 40)
+    # 17-25: the second verse, warmer: the violin, the flute an octave above for the last two lines, the strings open
+    hb2 = at(47, HBG); S.play('vln', hb2, 72); S.play('fl', [e for e in hb2 if e[0] >= 59], 40)
+    for a in range(4): S.arch('vln', 48 + a * 6, 54 + a * 6, 80, 110 if a in (1, 2) else 100)
+    tl2 = S.chords([(47 + b, d, trc([c], 2)[0]) for b, d, c in HB_TL])
+    harpwaltz(S, 'harp', tl2, 40, mel_=hb2); pads(S, 'str', tl2, 40, lo=55, n=3, mel_=hb2); S.ramp('str', 48, 60, 86, 104); S.ramp('str', 60, 75, 104, 70)
+    pads(S, 'choir', tl2, 30, lo=60, n=3, b0=59, mel_=hb2); roots(S, 'bass', tl2, 40, lo=31)
+    for b, s in [(51, 'A3:.5 D4:.5 F#4:2'), (57, 'D4:.5 G4:.5 B4:2'), (69, 'B3:.5 D4:.5 G4:2')]: S.play('cello', at(b, L(s)), 54)
+    for b, p in ((48, 'G2'), (54, 'D3'), (60, 'G2'), (63, 'G2'), (66, 'C3')): S.note('cello', b, 2.9, p, 42)
+    sparkle(S, 'cel', 70, [m('G6'), m('B6'), m('D7')], 32, step=.5)
     S.ctl.sort()
-    for rep, o in enumerate((0, 27)):
-        S.melody('box' if not rep else 'harpm', o, tr(HB, 2), 70 if not rep else 64)
-        if rep: S.melody('cel', o, tr(HB, 2 + 12), 34)
-        for b, d, c in HB_TL:
-            c = trc([c], 2)[0]; v = voicing(c, 55, 4)
-            S.arp('harp', o + b, d, v, step=1 if not rep else .5, vel=38, pattern=[0, 1, 2, 3, 2, 1])
-            S.chord('str', o + b, d * 1.01, voicing(c, 53, 3), 30 if not rep else 38)
-        if not rep: S.chord('str', 25, 2.1, voicing('G', 53, 3), 30)
-    S.ramp('str', 0, 27, 60, 80); S.ramp('str', 27, 52, 80, 104); S.ramp('str', 52, 63, 104, 64)
-    S.melody('cello', 28, [('B3', 3), ('A3', 3), ('C4', 3), ('B3', 3), ('D4', 3), ('E4', 3), ('D4', 1.5), ('C4', 1.5), ('B3', 3)], 50)
-    S.arch('cello', 28, 52, 76, 108)
-    # the tag: the dream theme's opening on celesta, G -> D/F# -> Em7 -> D7sus4 -> (Happy Birthday's pickup, the loop)
-    tag = [(52, .5, 'D5'), (52.5, .5, 'G5'), (53, 1.5, 'B5'), (54.5, .5, 'A5'), (55, 1, 'G5'), (56, 1, 'F#5'), (57, 1, 'A5'), (58, 3, 'D5')]
-    S.play('cel', tag, 50)
-    for b, c in ((52, 'G'), (55, 'D/F#'), (58, 'Em7'), (61, 'D7sus4')):
-        S.arp('harp', b, 3 if b < 61 else 2, voicing(c, 55, 4), step=1, vel=34, pattern=[0, 1, 2, 3, 2, 1]); S.chord('str', b, 3.03 if b < 61 else 2.05, voicing(c, 53, 3), 34)
-        S.note('cello', b, 2.9 if b < 61 else 1.95, bass_of(c, 38), 42)
-    # v18: the tune (music box, then harp and celesta) is a layer over the harp's arpeggios, strings and cello
-    S.meta = dict(stems=dict(lead=['box', 'harpm', 'cel']), key=7, scale=[7, 9, 11, 0, 2, 4, 6], phrase=(6, 1))
-    return S, 63
+    # the tunes (letter, story, road, the song) are a layer over the harp, strings and bass
+    S.meta = dict(stems=dict(lead=['pnom', 'celm', 'vln', 'fl', 'cl']), key=7, scale=G_MAJOR, phrase=(6, 0), sections=dict(glow=(0, 0, 21, 8), song=(21, 0)))
+    return S, 72
 
 def finale():
-    """After the wish, grand yet moving, orchestral (no drum kit). A hush in G; the theme on a solo violin under her final
-    letter; the cello joins and A7 turns it toward D; the full orchestra in D for the credits (violins in octaves, horns,
-    voices, timpani), broadening to a cadence; then the postcard: the theme on the piano alone, then the cello with harp;
-    the theme's opening high on piano and celesta; Happy Birthday's last line on celesta as it slows; a long last chord.
-    72 bpm, rit. to 66 (bar 41) and 60 (bar 45); 48 bars + tail."""
-    S = Song('finale', 72)
-    S.ch('vln', 'violin', 96, 72, 70, mod=30); S.ch('str', 'strings', 96, 64, 74); S.ch('hi', 'slowstrings', 86, 70, 82); S.ch('cello', 'cello', 90, 46, 64, mod=18)
-    S.ch('bass', 'contrabass', 80, 58, 60); S.ch('horn', 'horn', 90, 74, 74, mod=6); S.ch('choir', 'oohs', 70, 64, 94); S.ch('timp', 'timpani', 88, 60, 62)
-    S.ch('harp', 'harp', 84, 86, 70); S.ch('cel', 'celesta', 70, 40, 80); S.ch('pno', 'piano', 98, 62, 62)
-    S.tempo(160, 66); S.tempo(176, 60)
-    tl = S.chords(timeline(0, [('Gadd9', 4), ('Cadd9/G', 4)] + [(c, 4) for c in trc(THEME_CH[:4], 5)] + [('G/B', 3), ('C', 1), ('Em7', 2), ('A7sus4', 1), ('A7', 1)]
-                  + [(c, 4) for c in THEME_CH[8:]] + [('Gmaj7', 4), ('Bm7', 4), ('Em7', 2), ('A7sus4', 2), ('D', 4)]
-                  + [(c, 4) for c in THEME_CH] + [('Gmaj7', 4), ('D/F#', 4), ('Em7', 4), ('A7sus4', 4)]
-                  + [('G', 1.5), ('D/A', 3), ('A7', 1.5), ('D', 10)] + [('Dadd9', 16)]))
-    assert sum(d for _, d, _ in tl) == 192, sum(d for _, d, _ in tl)
-    # 1-2: the breath after the wish
-    pads(S, 'hi', tl, 34, lo=55, n=4, b1=8); S.ramp('hi', 0, 8, 50, 74); pads(S, 'choir', tl, 26, lo=60, n=3, b1=8)
-    S.note('bass', 0, 7.9, 'G2', 34); S.note('cello', 0, 7.9, 'G2', 36)
-    for b in (0.5, 2.5, 4.5, 6.5): S.note('harp', b, 3, voicing(chord_at(tl, b), 79, 3)[(int(b) // 2) % 3], 30)
-    sparkle(S, 'cel', 4.5, [m('D6'), m('G6'), m('B6')], 30, step=.5)
-    # 3-6: her letter: the theme on a solo violin, in G, the harp turning beneath
-    V = theme(1, 4, 8, 5); S.play('vln', V, 70)
-    for a in range(2): S.arch('vln', 8 + a * 8, 16 + a * 8, 74, 106)
+    """After the wish: the climax (G, 3/4, 72 bpm), orchestral, no drum kit. A bar's swell as the fireworks rise
+    (timpani, a harp sweep, strings), and Happy Birthday in full: violins and flute in octaves, the horns weaving the
+    story theme round its long notes, voices, timpani, the harp turning; a bar of the letter motif on celesta; then, for
+    the credits, the story theme itself as a waltz (strings, the cello's counter-line, harp). The postcard: the waltz's
+    second half on a piano alone, then its first half on the cello with the letter motif above. The end: Happy
+    Birthday's last line, slowing (rit. 66, 60), on celesta and piano, and a long last chord with the stars.
+    Parts: head (bars 1-18) once, loop (19-34) while she stays with the postcard, outro (35-42)."""
+    S = Song('finale', 72, 3)
+    S.ch('str', 'strings', 96, 64, 74); S.ch('hi', 'slowstrings', 86, 70, 82); S.ch('cello', 'cello', 90, 46, 64, mod=18); S.ch('bass', 'contrabass', 80, 58, 60)
+    S.ch('horn', 'horn', 90, 74, 74, mod=6); S.ch('choir', 'oohs', 70, 64, 94); S.ch('timp', 'timpani', 88, 60, 62); S.ch('harp', 'harp', 84, 86, 70)
+    S.ch('cel', 'celesta', 72, 40, 80); S.ch('pno', 'piano', 98, 62, 62); S.ch('fl', 'flute', 84, 56, 74, mod=14); S.ch('cellom', 'cello', 90, 50, 64, mod=18)
+    S.tempo(105, 66); S.tempo(108, 60)
+    # 1: the swell as the first fireworks rise; the pickup
+    S.chords([(0, 2, 'D7sus4'), (2, 1, 'D7')])
+    roll(S, 'timp', 0, 3, 'D3', 18, 70); swell(S, 3, 62); gliss(S, 'harp', 3, PENTA('D3', 'D6', (2, 7, 9)), 1.6, 36, dur=2.4)
+    S.chord('hi', 0, 3.05, voicing('D7sus4', 55, 4), 44); S.ramp('hi', 0, 3, 50, 100); S.chord('horn', 0, 3, [m('D3'), m('A3'), m('C4')], 40); S.ramp('horn', 0, 3, 50, 96)
+    S.note('bass', 0, 3, 'D2', 50); S.note('cello', 0, 3, 'D3', 50)
+    # 2-9: Happy Birthday, all of us: violins (and flute) in octaves, horns weaving the story theme round its long notes
+    T = at(2, HBG); S.play('str', T, 82); S.play('hi', T, 56, semis=12); S.play('fl', T, 52, semis=12)
+    for a in range(4): S.arch('str', 3 + a * 6, 9 + a * 6, 96, 124 if a in (1, 2) else 112)
+    tl = S.chords([(2 + b, d, trc([c], 2)[0]) for b, d, c in HB_TL])
+    horns = L('B3:3 | A3:.5 D4:.5 F#4:1.5 E4:.5 | D4:1 C4:1 A3:1 | D4:.5 G4:.5 B4:1.5 A4:.5 | G4:2 D4:1 | E4:1.5 G4:.5 C5:1 | D4:1 B3:1 C4:1 | B3:.5 D4:.5 G4:2')
+    S.play('horn', at(3, horns), 66); S.ramp('horn', 3, 15, 80, 104); S.ramp('horn', 15, 27, 104, 90)
     for b, d, s in tl:
-        if 8 <= b < 32: S.arp('harp', b, d, voicing(s, 55, 4), step=.5, vel=36 if b < 24 else 42, pattern=[0, 1, 2, 3, 2, 1, 2, 3])
-        if 8 <= b < 64: S.note('bass', b, d * .98, bass_of(s, 28) + 12, 40 if b < 32 else 56)
-    pads(S, 'hi', tl, 36, lo=55, n=3, b0=8, b1=32); S.ramp('hi', 8, 24, 60, 84)
-    roots(S, 'cello', tl, 42, lo=38, b0=8, b1=24)
-    # 7-8: the cello joins (octave below) and A7 turns it toward D; timpani and harp carry it up
-    W = theme(5, 6, 24, 5); S.play('vln', W, 80); S.play('cello', W, 62, semis=-24); S.ramp('vln', 24, 32, 90, 118); S.ramp('cello', 24, 32, 80, 112)
-    S.ramp('hi', 24, 32, 84, 110); roll(S, 'timp', 29, 32, 'A2', 20, 70); swell(S, 32, 50)
-    gliss(S, 'harp', 32, PENTA('A3', 'A5', (9, 11, 4, 6)), 1.0, 40)
-    # 9-16: the credits: the full orchestra in D: violins in octaves, horns beneath, voices, timpani
-    T = theme(9, 16, 32); S.play('str', T, 78); S.play('hi', T, 54, semis=12)
-    S.play('horn', T, 58, semis=-12); S.ramp('horn', 32, 48, 70, 98); S.ramp('horn', 48, 64, 104, 80)
-    for a in range(4): S.arch('str', 32 + a * 8, 40 + a * 8, 92, 122)
-    for b, d, s in tl:
-        if 32 <= b < 64:
-            av = mel(T, b, b + d); av += [x - 12 for x in av] + [x + 12 for x in av]
-            S.chord('choir', b, d * 1.02, voicing(s, 57, 4, av), 46); S.note('cello', b, d * .98, bass_of(s, 38), 70)
-            S.chord('horn', b, d * 1.02, voicing(s, 53, 3, av), 36)
-            hv = voicing(s, 62, 3, av); S.arp('harp', b, d, hv + [hv[0] + 12], step=.5, vel=40, pattern=[0, 1, 2, 3, 2, 1, 2, 3])
-    for b in (32, 48): S.note('timp', b, 2, 'D3', 70, human=False)
-    for b in (40, 56): S.note('timp', b, 2, 'D3', 54, human=False)
-    roll(S, 'timp', 61, 64, 'A2', 26, 62)
-    # 17-20: broadening to the cadence: the theme's last bars in long notes, horns in the middle, timpani at the close
-    E = theme(15, 16, 64, 0, 2.0); S.play('str', E, 84); S.play('hi', E, 58, semis=12); S.play('horn', E, 66, semis=-12)
-    S.ramp('str', 64, 80, 118, 84); S.ramp('hi', 64, 80, 100, 70); S.ramp('horn', 64, 80, 100, 60)
-    for b, d, s in tl:
-        if 64 <= b < 80:
-            av = mel(E, b, b + d); av += [x - 12 for x in av] + [x + 12 for x in av]
-            S.chord('choir', b, d * 1.02, voicing(s, 57, 4, av), 44); S.note('cello', b, d * .98, bass_of(s, 38), 66); S.note('bass', b, d * .98, bass_of(s, 28) + 12, 54)
-            S.chord('horn', b, d * 1.02, voicing(s, 53, 3, av), 34)
-    roll(S, 'timp', 74, 76, 'A2', 24, 56); S.note('timp', 76, 3, 'D3', 52, human=False)
-    # 21-28: the postcard: the theme on the piano alone, strings far away
-    P = theme(1, 8, 80); S.play('pno', P, 68)
-    for b, d, s in tl:
-        if 80 <= b < 112:
-            S.note('pno', b, d, bass_of(s, 38), 46); S.arp('pno', b + .5, d - .5, voicing(s, 52, 3), step=.5, vel=36, pattern=[0, 1, 2, 1, 2, 1, 2], hold=2.2); S.pedal('pno', b, b + d)
-    pads(S, 'hi', tl, 34, lo=55, n=3, b0=80, b1=176, mel_=theme(1, 8, 80) + theme(9, 16, 112, -12) + theme(1, 2, 144, 12)); S.ramp('hi', 80, 96, 50, 64)
-    roots(S, 'cello', tl, 34, lo=38, b0=96, b1=112)
-    # 29-36: the cello sings the second half, the harp beneath, the piano's chords soft
-    C = theme(9, 16, 112, -12); S.play('cello', C, 72)
-    for a in range(4): S.arch('cello', 112 + a * 8, 120 + a * 8, 78, 108)
-    for b, d, s in tl:
-        if 112 <= b < 144:
-            av = mel(C, b, b + d); S.arp('harp', b, d, voicing(s, 55, 4, av), step=.5, vel=34, pattern=[0, 1, 2, 3, 2, 1, 2, 3]); S.chord('pno', b, d, voicing(s, 62, 3, av), 26, roll=.08)
-            S.note('bass', b, d * .98, bass_of(s, 28) + 12, 34)
-    S.ramp('hi', 112, 132, 64, 84); S.ramp('hi', 132, 160, 84, 58)
-    # 37-40: the theme's opening, high and far, on piano and celesta
-    O = theme(1, 2, 144, 12); S.play('pno', O, 52); S.play('cel', O, 40)
-    for b, d, s in tl:
-        if 144 <= b < 160: S.chord('pno', b, d, [bass_of(s, 38)] + voicing(s, 55, 3), 38, roll=.1); S.pedal('pno', b, b + d)
-    S.note('cello', 144, 15.9, 'D3', 40)
-    # 41-44: Happy Birthday's last line on celesta, slowing
-    last = [(m(p) - 3, d * 1.5) for p, d in HB[19:]]
-    S.melody('cel', 160, last, 62); S.melody('harp', 160, last, 46, octave=-12)
-    for b, d, s in tl:
-        if 160 <= b < 176: S.chord('harp', b, d, voicing(s, 55, 4), 38, roll=.08); S.note('cello', b, d * .98, bass_of(s, 38), 42); S.chord('hi', b, d * 1.02, voicing(s, 55, 3), 30)
-    # 45-48: the last chord, a long breath; the stars
-    S.chord('hi', 176, 16, [m('D3'), m('A3'), m('F#4'), m('E5'), m('A5')], 48); S.ramp('hi', 176, 192, 90, 30)
-    S.chord('pno', 176, 16, [m('D2'), m('A2'), m('F#3'), m('E4'), m('A4'), m('D5')], 48, roll=.12); S.pedal('pno', 176, 192)
-    S.chord('choir', 176, 14, voicing('D', 60, 3), 28); S.ramp('choir', 176, 192, 80, 30)
-    S.note('bass', 176, 15.5, 'D2', 34)
-    sparkle(S, 'cel', 177, [m('D6'), m('F#6'), m('A6'), m('E7')], 36, step=.5)
-    S.note('harp', 184, 6, 'A5', 24); S.note('harp', 186, 6, 'D6', 20)
-    # v18: played as three parts: the letter and the credits (bars 1-20) once, the postcard (bars 21-40) for as long as she
-    # stays with it, then the last line and the last chord (bars 41-48) when the closing shot asks for the end
-    S.meta = dict(key=2, scale=D_MAJOR, phrase=(16, 0), parts=[('head', 0, 80, 5.0), ('loop', 80, 160, 6.0), ('outro', 160, 192, 8.0)])
-    return S, 192
+        av = mel(T, b, b + d); av += [x - 12 for x in av] + [x + 12 for x in av]
+        S.chord('choir', b, d * 1.02, voicing(s, 57, 4, av), 46); S.note('cello', b, d * .98, bass_of(s, 38), 70); S.note('bass', b, d * .98, bass_of(s, 28) + 12, 56)
+    harpwaltz(S, 'harp', tl, 44, lo=62, mel_=T)
+    for b, v in ((3, 72), (15, 64)): S.note('timp', b, 2, 'G2', v, human=False)
+    roll(S, 'timp', 25, 27, 'D3', 24, 56); S.note('timp', 27, 2, 'G2', 50, human=False)
+    for b, ns in ((8, ('D6', 'F#6', 'A6', 'D7')), (18.5, ('E6', 'G6', 'C7', 'E7'))): sparkle(S, 'cel', b, [m(x) for x in ns], 42, step=.25)
+    # 10: a breath: the letter motif's opening on celesta, and the waltz's pickup
+    S.chords([(27, 2, 'Cmaj7'), (29, 1, 'D7sus4')])
+    S.play('cel', at(27, L('D5:1 B5:1.5')), 56); S.chord('hi', 27, 3, voicing('Cmaj7', 55, 3), 40); S.note('cello', 27, 2, 'C3', 50); S.note('cello', 29, 1, 'D3', 50)
+    S.note('bass', 27, 3, 'C2', 40)
+    # 11-18: the credits: the story theme as a waltz, strings singing, the cello's counter-line, the harp, the horns
+    W, wt = waltz(1, 8, 30, 5); W = at(29, WALTZ_PICK, 5) + W; S.chords(wt)
+    S.play('str', W, 78); S.play('hi', W, 50, semis=12)
+    for a in range(4): S.arch('str', 30 + a * 6, 36 + a * 6, 92, 116)
+    S.play('cello', counter(wt, 30, 54, 1, 'B2', 'G3', 'G3', avoid=W), 56); S.ramp('cello', 30, 54, 90, 104)
+    harpwaltz(S, 'harp', wt, 40, mel_=W); roots(S, 'bass', wt, 46, lo=31)
+    for b, d, s in wt: av = mel(W, b, b + d); S.chord('horn', b, d * 1.02, voicing(s, 53, 3, av), 34); S.chord('choir', b, d * 1.02, voicing(s, 60, 3, av), 32)
+    S.note('timp', 30, 2, 'G2', 56, human=False)
+    # 19-26 (loop): the postcard: the waltz's second half on a piano alone, the strings far away
+    P, pt = waltz(9, 16, 54, 5); S.chords(pt); S.play('pno', P, 78)
+    harpwaltz(S, 'pno', pt, 42, lo=52, mel_=P, bass_lo=38)
+    for b, d, s in pt: S.pedal('pno', b, b + d)
+    pads(S, 'hi', pt, 36, lo=55, n=3, mel_=P); S.ramp('hi', 54, 78, 56, 74)
+    # 27-34: the cello sings the first half, the letter motif high on the celesta between its phrases, the harp
+    C, ct = waltz(1, 8, 78, 5); S.chords(ct); C = [e for e in C if e[0] < 101]; S.play('cellom', C, 76, semis=-12)
+    for a in range(4): S.arch('cellom', 78 + a * 6, 84 + a * 6, 80, 108)
+    S.play('cel', at(78, L('D6:1 B6:1.5 A6:.5 | F#6:3')), 34); S.play('cel', at(90, L('D6:1 B6:1.5 A6:.5 | G6:3')), 30)
+    harpwaltz(S, 'harp', ct, 40, mel_=[(e[0], e[1], e[2] - 12) for e in C])
+    for b, d, s in ct: S.chord('pno', b, d, voicing(s, 62, 3, mel(C, b, b + d)), 32, roll=.08); S.pedal('pno', b, b + d)
+    pads(S, 'hi', ct, 34, lo=55, n=3, mel_=C); S.ramp('hi', 78, 102, 74, 56); roots(S, 'bass', pt + ct, 36, lo=31)
+    S.play('pno', at(101, WALTZ_PICK, 5), 64)   # (the pickup back into the loop)
+    # 35-42 (outro): Happy Birthday's last line, slowing, on celesta and piano; the long last chord, the stars
+    S.chords([(102, 3, 'Cadd9'), (105, 2, 'G/D'), (107, 1, 'D7'), (108, 18, 'Gadd9')])
+    last = at(104, HBG[19:24]) + [(108, 3, m('G5'))]
+    S.play('cel', last, 60); S.play('pno', last, 50, semis=-12)
+    S.chord('pno', 102, 2, [m('C3'), m('G3'), m('D4'), m('E4')], 36, roll=.1); S.pedal('pno', 102, 108)
+    S.chord('harp', 105, 2, voicing('G/D', 55, 4), 34, roll=.08); S.chord('harp', 107, 1, voicing('D7', 55, 4), 32, roll=.06)
+    for b, d, s in [(102, 3, 'Cadd9'), (105, 2, 'G/D'), (107, 1, 'D7')]: S.chord('hi', b, d * 1.02, voicing(s, 55, 3), 32); S.note('cello', b, d * .98, bass_of(s, 38), 40)
+    S.chord('hi', 108, 18, [m('G3'), m('D4'), m('B4'), m('A5'), m('D5')], 44); S.ramp('hi', 108, 126, 90, 28)
+    S.chord('pno', 111, 15, [m('G1'), m('D2'), m('G2'), m('D3'), m('B3'), m('A4'), m('D5')], 42, roll=.12); S.pedal('pno', 111, 126)
+    S.chord('choir', 108, 16, voicing('G', 60, 3), 26); S.ramp('choir', 108, 126, 80, 28)
+    S.note('bass', 108, 17, 'G2', 32); S.note('cello', 108, 17, 'G2', 36)
+    sparkle(S, 'cel', 112, [m('D6'), m('G6'), m('B6'), m('A7')], 34, step=.5)
+    S.note('harp', 118, 6, 'B5', 22); S.note('harp', 120, 6, 'D6', 18)
+    S.ctl.sort()
+    # played as three parts: the swell, the song and the credits (bars 1-18) once, the postcard (19-34) for as long as
+    # she stays with it, then the last line and the last chord (35-42) when the closing shot asks for the end
+    S.meta = dict(key=7, scale=G_MAJOR, phrase=(6, 0), parts=[('head', 0, 54, 5.0), ('loop', 54, 102, 6.0), ('outro', 102, 126, 8.0)])
+    return S, 126
 
 # ================================================================ v18: endings, the stinger bank, the cue map
 # Each chapter's cue has a composed ending: when the story moves on, the loop stops on a bar line and this cadence plays
@@ -798,31 +876,33 @@ def end_film():
     E.chord('choir', 4, 4, voicing('G', 60, 3), 34); sparkle(E, 'cel', 4.1, [m('G6'), m('B6'), m('D7')], 40, step=.3)
     E.meta = dict(res=4, beats=8.5); return E
 def end_wish():
-    """D7 - G, one bar of the waltz: the music box sings A-F#-G (the song's own last note), harp and cello beneath."""
-    E = Song('wish-end', 84, 3); E.jit = .3
-    E.ch('box', 'musicbox', 92, 64, 66); E.ch('harp', 'harp', 84, 84, 66); E.ch('str', 'slowstrings', 70, 56, 84); E.ch('cel', 'celesta', 70, 40, 76)
-    E.ch('cello', 'cello', 80, 48, 66, mod=14)
+    """D7 - G, one bar of the waltz: the piano sings A-F#-G with the celesta above, harp and cello beneath (the finale
+    comes in on the G)."""
+    E = Song('wish-end', 76, 3); E.jit = .3
+    E.ch('pnom', 'piano', 96, 60, 62); E.ch('harp', 'harp', 84, 84, 66); E.ch('str', 'slowstrings', 72, 60, 84); E.ch('celm', 'celesta', 64, 42, 76)
+    E.ch('cello', 'cello', 80, 46, 66, mod=14)
     tl = E.chords(timeline(0, [('D7', 3), ('G', 3)]))
-    E.arp('harp', 0, 3, voicing('D7', 55, 4), step=1, vel=38, pattern=[0, 1, 2, 3, 2, 1])
-    E.chord('harp', 3, 3, [m(x) for x in ('G2', 'D3', 'G3', 'B3', 'D4', 'G4')], 40, roll=.08)
-    E.play('box', [(0, 1.5, m('A5')), (1.5, 1.5, m('F#5')), (3, 3, m('G5'))], 66)
-    E.note('cel', 3.02, 2.5, 'G6', 28)
+    E.arp('harp', 0, 3, voicing('D7', 55, 4), step=1, vel=36, pattern=[0, 1, 2, 3, 2, 1])
+    E.chord('harp', 3, 3, [m(x) for x in ('G2', 'D3', 'G3', 'B3', 'D4', 'G4')], 38, roll=.08)
+    mel_ = [(0, 1.5, m('A5')), (1.5, 1.5, m('F#5')), (3, 3, m('G5'))]
+    E.play('pnom', mel_, 62); E.play('celm', mel_, 26, semis=12)
     E.note('cello', 0, 3, 'D3', 44, human=False); E.note('cello', 3, 3, 'G2', 42)
     E.chord('str', 0, 3.03, voicing('D7', 53, 3), 32); E.chord('str', 3, 3, [m('G3'), m('D4'), m('G4')], 30); E.ramp('str', 3, 6, 100, 60)
     E.meta = dict(res=3, beats=6); return E
 def end_finale():
-    """A7sus4 - A7 - D: a short close for leaving the finale early (wishing again); the real ending is its own outro."""
-    E = Song('finale-end', 72); E.jit = .3
-    E.ch('vln', 'violin', 96, 72, 70, mod=30); E.ch('str', 'strings', 96, 64, 74); E.ch('cello', 'cello', 90, 46, 64, mod=18)
-    E.ch('harp', 'harp', 84, 86, 70); E.ch('cel', 'celesta', 70, 40, 80); E.ch('pno', 'piano', 98, 62, 62)
-    tl = E.chords(timeline(0, [('A7sus4', 1), ('A7', 1), ('D', 4)]))
-    for b, s in ((0, 'A7sus4'), (1, 'A7')): E.chord('str', b, 1.02, voicing(s, 52, 4), 44); E.chord('harp', b, 1, voicing(s, 55, 4), 36, roll=.06)
-    E.chord('str', 2, 3.5, [m(x) for x in ('D3', 'A3', 'D4', 'A4')], 44); E.ramp('str', 2, 5.5, 100, 60)
-    E.chord('pno', 2, 3.5, [m(x) for x in ('D2', 'A2', 'D3', 'F#3', 'A3')], 40, roll=.1); E.pedal('pno', 2, 5.5)
-    E.play('vln', [(0, 1, m('E5')), (1, 1, m('C#5')), (2, 3, m('D5'))], 64)
-    E.note('cello', 0, 2, 'A2', 50, human=False); E.note('cello', 2, 3.5, 'D2', 46)
-    sparkle(E, 'cel', 2.05, [m('D6'), m('F#6'), m('A6')], 34, step=.3)
-    E.meta = dict(res=2, beats=5.5); return E
+    """D7sus4 - D7 - G: a short close for leaving the finale early (wishing again: the wish comes in on the G); the real
+    ending is its own outro."""
+    E = Song('finale-end', 72, 3); E.jit = .3
+    E.ch('str', 'strings', 96, 64, 74); E.ch('cello', 'cello', 90, 46, 64, mod=18); E.ch('harp', 'harp', 84, 86, 70); E.ch('cel', 'celesta', 70, 40, 80)
+    E.ch('pno', 'piano', 98, 62, 62); E.ch('hi', 'slowstrings', 86, 70, 82)
+    tl = E.chords(timeline(0, [('D7sus4', 1.5), ('D7', 1.5), ('G', 3)]))
+    for b, s in ((0, 'D7sus4'), (1.5, 'D7')): E.chord('hi', b, 1.52, voicing(s, 52, 4), 42); E.chord('harp', b, 1.5, voicing(s, 55, 4), 34, roll=.06)
+    E.chord('hi', 3, 3.5, [m(x) for x in ('G3', 'D4', 'G4', 'D5')], 42); E.ramp('hi', 3, 6.5, 100, 60)
+    E.chord('pno', 3, 3.5, [m(x) for x in ('G2', 'D3', 'G3', 'B3', 'D4')], 40, roll=.1); E.pedal('pno', 3, 6.5)
+    E.play('str', [(0, 1.5, m('A5')), (1.5, 1.5, m('F#5')), (3, 3, m('G5'))], 62)
+    E.note('cello', 0, 3, 'D3', 50, human=False); E.note('cello', 3, 3.5, 'G2', 46)
+    sparkle(E, 'cel', 3.05, [m('G6'), m('B6'), m('D7')], 34, step=.3)
+    E.meta = dict(res=3, beats=6.5); return E
 ENDINGS = dict(prologue=end_prologue, book=end_book, journey=end_journey, memories=end_memories, film=end_film, wish=end_wish, finale=end_finale)
 
 # The stinger bank: single notes of four soft instruments every major third (the page bends each to pitch, two semitones
@@ -845,7 +925,11 @@ def bank():
 
 # ---------------------------------------------------------------- the cue map (site/js/score-map.js) and the build
 MAPJS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'site', 'js', 'score-map.js')
-CANDLE = [m(x) for x in ('A4', 'D5', 'F#5', 'E5', 'C#5', 'D5')]   # six candles: the theme's head, home by the leading note (in D)
+# the stingers' phrases, in D (js/audio.js moves them to the key that is playing): the stars she links into a heart (the
+# stars' own tune, its last notes: the last one comes home), and the six candles: Happy Birthday's first line, which
+# she lights herself in the last chapter (the only stinger that may play it: tools/check_hb.py)
+STAR = [p - 5 for p, _ in STARS]
+CANDLE = [p - 5 for p, _ in HBG[:6]]
 def stems_of(S):
     sp = S.meta.get('stems', {}); used = {c for v in sp.values() for c in v}
     return {'bed': [c for c in S.chans if c not in used], **sp}
@@ -891,10 +975,10 @@ def write_map(cues=None, bank_=None):
     if os.path.exists(MAPJS): t = open(MAPJS).read(); cur = json.loads(t[t.index('{'):t.rindex('}') + 1])
     cur.setdefault('cues', {}).update(cues or {})
     if bank_: cur['bank'] = bank_
-    cur['phrases'] = dict(theme=[m(p) for p, _ in THEME], candle=CANDLE, tonic=2)
+    cur['phrases'] = dict(star=STAR, candle=CANDLE, tonic=2)
     with open(MAPJS, 'w') as f:
         f.write('// The score as data for js/audio.js, written by tools/score.py (not by hand): for each cue its beat grid and tempo map,\n'
-                '// chords (beat, root, bass, chord tones, twinkle tones), sections, layers, cadence; the stinger bank; the theme.\n')
+                '// chords (beat, root, bass, chord tones, twinkle tones), sections, layers, cadence; the stinger bank; the phrases.\n')
         f.write('export default ' + json.dumps(cur, separators=(',', ':')) + ';\n')
 
 # ================================================================ sound effects

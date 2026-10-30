@@ -1,7 +1,10 @@
 // The two painted teddy puppies from the original gift (apricot and cream), on their five-view
 // turnaround rig: real perspective drawings for front, three-quarter, side, rear three-quarter and back,
 // blended through turns, with layered legs, tail and head. Motion is refined, the artwork is unchanged.
+// v19: the same feelings as the WebGL rig (pupfeel.js) in a lighter form, and they keep clear of the dock's words and buttons.
 import { asset, loadImage, clamp, lerp } from './util.js';
+import { feelFor, NATURE, blendFeel, calmFeel, pickMood, durFor, MURMUR, bodyOf, AVOID, shown } from './pupfeel.js';
+const ALLOWED = ['watch', 'walk', 'lookback', 'trot', 'greet', 'hop', 'sniff', 'sit', 'rest', 'nod', 'gaze', 'sigh', 'tilt', 'yawn'];
 
 const LAYOUT = {"apricot":{"head":[[10,41,255,216],[276,31,250,225],[546,43,218,212],[778,42,221,212],[1013,42,232,213]],"body":[[34,281,205,197],[270,273,231,208],[512,275,254,202],[779,277,227,208],[1029,280,195,204]],"front":[[71,494,123,237],[312,494,165,234],[572,496,151,233],[830,494,137,233],[1079,498,113,230]],"back":[[65,737,134,261],[315,735,162,261],[562,735,166,262],[832,736,151,261],[1070,736,128,262]],"tail":[[46,1021,174,191],[299,1023,163,194],[554,1034,161,177],[810,1015,174,197],[1043,1015,175,199]],"blink":[[11,107,368,302],[380,99,353,311],[752,115,317,296],[1079,111,330,301],[1419,109,346,301]]},"cream":{"head":[[8,39,260,220],[272,31,257,229],[544,41,222,217],[776,40,237,218],[1013,40,234,219]],"body":[[31,277,211,204],[269,270,234,214],[512,273,257,207],[778,274,231,212],[1028,273,198,212]],"front":[[69,493,127,240],[310,492,168,237],[570,494,155,236],[827,492,143,237],[1077,496,117,233]],"back":[[62,735,141,265],[312,734,166,264],[558,734,172,265],[831,734,153,264],[1069,735,132,264]],"tail":[[42,1019,182,196],[297,1022,171,200],[550,1031,171,183],[807,1012,180,203],[1041,1012,181,207]],"blink":[[11,481,369,302],[380,471,353,313],[753,487,316,297],[1080,485,329,300],[1420,483,347,301]]}};
 // Planted feet and an anatomical neck anchor shared through a turn (280-unit drawing space).
@@ -11,10 +14,6 @@ const POSES = [
   { head: [141, 43, 109, 104], body: [63, 112, 141, 84], tail: [39, 103, 40, 51], legs: [[69, 144, 40, 70], [97, 141, 33, 69], [163, 144, 31, 70], [186, 140, 28, 69]], neck: [189, 134] },
   { head: [141, 42, 109, 104], body: [82, 109, 121, 89], tail: [81, 113, 39, 52], legs: [[91, 145, 37, 70], [121, 140, 32, 70], [177, 143, 29, 70], [196, 140, 25, 67]], neck: [190, 134] },
   { head: [82, 37, 116, 101], body: [93, 108, 94, 90], tail: [123, 119, 35, 53], legs: [[103, 145, 30, 70], [148, 145, 30, 70], [106, 142, 27, 68], [147, 142, 27, 68]], neck: [140, 130] },
-];
-const ROUTINES = [
-  [['watch', 2.6], ['walk', 3.6], ['lookback', 2.4], ['trot', 2.6], ['greet', 2.6], ['watch', 4.5], ['hop', 1.6], ['sniff', 2.6], ['sit', 7], ['rest', 9]],
-  [['greet', 2.4], ['watch', 4.5], ['walk', 3.6], ['lookback', 2.6], ['trot', 2.6], ['sit', 7], ['hop', 1.6], ['watch', 5], ['rest', 10]],
 ];
 const ang = n => ((n + 180) % 360 + 360) % 360 - 180;
 const smooth = t => t * t * (3 - 2 * t);
@@ -47,7 +46,11 @@ export class Pups2D {
       color, i, x: i ? .85 : .15, tx: i ? .85 : .15, yaw: i ? -45 : 45, headYaw: i ? -45 : 45, phase: i * 2.7, gait: 0,
       mood: 'watch', moodAt: 0, next: i ? 4 : 2, beat: 0, hopAt: -20, sit: 0, rest: 0, sniff: 0, greet: 0, tilt: 0,
       petAt: -99, nextBlink: 2 + i * 1.4, blinkUntil: 0, alpha: 0, hearts: [], box: null, lag: 0, hopping: -1, walking: false, closed: false,
+      em: calmFeel(), B: bodyOf(calmFeel()), wph: i, bph: i * 2, doze: 0, look: 0, yawn: 0, sigh: 0, tiltS: 1, perkAt: -99, wakeAt: -99, joyAt: -99, burstAt: -99,
     }));
+    this.story = {}; this.modeAt = 0; this.murmurAt = 0; this.ko = []; this.koAt = 0;
+    const A = env.audio;
+    if (A?.hit) { const h = A.hit.bind(A); A.hit = (kind, o) => { const when = h(kind, o); try { this.hearHit(kind, when); } catch { /* never in the music's way */ } return when; }; }
     this.bubbles = this.dogs.map(() => { const b = document.createElement('span'); b.className = 'pup-bubble'; el.parentNode.appendChild(b); return b; });
     this.resize();
     addEventListener('pointerdown', e => this.poke(e), { passive: true });
@@ -60,12 +63,53 @@ export class Pups2D {
   }
   set(mode) {
     if (mode === this.mode) return;
-    this.mode = mode; const M = MODES[mode]; this.showAt = this.t + 1; // appear once the new scene has faded in
+    this.mode = mode; const M = MODES[mode]; this.showAt = this.t + 1; this.modeAt = this.t; this.story = {}; // appear once the new scene has faded in
     this.dogs.forEach(d => {
       d.beat = 0; d.next = this.t + 1 + d.i * 1.5; d.mood = M?.rest ? 'rest' : 'watch';
       if (M) { const z = M.zones[d.i]; if (d.alpha < .05) d.x = d.tx = lerp(z[0], z[1], d.i ? .7 : .3); else d.tx = clamp(d.x, z[0], z[1]); }
       if (M?.party) d.hopAt = this.t + d.i * .5;
     });
+  }
+  /** What they hear: a chime or a page pricks the ears (and half wakes a dozing one); candles blown out, a happy hop. */
+  hear(name) {
+    if (!MODES[this.mode]) return;
+    this.dogs.forEach((d, i) => {
+      if (name === 'blow') d.hopAt = this.t + i * .25;
+      else if (/^(chime|sparkle|light|glint|shimmer|whoosh|page|sand)$/.test(name) && Math.random() < .7) { d.perkAt = this.t + .1 + i * .2; if (d.doze > .3 || d.rest > .5) d.wakeAt = d.perkAt; }
+    });
+  }
+  hearHit(kind, when) {
+    if (!MODES[this.mode]) return;
+    const t = this.t, delay = when != null && this.env.audio?.until ? Math.min(1.5, this.env.audio.until(when)) : 0, s = this.story;
+    if (kind === 'page') s.page = (s.page || 0) + 1;
+    if (kind === 'letter') { s.letter = true; s.letterAt = t - this.modeAt; }
+    this.dogs.forEach((d, i) => {
+      const at = t + delay + .1 + i * .2;
+      if (kind === 'candle' || kind === 'station') d.joyAt = at;
+      if (kind === 'burst') d.burstAt = at;
+      if (/^(page|cover|letter|photo|flip|candle|burst)$/.test(kind)) { d.perkAt = at; if (d.doze > .3 || d.rest > .5) d.wakeAt = at; }
+    });
+  }
+  murmur(d, list, p = 1) {
+    if (!list || Math.random() > p || this.t - this.murmurAt < 9) return;
+    this.murmurAt = this.t; const S = this.size(), gy = this.ground(), b = this.bubbles[d.i];
+    b.textContent = list[Math.floor(Math.random() * list.length)]; b.style.left = d.x * this.env.W + 'px'; b.style.top = (gy - S * .82) + 'px';
+    b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); clearTimeout(b.t); b.t = setTimeout(() => b.classList.remove('on'), 1700);
+  }
+  // ---------- keeping clear of buttons and the dock's words ----------
+  keepOut() {
+    if (this.t < this.koAt) return this.ko;
+    this.koAt = this.t + .3; const W = this.env.W, gy = this.ground(), S = this.size(), out = [];
+    document.querySelectorAll(AVOID).forEach(e => {
+      const r = e.getBoundingClientRect(); if (!r.width || r.bottom < gy - S * 1.1 || r.top > gy + 8 || !shown(e)) return;
+      out.push([(r.left - S * .62) / W, (r.right + S * .62) / W]);
+    });
+    return this.ko = out;
+  }
+  free(x) { return !this.keepOut().some(([a, b]) => x > a && x < b); }
+  nearestFree(x) {
+    for (let k = 0; k < 60; k++) for (const sgn of [1, -1]) { const c = x + sgn * k * .012; if (c >= .03 && c <= .97 && this.free(c)) return c; }
+    return x;
   }
   size() { const { W, portrait } = this.env, M = MODES[this.mode]; return (W < 700 || portrait ? 104 : clamp(W * .13, 148, 186)) * (M?.small || 1); }
   ground() { const M = MODES[this.mode] || this.lastM || MODES.book; return this.env.H * (this.env.portrait ? M.y[1] : M.y[0]); } // between modes ('hidden', null) they stay where they last stood
@@ -102,27 +146,38 @@ export class Pups2D {
     const on = M && t > (this.showAt || 0);
     d.alpha = damp(d.alpha, on ? 1 : 0, dt, on ? 4 : 8);
     if (!M) return;
+    blendFeel(d.em, feelFor(this.mode, t - this.modeAt, this.story), NATURE[d.i], dt); const B = d.B = bodyOf(d.em);
     const z = M.zones[d.i], petT = t - d.petAt, petted = petT < 3.6;
     if (!petted && !M.rest && t > d.next) {
       if (M.party) { d.mood = Math.random() < .55 ? 'hop' : 'trot'; d.next = t + 1.2 + Math.random() * 1.2; }
-      else { const [mood, sec] = ROUTINES[d.i][d.beat++ % ROUTINES[d.i].length]; d.mood = mood; d.next = t + sec; }
+      else { const o = this.dogs[1 - d.i]; d.mood = pickMood(d.em, d.mood, o.alpha > .3 ? o : null, t, ALLOWED); d.next = t + durFor(d.mood, d.em); }
       d.moodAt = t;
       if (d.mood === 'walk' || d.mood === 'trot') { let x = lerp(z[0], z[1], Math.random()); if (Math.abs(x - d.x) < .05) x = d.x < (z[0] + z[1]) / 2 ? z[1] - .02 : z[0] + .02; d.tx = x; }
       if (d.mood === 'hop') d.hopAt = t;
+      if (d.mood === 'tilt') d.tiltS = Math.random() < .5 ? -1 : 1;
+      if (MURMUR[d.mood]) this.murmur(d, MURMUR[d.mood], .3);
     }
     if (M.rest) d.mood = 'rest';
-    const hopT = t - d.hopAt, hopping = hopT >= 0 && hopT < 1.2;
-    const resting = d.mood === 'rest' && !petted && !hopping, sitting = d.mood === 'sit' && !petted && !hopping;
+    if (!this.free(d.x) || !this.free(d.tx)) { const nx = this.nearestFree(this.free(d.tx) ? d.tx : d.x); if (Math.abs(nx - d.tx) > .004) { d.tx = nx; d.mood = 'trot'; d.next = t + 2.5; d.moodAt = t; } }
+    const hopT = t - d.hopAt, hopping = hopT >= 0 && hopT < 1.2, mk = t - d.moodAt;
+    const resting = d.mood === 'rest' && !petted && !hopping, sitting = /^(sit|nod|sigh|yawn)$/.test(d.mood) && !petted && !hopping;
+    const awake = t >= d.wakeAt && t - d.wakeAt < 1.7;
+    d.yawn = damp(d.yawn, d.mood === 'yawn' ? pulse(mk, .3, 1.9) : 0, dt, 5); d.sigh = damp(d.sigh, d.mood === 'sigh' ? pulse(mk, .25, 2.6) : 0, dt, 3);
+    const dozeWant = !awake && d.mood === 'nod' && (mk % 4.8) < 3.9 ? 1 : 0; d.doze = damp(d.doze, dozeWant, dt, dozeWant > d.doze ? .75 : 9);
+    d.look = damp(d.look, clamp(d.em.aw * (d.mood === 'gaze' ? 1 : .35) + (t - d.burstAt >= 0 && t - d.burstAt < 2.6 ? .45 : 0)) * (1 - d.rest), dt, 2.2);
+    d.joy = t >= d.joyAt && t - d.joyAt < 1.6 ? 1 - (t - d.joyAt) / 1.6 : 0;
+    d.wph += dt * (d.joy > .05 || d.greet > .3 ? 13 : B.wag); d.bph += dt * B.breath * (1 - d.sigh * .45);
     d.rest = damp(d.rest, resting ? 1 : 0, dt, 3.5); d.sit = damp(d.sit, sitting ? 1 : 0, dt, 4);
     d.sniff = damp(d.sniff, d.mood === 'sniff' && !petted ? 1 : 0, dt, 4);
     d.greet = damp(d.greet, d.rest < .1 && d.sit < .1 ? (petted ? pulse(petT, .5, 2) : d.mood === 'greet' ? pulse(t - d.moodAt, .3, 1.8) : 0) : 0, dt, 8);
-    d.tilt = damp(d.tilt, petted ? pulse(petT, .05, 3.4) : 0, dt, 5);
+    d.tilt = damp(d.tilt, petted ? pulse(petT, .05, 3.4) : Math.max(t >= d.perkAt ? pulse(t - d.perkAt, 0, 1.4) * .7 : 0, d.mood === 'tilt' ? pulse(mk, 0, d.next - d.moodAt) * .9 : 0), dt, 5);
     const W = this.env.W, dx = (d.tx - d.x) * W, dist = Math.abs(dx);
     const walking = !petted && !hopping && (d.mood === 'walk' || d.mood === 'trot' || M.party) && dist > 2;
     d.gait = damp(d.gait, walking && d.rest < .08 && d.sit < .1 ? 1 : 0, dt, 6);
     const inward = d.i ? -1 : 1;
     let want = d.mood === 'lookback' ? inward * 135 : d.mood === 'watch' || petted ? 0 : inward * 45;
     if (resting) want = inward * 45;
+    if (d.mood === 'gaze' && !resting) want = d.em.aw > .55 && this.mode === 'tender' ? inward * 135 : inward * 45;   // backs to us, watching the sky
     if (walking) {
       want = dx > 0 ? 90 : -90;
       // speed follows the gait blend, so starts and stops ease instead of snapping
@@ -135,8 +190,8 @@ export class Pups2D {
     const headWant = d.mood === 'lookback' ? inward * 45 : petted ? 0 : walking ? want * .82 : d.yaw;
     d.headYaw = turnTo(d.headYaw, headWant, dt, 6.5);
     d.lag = damp(d.lag, d.gait * Math.sign(dx || 1), dt, 3);
-    if (t > d.nextBlink) { d.blinkUntil = t + .13 + Math.random() * .06; d.nextBlink = t + 2.6 + Math.random() * 3.4; if (Math.random() < .18) d.nextBlink = t + .32; }
-    d.closed = d.rest > .75 || (t < d.blinkUntil && !petted); // eyes stay open while she taps them
+    if (t > d.nextBlink) { d.blinkUntil = t + B.blinkLen * (.8 + Math.random() * .5); d.nextBlink = d.blinkUntil + B.blinkGap * (.6 + Math.random() * .9); if (Math.random() < .18 && B.blinkLen < .3) d.nextBlink = t + .32; }
+    d.closed = (!awake && (d.rest > .75 || d.doze > .55 || d.yawn > .45)) || (t < d.blinkUntil && !petted); // eyes stay open while she taps them
     d.hopping = hopping ? hopT : -1; d.walking = walking;
     d.hearts = d.hearts.filter(h => (h.age += dt) < 1.8);
   }
@@ -148,7 +203,7 @@ export class Pups2D {
   }
   draw(d, S, gy) {
     const g = this.g, t = this.t + d.i * 3.71, yaw = ang(d.yaw), facing = yaw < 0 ? -1 : 1, view = Math.abs(yaw), pose = poseAt(yaw);
-    const gait = d.gait, trot = d.mood === 'trot' || MODES[this.mode]?.party, breath = Math.sin(t * (d.i ? 1.72 : 2));
+    const gait = d.gait, trot = d.mood === 'trot' || MODES[this.mode]?.party, B = d.B, breath = Math.sin(d.bph) * (1 + d.sigh * 1.8);
     const hopT = d.hopping; let hop = 0, crouch = 0;
     if (hopT >= 0) {
       if (hopT < .22) crouch = Math.sin(hopT / .22 * Math.PI / 2);
@@ -181,15 +236,15 @@ export class Pups2D {
       this.layer(rear ? 'back' : 'front', yaw, r, color); g.restore();
     };
     const tail = () => {
-      const r = pose.tail, excited = d.greet * 16 + (hopT >= 0 ? 15 : 0) + gait * 7 + d.tilt * 6;
-      const wag = Math.sin(t * (excited > 8 ? 13 : 7)) * (excited + 3) * (1 - d.rest) + Math.sin(t * 2.1) * 2;
+      const r = pose.tail, excited = d.greet * 16 + (hopT >= 0 ? 15 : 0) + gait * 7 + d.tilt * 6 + d.joy * 14;
+      const wag = Math.sin(d.wph) * (excited + 3) * (B.wagA + (excited > 8 ? .4 : 0)) * (1 - d.rest) * (1 - d.doze * .7) + Math.sin(t * 2.1) * 2 + B.tail * (1 - d.rest);
       g.save(); g.translate(0, d.sit * 12 + d.rest * 24);
       g.translate(r[0] + r[2] * .5, r[1] + r[3] * .86); g.rotate((wag - d.rest * 17) * Math.PI / 180); g.translate(-r[0] - r[2] * .5, -r[1] - r[3] * .86);
       this.layer('tail', yaw, r, color); g.restore();
     };
     const head = () => {
-      const r = pose.head, tilt = d.sniff * 18 + d.rest * 20 - d.tilt * 13 + Math.sin(d.phase - .8) * gait * 2.2 + Math.sin(t * .9) * 1.2 * (1 - gait);
-      g.save(); g.translate(d.sniff * 8 + d.rest * 9 - d.lag * 2, d.sniff * 23 + d.rest * 46 - d.sit * 3 + breath * .3 - d.tilt * 2);
+      const r = pose.head, tilt = d.sniff * 18 + d.rest * 20 - d.tilt * 13 * d.tiltS + Math.sin(d.phase - .8) * gait * 2.2 + Math.sin(t * .9) * 1.2 * (1 - gait) + B.low * 5 + d.doze * 18 - d.look * 13 - d.yawn * 22 + d.sigh * 4;
+      g.save(); g.translate(d.sniff * 8 + d.rest * 9 - d.lag * 2, d.sniff * 23 + d.rest * 46 - d.sit * 3 + breath * .3 - d.tilt * 2 + B.low * 6 + d.doze * 12 - d.look * 3 - d.yawn * 4 + d.sigh * 3);
       g.translate(...pose.neck); g.rotate(tilt * Math.PI / 180); g.translate(-pose.neck[0], -pose.neck[1]);
       this.layer(d.closed ? 'blink' : 'head', d.headYaw, r, color); g.restore();
     };

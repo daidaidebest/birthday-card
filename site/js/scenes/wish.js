@@ -8,6 +8,7 @@
 import { asset, loadImage, canvas, clamp, lerp, between, easeInOut, rng, glowSprite, sparkleSprite, TAU, noise1 } from '../util.js';
 import { wander } from '../depth.js';
 import { Hearth, drawFire } from '../hearth.js';
+import { Flames } from '../flame.js';
 import { Keepsake, Closing, alphaMask } from '../keepsake.js';
 
 const A = {};
@@ -42,6 +43,15 @@ const invert = M => ({ s: 1 / M.s, x: -M.x / M.s, y: -M.y / M.s });
 const px = (f, list) => list.map(([x, y]) => [x * f.w, y * f.h]);
 const mean = pts => [0, 1].map(k => pts.reduce((a, p) => a + p[k], 0) / pts.length);
 // the close-up's wicks laid onto the wide shot's (scale + shift, least squares), so the pull back never jumps
+/** The cake's renders and their geometry for one orientation ('p' upright phone, 'l' wide screens). */
+const C3S = {};
+async function loadC3(k) {
+  const img = await Promise.all(['unlit', 'after', 'mask', 'close-unlit', 'close-lit'].map(n => loadImage(asset(`img/cake3d-${n}-${k}.webp`))))
+    .then(([unlit, after, mask, cu, cl]) => ({ unlit, after, mask, cu, cl })).catch(e => { console.warn(e); return null; }); // without them: flames in a warm dark
+  // each candle's own light on the cake (rendered alone): added one by one as she lights them, flickering with its flame
+  if (img) { const passes = await Promise.all(Array.from({ length: N }, (_, i) => loadImage(asset(`img/cake3d-close-light${i}-${k}.webp`)).catch(() => null))); if (passes.every(Boolean)) img.passes = passes; }
+  return { k, ...C3[k], M: fitWicks(C3[k]), mid: mean(px(C3[k], C3[k].wide)), img };
+}
 function fitWicks(f) {
   const C = px(f, f.close), D = px(f, f.wide), mc = mean(C), md = mean(D); let num = 0, den = 0;
   C.forEach((p, i) => { for (const k of [0, 1]) { num += (p[k] - mc[k]) * (D[i][k] - md[k]); den += (p[k] - mc[k]) ** 2; } });
@@ -75,16 +85,11 @@ const FW = ['255,226,170', '255,214,150', '255,236,205', '250,200,175'];
 export default {
   id: 'wish', music: 'wish', bed: 'fire',
   async load(env) {
-    if (A.c3) return;
-    const k = env.portrait ? 'p' : 'l';
-    const img = await Promise.all(['unlit', 'after', 'mask', 'close-unlit', 'close-lit'].map(n => loadImage(asset(`img/cake3d-${n}-${k}.webp`))))
-      .then(([unlit, after, mask, cu, cl]) => ({ unlit, after, mask, cu, cl })).catch(e => { console.warn(e); return null; }); // without them: flames in a warm dark
-    // each candle's own light on the cake (rendered alone): added one by one as she lights them, flickering with its flame
-    if (img) { const passes = await Promise.all(Array.from({ length: N }, (_, i) => loadImage(asset(`img/cake3d-close-light${i}-${k}.webp`)).catch(() => null))); if (passes.every(Boolean)) img.passes = passes; }
-    A.c3 = { k, ...C3[k], M: fitWicks(C3[k]), mid: mean(px(C3[k], C3[k].wide)), img };
+    if (!A.c3) { const k = env.portrait ? 'p' : 'l'; A.c3 = await (C3S[k] = loadC3(k)); }
   },
   create(env) {
-    const { el, fx } = env, c3 = A.c3, I = c3.img, R = rng(13);
+    const { el, fx } = env, R = rng(13);
+    let c3 = A.c3, I = c3.img;   // the cake as rendered for this orientation; turning the phone swaps in the other one
     el.innerHTML = `
       <div class="ws-world"><canvas class="ws-room"></canvas>
       <canvas class="full ws-cake"></canvas></div>
@@ -122,7 +127,7 @@ export default {
     const shells = [], sparks = [], fwGlow = Object.fromEntries([...FW, '255,230,190'].map(c => [c, glowSprite(c, 32, 2.6)]));
     let flashA = 0, flashC = FW[0], nextShell = 0, fwStop = Infinity;
     const flames = Array.from({ length: N }, () => ({ lit: 0, out: 0, seed: R() * 40 }));
-    const flights = [], smoke = [];
+    const flights = [], air = new Flames(N, { reduced: env.reduced });   // the flames' own physics (flame.js)
     let T = 0, phase = 'light', phaseAt = 0, lit = 0, blowAt = 0, finalAt = 0, creditsAt = 0, round = 1, step = {}, mic = null;
     let map = { s: 1, x: 0, y: 0 }, camC = map, wT = map, cT = map, rs = 1, topDirty = true, look = null, zBase = 1.02, soft = null;
     let cam = { from: 0, to: 0, at: 0, dur: 1 }, e = 0, lamp = 0, heat = 1; // e: 0 = the close-up, 1 = the wide shot of the room
@@ -131,8 +136,8 @@ export default {
 
     // ---------- lighting by hand: each candle owns a column of the screen ----------
     let touch = null, carry = false, dwell = { i: -1, t: 0 }, lastLight = 0, lastCarry = -1, lastTap = -1, idleAt = 0, hinted = false, sayTimer = 0;
-    const hintEl = document.createElement('p'); hintEl.className = 'ws-hint'; el.appendChild(hintEl);
-    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    // on a phone held upright the cake (and her finger) fill the bottom of the frame: the hint waits under the top edge
+    let hintOn = false; const hint = text => { hintOn = !!text; env.hint(text, { top: env.portrait }); };
     const tip = i => at(cT, c3.close[i][0] * c3.w, c3.close[i][1] * c3.h);
     const spacing = () => (tip(N - 1)[0] - tip(0)[0]) / (N - 1);
     const flameSize = () => spacing() * .55;
@@ -189,6 +194,7 @@ export default {
 
     function layout() {
       const W = env.W, H = env.H;
+      if (c3.k !== (env.portrait ? 'p' : 'l')) turnTo(env.portrait ? 'p' : 'l');
       rs = env.res(true); top.width = Math.round(W * rs); top.height = Math.round(H * rs); cv.width = Math.round(W * env.dpr); cv.height = Math.round(H * env.dpr);
       room._r = env.res(true); room._at = -1; // a resized canvas is blank: repaint on the next frame
       const s = Math.max(W / c3.w, H / c3.h); map = { s, x: (W - c3.w * s) / 2, y: (H - c3.h * s) / 2 };
@@ -207,6 +213,15 @@ export default {
       el.style.setProperty('--look-origin', `${wcx.toFixed(1)}px ${wcy.toFixed(1)}px`);
       keep.layout(W, H);
     }
+    // the phone turned: fetch the cake framed for the new orientation (candle state is by index, so it carries over)
+    let turning = null;
+    function turnTo(k) {
+      if (turning === k) return; turning = k;
+      (C3S[k] || (C3S[k] = loadC3(k))).then(n => {
+        if (turning !== k || (env.portrait ? 'p' : 'l') !== k) return;
+        A.c3 = c3 = n; I = n.img; soft = soft && I ? feather(I.cu) : null; glassA = I && alphaMask(I.mask, c3.glass, c3); turning = null; layout();
+      });
+    }
     layout();
 
     function startWish() { if (phase !== 'ask') return; phase = 'wish'; phaseAt = T; el.classList.add('wishing'); el.classList.remove('asking'); env.audio.duck(.4, 2.5); env.audio.hit?.('wish'); env.pups.set('quiet'); }
@@ -220,7 +235,7 @@ export default {
     function wishAgain() {
       if (ending) return;
       keep.hide(); cardOn = false; round++; fwStop = T;
-      flames.forEach(f => { f.lit = 0; f.out = 0; }); flights.length = 0; smoke.length = 0; lit = 0;
+      flames.forEach(f => { f.lit = 0; f.out = 0; }); flights.length = 0; lit = 0;
       phase = 'relight'; phaseAt = T; setCam(0, 2.6);
       el.classList.remove('blown', 'final', 'credits', 'look', 'keepsake', 'asking'); env.audio.cue('wish', 2); env.pups.set('party');
     }
@@ -279,7 +294,7 @@ export default {
     }
 
     // ---------- the room: the close-up and the wide shot, cross-faded while the camera pulls back ----------
-    const glassCv = canvas(1, 1), glassG = glassCv.getContext('2d'), glassA = I && alphaMask(I.mask, c3.glass, c3);
+    const glassCv = canvas(1, 1), glassG = glassCv.getContext('2d'); let glassA = I && alphaMask(I.mask, c3.glass, c3);
     const blit = (img, T, a) => { if (!img || a <= .004) return; sg.globalAlpha = Math.min(1, a); sg.drawImage(img, T.x, T.y, c3.w * T.s, c3.h * T.s); };
     function paint(t, rr) {
       const W = env.W, H = env.H;
@@ -375,7 +390,7 @@ export default {
           if (phase === 'light' && lit >= 1 && nx != null) {
             if (!hinted && t - Math.max(lastLight, idleAt) > 2.4 && !touch) { hinted = true; hint('把烛火带给下一支蜡烛，或轻点它'); }
             if (env.auto && t - Math.max(lastLight, idleAt) > AUTO_LIGHT && !touch) launch(nx); // test mode only: the candles are hers to light
-            if (hinted && !touch && t - Math.max(lastLight, idleAt) > 11 && !hintEl.classList.contains('on')) hint('轻点下一支蜡烛，点亮它');
+            if (hinted && !touch && t - Math.max(lastLight, idleAt) > 11 && !hintOn) hint('轻点下一支蜡烛，点亮它');
             // a soft ring breathing round the candle that is waiting next
             const a = between(t - Math.max(lastLight, idleAt), .9, 1.9) * (flights.some(f => !f.done) ? 0 : 1);
             if (a > 0) {
@@ -400,7 +415,7 @@ export default {
           // a flame carried just above her fingertip: it lights one candle at a time, once it has rested on it a moment
           if (carry && touch) {
             const cx = touch.x, cy = touch.y - (touch.finger ? 34 : 0);
-            drawFlame(g, cx, cy, fs * .75, t, 3, 0, 1);
+            air.carried(g, cx, cy, fs * .75, dt);
             if (Math.random() < .7) fx.trail(cx, cy - 6, { life: .9, size: 1.3, vy: -20 });
             const i = inBand(touch.x, touch.y) ? column(touch.x) : -1;
             const sp = dwell.x == null ? 0 : Math.hypot(touch.x - dwell.x, touch.y - dwell.y) / Math.max(dt, 1e-3); dwell.x = touch.x; dwell.y = touch.y;
@@ -419,20 +434,16 @@ export default {
           }
           if (env.auto && k > 22) blow();
         }
+        // the air around the candles: the room's draught, her finger, the breath of her wish, the blow
+        air.step(dt, t, { tips: tip, finger: touch, breath: phase === 'wish' ? 1 : 0, blowAt: phase === 'blown' ? blowAt : null, spacing: fs * 2 });
         flames.forEach((f, i) => {
           if (f.lit > 0) f.lit = Math.min(1, f.lit + dt * 2.2);
-          if (phase === 'blown') { const st = blowAt + .35 + i * .09; if (t > st && f.out < 1) { if (f.out === 0) for (let k = 0; k < 26; k++) smoke.push({ i, age: -k * .07, p: Math.random() * TAU }); f.out = Math.min(1, f.out + dt * 5); } }
+          if (phase === 'blown') { const st = blowAt + .35 + i * .09; if (t > st && f.out < 1) { if (f.out === 0) { const [x, y] = tip(i); air.snuff(i, x, y, fs); } f.out = Math.min(1, f.out + dt * 5); } }
           const a = f.lit * (1 - f.out); if (a <= 0) return;
-          const [x, y] = tip(i), lean = phase === 'blown' ? between(t, blowAt, blowAt + .35) * 14 : 0;
-          drawFlame(g, x, y, fs * (.4 + .6 * a), t, f.seed, lean, a);
+          const [x, y] = tip(i); air.draw(g, i, x, y, fs * (.4 + .6 * a), a);
         });
         // smoke wisps curling up
-        for (let k = smoke.length - 1; k >= 0; k--) {
-          const s = smoke[k]; s.age += dt; if (s.age > 3.2) { smoke.splice(k, 1); continue; } if (s.age < 0) continue;
-          const [x, y] = tip(s.i), u = s.age / 3.2, sc = fs / 16;
-          g.globalAlpha = (1 - u) * .22; const r = (2 + u * 12) * sc;
-          g.drawImage(smokeS, x + Math.sin(s.age * 3 + s.i) * 10 * u * sc + Math.sin(s.age * 7 + s.p) * 2 - r, y - 8 * sc - u * 120 * sc - r, r * 2, r * 2);
-        }
+        air.smoke(g, tip);
         g.globalAlpha = 1;
 
         // ---------- after the wish ----------
@@ -503,15 +514,3 @@ export default {
   },
 };
 function heartPath(g, x, y, s) { g.beginPath(); for (let i = 0; i <= 40; i++) { const a = i / 40 * TAU; const hx = 16 * Math.pow(Math.sin(a), 3), hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); i ? g.lineTo(x + hx * s / 16, y + hy * s / 16) : g.moveTo(x + hx * s / 16, y + hy * s / 16); } g.closePath(); }
-function drawFlame(g, x, y, s, t, seed, lean, a) {
-  const f = 1 + Math.sin(t * 13 + seed) * .07 + Math.sin(t * 7.1 + seed * 3) * .05, sway = Math.sin(t * 3.3 + seed) * s * .07 + lean * s * .06;
-  g.save(); g.translate(x, y); g.globalAlpha = a;
-  g.globalCompositeOperation = 'lighter';
-  const halo = g.createRadialGradient(0, -s * .5, 0, 0, -s * .5, s * 2.6); halo.addColorStop(0, 'rgba(255,200,120,.26)'); halo.addColorStop(1, 'rgba(255,160,80,0)');
-  g.fillStyle = halo; g.fillRect(-s * 3.2, -s * 3.7, s * 6.4, s * 6.4);
-  const gr = g.createRadialGradient(0, -s * .38, 0, 0, -s * .5, s * .95);
-  gr.addColorStop(0, 'rgba(255,253,235,1)'); gr.addColorStop(.3, 'rgba(255,214,130,.95)'); gr.addColorStop(.75, 'rgba(255,140,50,.55)'); gr.addColorStop(1, 'rgba(255,100,30,0)');
-  g.fillStyle = gr; g.beginPath(); g.moveTo(0, s * .12); g.bezierCurveTo(-s * .36, -s * .1, -s * .2 + sway, -s * .8 * f, sway * 1.8, -s * 1.3 * f); g.bezierCurveTo(s * .2 + sway, -s * .8 * f, s * .36, -s * .1, 0, s * .12); g.fill();
-  g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(90,120,255,.35)'; g.beginPath(); g.ellipse(0, 0, s * .12, s * .16, 0, 0, TAU); g.fill();
-  g.restore();
-}

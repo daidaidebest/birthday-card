@@ -17,6 +17,8 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/scenes.css">
 <link rel="stylesheet" href="css/keepsake.css">
+<link rel="stylesheet" href="css/ribbon.css">
+<link rel="stylesheet" href="css/grade.css">
 </head>
 <body>
 <main id="film" class="is-loading">
@@ -26,7 +28,6 @@
   <div id="bars" aria-hidden="true"><i></i><i></i></div>
   <div id="grade" aria-hidden="true"></div>
   <div id="grain" aria-hidden="true"></div>
-  <div id="subtitle" aria-live="polite"></div>
   <div id="chapter-card" aria-hidden="true"><small></small><b></b><span></span><em class="cc-candles"><i></i><i></i><i></i><i></i><i></i><i></i></em></div>
 
   <section id="gate" aria-label="开始">
@@ -58,7 +59,13 @@
       <button type="button" id="menu-close">合上目录</button>
     </div>
   </div>
-  <button id="btn-next" type="button" hidden>继续 <span>→</span></button>
+  <div id="dock">
+    <div id="subtitle" aria-live="polite"></div>
+    <p id="hint" aria-live="polite"></p>
+    <button id="btn-next" type="button" hidden>继续 <span>→</span></button>
+  </div>
+  <p id="hint-top" aria-live="polite"></p>
+  <i id="safe-probe" aria-hidden="true"></i>
   <div id="progress" aria-hidden="true"><i></i></div>
 </main>
 <script src="js/content.js"></script>

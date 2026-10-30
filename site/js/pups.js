@@ -5,9 +5,15 @@
 // tail ride on springs, and the head turns to follow whoever is watching. They notice the pointer,
 // follow a finger dragged along the floor, lean into a stroke, spin when tapped, and amuse
 // themselves (play bows, scratches, shakes, naps) when left alone.
+// v19: they feel the story (pupfeel.js): curious ears and head tilts while the magic book wakes, heavy-lidded and nodding
+// off by the fire as she reads on, bouncing through the sand journey, soft and close over the photographs and the letter,
+// excited-but-gentle at the cake, still while she wishes, turned to the window in awe of the fireworks, then quiet.
+// Feeling moves ear set, tail carriage and wag speed, breathing, how low the head hangs, gaze and blinking, and what
+// they choose to do; what they hear (a page, a candle lit, a burst in the sky) pricks an ear or wakes a dozing one.
 // Falls back to the 2D rig (pups2d.js) when WebGL is unavailable.
 import { asset, loadImage, clamp, lerp } from './util.js';
 import { Pups2D } from './pups2d.js';
+import { feelFor, NATURE, blendFeel, calmFeel, pickMood, durFor, MURMUR, bodyOf, AVOID, shown } from './pupfeel.js';
 
 const LAYOUT = {"apricot":{"head":[[10,41,255,216],[276,31,250,225],[546,43,218,212],[778,42,221,212],[1013,42,232,213]],"body":[[34,281,205,197],[270,273,231,208],[512,275,254,202],[779,277,227,208],[1029,280,195,204]],"front":[[71,494,123,237],[312,494,165,234],[572,496,151,233],[830,494,137,233],[1079,498,113,230]],"back":[[65,737,134,261],[315,735,162,261],[562,735,166,262],[832,736,151,261],[1070,736,128,262]],"tail":[[46,1021,174,191],[299,1023,163,194],[554,1034,161,177],[810,1015,174,197],[1043,1015,175,199]],"blink":[[11,107,368,302],[380,99,353,311],[752,115,317,296],[1079,111,330,301],[1419,109,346,301]]},"cream":{"head":[[8,39,260,220],[272,31,257,229],[544,41,222,217],[776,40,237,218],[1013,40,234,219]],"body":[[31,277,211,204],[269,270,234,214],[512,273,257,207],[778,274,231,212],[1028,273,198,212]],"front":[[69,493,127,240],[310,492,168,237],[570,494,155,236],[827,492,143,237],[1077,496,117,233]],"back":[[62,735,141,265],[312,734,166,264],[558,734,172,265],[831,734,153,264],[1069,735,132,264]],"tail":[[42,1019,182,196],[297,1022,171,200],[550,1031,171,183],[807,1012,180,203],[1041,1012,181,207]],"blink":[[11,481,369,302],[380,471,353,313],[753,487,316,297],[1080,485,329,300],[1420,483,347,301]]}};
 // Planted feet and an anatomical neck anchor shared through a turn (280-unit drawing space).
@@ -26,12 +32,6 @@ const EARS = [
   [[.62, .3, .66, .82], [.2, .3, .12, .7]],
   [[.2, .3, .1, .82], [.8, .3, .9, .82]],
 ];
-// Teddies are busy little dogs: the routine keeps them pottering, and every so often they do one of their tricks
-// on their own (a bark, a sneeze, chasing their tail, standing up to 作揖, zoomies, a visit to the other one).
-const ROUTINES = [
-  [['watch', 2.2], ['walk', 3], ['bark', 1.4], ['lookback', 2], ['trot', 2.2], ['greet', 2.2], ['bow', 2.2], ['chase', 2.4], ['watch', 2.5], ['sniff', 2.4], ['beg', 3.2], ['sit', 3], ['scratch', 2], ['zoom', 3.2], ['sneeze', 1.6], ['sit', 2.5], ['rest', 5]],
-  [['greet', 2.2], ['watch', 3], ['walk', 3], ['shake', 1.4], ['visit', 6], ['trot', 2.2], ['beg', 3.2], ['sit', 3], ['hop', 1.6], ['bark', 1.4], ['watch', 2.5], ['chase', 2.4], ['bow', 2.2], ['sneeze', 1.6], ['zoom', 3.2], ['rest', 5.5]],
-];
 // What they say now and then, by scene (and when she plays with them)
 const CHATTER = {
   book: ['这本书闻起来甜甜的', '快翻开看看嘛', '我也想听故事', '汪？下一页呢'],
@@ -41,8 +41,8 @@ const CHATTER = {
   tender: ['生日快乐', '今晚真美', '愿望一定会实现', '一直陪着你'],
 };
 const TRICKS = { bark: ['汪！', '汪汪！', '嗷呜～'], sneeze: ['阿嚏！', '哈啾～'], beg: ['作揖～', '恭喜恭喜！', '给寿星作揖～'], ball: ['陪我玩球？', '扔球球！'], fetch: ['再来一次！', '我捡到啦！', '还要玩！'] };
-// interactive things the puppies must never sit in front of
-const AVOID = '#btn-next.on, .jr-hint.on, .pro-letter-wrap.hinted .pro-hint, .pup-avoid, .ws-hint.on, .bk-hint.on, .mm-hint.on';
+// what this rig can do when the feeling picks (pupfeel.js)
+const ALLOWED = ['watch', 'sit', 'rest', 'walk', 'trot', 'zoom', 'hop', 'bark', 'sniff', 'lookback', 'greet', 'bow', 'chase', 'scratch', 'sneeze', 'beg', 'shake', 'visit', 'yawn', 'nod', 'gaze', 'sigh', 'tilt'];
 const MODES = {
   book: { y: [.95, .965], zones: [[.04, .27], [.73, .96]] },
   journey: { y: [.975, .985], zones: [[.03, .17], [.83, .97]], small: .85 },
@@ -106,7 +106,14 @@ export class Pups {
       petAt: -99, pet: 0, nextBlink: 2 + i * 1.4, blinkUntil: 0, alpha: 0, hearts: [], lag: 0, hopping: -1, walking: false, closed: false,
       spinAt: -99, spin2At: -99, gaze: 0, gazeY: 0, attn: 0, follow: false, beg: 0, sneezeAt: -99, perkAt: -99, home: null,
       ear: [{ x: 0, v: 0 }, { x: 0, v: 0 }], tailS: { x: 0, v: 0 }, body: { x: 0, v: 0 }, vx: 0, lastVx: 0, lastY: 0, vy: 0,
+      em: calmFeel(), B: bodyOf(calmFeel()), wph: i * 1.3, bph: i * 2.1, pph: 0, doze: 0, look: 0, yawn: 0, sigh: 0, tiltS: 1, perkK: 0,
+      joyAt: -99, wakeAt: -99, twitch: 0, twitchS: 0, earSet: 0,
     }));
+    this.story = {}; this.modeAt = 0; this.murmurAt = 0;
+    // they hear the music's moments too (a page turned, the letter opened, a candle lit, a burst in the sky): the
+    // stingers and fireworks are wrapped here, passing everything through unchanged
+    const A = env.audio;
+    if (A?.hit) { const h = A.hit.bind(A); A.hit = (kind, o) => { const when = h(kind, o); try { this.hearHit(kind, when, o?.pan != null ? clamp(o.pan / 1.2 + .5) : null); } catch { /* never in the music's way */ } return when; }; }
     this.bubbles = this.dogs.map(() => { const b = document.createElement('span'); b.className = 'pup-bubble'; el.parentNode.appendChild(b); return b; });
     this.pointer = { x: -1, y: -1, at: -99, down: false, downAt: -99, sx: 0, sy: 0, moved: 0 };
     this.ko = []; this.koAt = 0; this.chatAt = 14; this.ball = null; this.ballAt = 40;
@@ -149,7 +156,7 @@ export class Pups {
   set(mode) {
     if (mode === this.mode) return;
     if (MODES[this.mode]) this.lastM = MODES[this.mode];
-    this.mode = mode; const M = MODES[mode]; this.showAt = this.t + 1;
+    this.mode = mode; const M = MODES[mode]; this.showAt = this.t + 1; this.modeAt = this.t; this.story = {};
     this.dogs.forEach(d => {
       d.beat = 0; d.next = this.t + 1 + d.i * 1.5; d.mood = M?.rest ? 'rest' : 'watch'; d.follow = false;
       if (M) { const z = M.zones[d.i]; if (d.alpha < .05) d.x = d.tx = lerp(z[0], z[1], d.i ? .7 : .3); else d.tx = clamp(d.x, z[0], z[1]); }
@@ -224,7 +231,7 @@ export class Pups {
     this.koAt = this.t + .25; const W = this.env.W, gy = this.ground(), S = this.size(), out = [];
     document.querySelectorAll(AVOID).forEach(e => {
       const r = e.getBoundingClientRect(); if (!r.width || r.bottom < gy - S * 1.1 || r.top > gy + 8) return;
-      if (+getComputedStyle(e).opacity < .05) return;
+      if (!shown(e)) return;
       out.push([(r.left - S * .62) / W, (r.right + S * .62) / W]);
     });
     return this.ko = out;
@@ -242,10 +249,33 @@ export class Pups {
     if (!MODES[this.mode]) return;
     const t = this.t;
     this.dogs.forEach((d, i) => {
+      const lag = .08 + i * .17 + Math.random() * .12;   // never both at the same instant
       if (name === 'blow') d.hopAt = t + i * .25;
-      else if (name === 'chime' || name === 'sparkle' || name === 'light') d.perkAt = t + i * .15;
-      else if (name === 'page' && Math.random() < .5) d.perkAt = t;
+      else if (name === 'chime' || name === 'sparkle' || name === 'light' || name === 'glint' || name === 'shimmer' || name === 'whoosh') this.perk(d, t + lag, name === 'whoosh' ? 1 : .7);
+      else if (name === 'page' || name === 'sand') { if (Math.random() < .6) this.perk(d, t + lag, .6); }
     });
+  }
+  /** A sound pricks the ears: a dozing puppy half wakes (an ear lifts, the eyes open a moment), an alert one tilts its head. */
+  perk(d, at, k = 1) {
+    d.perkAt = at; d.perkK = k;
+    d.twNext = at; d.twitchS = Math.random() < .5 ? 0 : 1;
+    if (d.doze > .3 || d.rest > .5) d.wakeAt = at;
+  }
+  /** The music's moments (stingers) and the fireworks. when: the context time the sound lands (react on it). */
+  hearHit(kind, when, x) {
+    if (!MODES[this.mode]) return;
+    const t = this.t, A = this.env.audio, delay = when != null && A?.until ? Math.min(1.5, A.until(when)) : 0, s = this.story;
+    if (kind === 'page' || kind === 'cover') { s.page = (s.page || 0) + (kind === 'page' ? 1 : 0); this.dogs.forEach((d, i) => this.perk(d, t + delay + .1 + i * .22, .8)); }
+    else if (kind === 'letter') { s.letter = true; s.letterAt = t - this.modeAt; this.dogs.forEach((d, i) => { this.perk(d, t + .3 + i * .4, .6); if (!d.follow && d.mood !== 'fetch') { d.mood = 'sigh'; d.moodAt = t + .6 + i * .5; d.next = t + 4 + i; } }); }
+    else if (kind === 'photo' || kind === 'flip') { const d = this.dogs[Math.random() < .5 ? 0 : 1]; this.perk(d, t + delay + .15, .6); if (kind === 'flip' && d.mood !== 'fetch') { d.tiltS = Math.random() < .5 ? -1 : 1; d.perkAt = t + delay + .1; } }
+    else if (kind === 'candle') { this.dogs.forEach((d, i) => { d.joyAt = t + delay + i * .2; this.perk(d, t + delay + i * .2, .9); }); const d = this.dogs[(s.candles = (s.candles || 0) + 1) % 2]; if (d.rest < .3) d.hopAt = t + delay + .1; }
+    else if (kind === 'burst') {   // awe: ears up and eyes to the sky, the nearer one first
+      const fx = x ?? .5; this.dogs.forEach(d => { const at = t + delay + .12 + Math.abs(d.x - fx) * .5; this.perk(d, at, 1); d.burstAt = at; });
+    } else if (kind === 'station') this.dogs.forEach((d, i) => { d.joyAt = t + delay + i * .15; });
+  }
+  murmur(d, list, p = 1) {
+    if (!list || Math.random() > p || this.t - this.murmurAt < 9 || this.t - (d.saidAt || -9) < 6) return;
+    this.murmurAt = this.t; this.say(d, list[Math.floor(Math.random() * list.length)], 1700);
   }
   say(d, text, ms = 2200) {
     const S = this.size(), gy = this.ground(), b = this.bubbles[d.i];
@@ -305,6 +335,8 @@ export class Pups {
     const on = M && t > (this.showAt || 0);
     d.alpha = damp(d.alpha, on ? 1 : 0, dt, on ? 4 : 8);
     if (!M) return;
+    // the story's feeling, eased in (pupfeel.js), and the body that goes with it
+    blendFeel(d.em, feelFor(this.mode, t - this.modeAt, this.story), NATURE[d.i], dt); const B = d.B = bodyOf(d.em), other = this.dogs[1 - d.i];
     let z = M.zones[d.i]; const petT = t - d.petAt, petted = petT < 3.6, p = this.pointer;
     d.pet = Math.max(0, d.pet - dt * .35);
     // attention: a recently moved pointer draws the eyes
@@ -322,12 +354,18 @@ export class Pups {
     } else if (d.mood === 'fetch') d.mood = 'watch';
     if (!petted && !M.rest && t > d.next && !d.follow && d.mood !== 'fetch') {
       if (M.party) { d.mood = Math.random() < .55 ? 'hop' : Math.random() < .3 ? 'chase' : 'trot'; d.next = t + 1.2 + Math.random() * 1.2; }
-      else if (M.calm) { d.mood = ['sit', 'watch', 'greet', 'sit', 'lookback'][d.beat++ % 5]; d.next = t + 3 + Math.random() * 2; }
-      else { const [mood, sec] = ROUTINES[d.i][d.beat++ % ROUTINES[d.i].length]; d.mood = mood; d.next = t + sec; }
+      else { d.mood = pickMood(d.em, d.mood, other.alpha > .3 ? other : null, t, ALLOWED); d.next = t + durFor(d.mood, d.em); }
       d.moodAt = t;
+      if (d.mood === 'tilt') { d.tiltS = Math.random() < .5 ? -1 : 1; this.murmur(d, MURMUR.tilt, .35); }
+      else if (d.mood === 'yawn') this.murmur(d, MURMUR.yawn, .3);
+      else if (d.mood === 'nod') this.murmur(d, MURMUR.nod, .3);
+      else if (d.mood === 'sigh') this.murmur(d, MURMUR.sigh, .25);
+      else if (d.mood === 'gaze' && d.em.aw > .6) this.murmur(d, MURMUR.gaze, .35);
+      else if ((d.mood === 'trot' || d.mood === 'zoom') && this.mode === 'journey') this.murmur(d, MURMUR.eager, .2);
+      else if (d.mood === 'watch' && this.mode === 'party') this.murmur(d, MURMUR.gentle, .15);
       if (d.mood === 'walk' || d.mood === 'trot') { let x = lerp(z[0], z[1], Math.random()); if (Math.abs(x - d.x) < .05) x = d.x < (z[0] + z[1]) / 2 ? z[1] - .02 : z[0] + .02; d.tx = x; }
       if (d.mood === 'zoom') d.tx = d.x < (z[0] + z[1]) / 2 ? z[1] : z[0];
-      if (d.mood === 'visit') { const o = this.dogs[1 - d.i]; d.home = d.x; d.tx = clamp(o.x + (d.x < o.x ? -1 : 1) * S * .9 / W, .05, .95); if (!this.free(d.tx) || o.alpha < .5) { d.mood = 'watch'; d.home = null; } }
+      if (d.mood === 'visit') { const o = this.dogs[1 - d.i]; d.home = d.x; d.tx = clamp(o.x + (d.x < o.x ? -1 : 1) * S * (d.em.te > .5 ? .66 : .9) / W, .05, .95); if (!this.free(d.tx) || o.alpha < .5) { d.mood = 'watch'; d.home = null; } }
       if (d.mood === 'hop') d.hopAt = t;
       if (d.mood === 'chase') { d.spinAt = t; d.spin2At = t + 1.05; }
       if (d.mood === 'bark') { d.hopAt = t + .05; this.say(d, pick(TRICKS.bark), 1300); this.bark(d); }
@@ -337,10 +375,12 @@ export class Pups {
       if (d.mood === 'beg') this.say(d, pick(TRICKS.beg), 2400);
       // now and then, a word about what is happening in the story; or the ball, brought over to play
       if (t > this.chatAt && CHATTER[this.mode] && !(t - (d.saidAt || -9) < 4)) { this.chatAt = t + 16 + Math.random() * 12; this.say(d, pick(CHATTER[this.mode]), 2600); }
-      else if (t > this.ballAt && !this.ball && !M.party && !M.calm && Math.random() < .5) { this.ballAt = t + 45; this.bringBall(d); }
+      else if (t > this.ballAt && !this.ball && !M.party && d.em.ar > .4 && d.em.dr < .3 && d.em.te < .6 && Math.random() < .5) { this.ballAt = t + 45; this.bringBall(d); }
     }
     // a visit to the other puppy: a sniff, nose to nose, then back home
-    if (d.mood === 'visit' && d.home != null && Math.abs(d.tx - d.x) * W < 3 && t - d.moodAt > 2.4) { d.tx = d.home; d.home = null; d.mood = 'walk'; d.next = t + 3; }
+    // (tender: the visitor sits close beside the other a while before going home)
+    const snug = d.mood === 'visit' && d.home != null && Math.abs(d.tx - d.x) * W < 3;
+    if (snug && t - d.moodAt > 2.4 + d.em.te * 8) { d.tx = d.home; d.home = null; d.mood = 'walk'; d.next = t + 3; }
     if (d.mood === 'visit' || d.mood === 'fetch') z = [.03, .97];
     // never in front of a button or a hint: step aside, to the nearest clear spot
     if (!d.follow && (!this.free(d.x) || !this.free(d.tx))) {
@@ -351,7 +391,9 @@ export class Pups {
     if (t > d.spin2At && t - d.spin2At < .1 && t - d.spinAt > 1) { d.spinAt = d.spin2At; d.spin2At = -99; } // chasing its tail: round twice
     const hopT = t - d.hopAt, hopping = hopT >= 0 && hopT < 1.2, spinT = t - d.spinAt, spinning = spinT >= 0 && spinT < 1.1;
     const busy = petted || hopping || spinning;
-    const resting = d.mood === 'rest' && !busy, sitting = (d.mood === 'sit' || d.mood === 'scratch' || d.mood === 'beg') && !busy;
+    const resting = d.mood === 'rest' && !busy, mk = t - d.moodAt;
+    const sitting = (d.mood === 'sit' || d.mood === 'scratch' || d.mood === 'beg' || d.mood === 'nod' || d.mood === 'sigh' || (d.mood === 'yawn' && d.em.dr > .4)
+      || (d.mood === 'gaze' && d.em.ar < .5) || (snug && d.em.te > .5)) && !busy;
     d.beg = damp(d.beg, d.mood === 'beg' && !busy && t - d.moodAt > .5 ? 1 : 0, dt, 6);
     d.rest = damp(d.rest, resting ? 1 : 0, dt, 2.6); d.sit = damp(d.sit, sitting ? 1 : 0, dt, 4);
     d.sniff = damp(d.sniff, d.mood === 'sniff' && !busy ? 1 : 0, dt, 4);
@@ -359,7 +401,22 @@ export class Pups {
     d.scratch = damp(d.scratch, d.mood === 'scratch' && !busy && t - d.moodAt > .5 ? 1 : 0, dt, 8);
     d.shake = d.mood === 'shake' && !busy ? pulse(t - d.moodAt, 0, 1.3) : 0;
     d.greet = damp(d.greet, d.rest < .1 && d.sit < .1 ? (petted ? pulse(petT, .5, 2) : d.mood === 'greet' ? pulse(t - d.moodAt, .3, 1.8) : 0) : 0, dt, 8);
-    d.tilt = damp(d.tilt, petted ? pulse(petT, .05, 3.4) : pulse(t - d.perkAt, 0, 1.4) * .8, dt, 5);
+    d.tilt = damp(d.tilt, petted ? pulse(petT, .05, 3.4) : Math.max(pulse(t - d.perkAt, 0, 1.4) * .8 * d.perkK * (d.doze > .4 ? .3 : 1), d.mood === 'tilt' && !busy ? pulse(mk, 0, d.next - d.moodAt) * .95 : 0), dt, 5);
+    // feeling in the body: a yawn, a sigh, nodding off (drifting down slowly, jerking awake), eyes to the sky, ear set
+    const awake = t >= d.wakeAt && t - d.wakeAt < 1.7;
+    d.yawn = damp(d.yawn, d.mood === 'yawn' && !busy ? pulse(mk, .3, 1.9) : 0, dt, 5);
+    d.sigh = damp(d.sigh, d.mood === 'sigh' && !busy ? pulse(mk, .25, 2.6) : 0, dt, 3);
+    const dozeWant = awake || busy ? 0 : d.mood === 'nod' ? ((mk % 4.8) < 3.9 ? 1 : 0) : 0;
+    d.doze = damp(d.doze, dozeWant, dt, dozeWant > d.doze ? .75 : 9);
+    const burst = t - (d.burstAt ?? -99);
+    d.look = damp(d.look, clamp(d.em.aw * (d.mood === 'gaze' ? 1 : .35) + (burst >= 0 && burst < 2.6 ? .45 : 0)) * (d.attn > .5 ? .3 : 1) * (1 - d.rest), dt, 2.2);
+    const perkV = t >= d.perkAt ? pulse(t - d.perkAt, 0, 1.7) * d.perkK : 0;
+    d.earSet = damp(d.earSet, B.ears + perkV * .8 - d.yawn * .8 - d.doze * .3, dt, perkV > .1 ? 9 : 3);
+    if (t > (d.twNext ?? 4 + d.i * 2.3)) { d.twAt = t; if (!(t - d.perkAt < .1)) d.twitchS = Math.random() < .5 ? 0 : 1; d.twNext = t + (d.doze > .3 || d.rest > .5 ? 2.5 : 5.5) + Math.random() * 6; }
+    d.twitch = pulse(t - (d.twAt ?? -9), 0, .3);
+    const joy = t >= d.joyAt && t - d.joyAt < 1.6 ? 1 - (t - d.joyAt) / 1.6 : 0; d.joy = joy;
+    d.wagSpeed = damp(d.wagSpeed ?? B.wag, Math.max(B.wag, d.greet > .3 || d.pet > .3 || joy > .05 ? 13 : 0), dt, 3); d.wph += dt * d.wagSpeed;
+    d.bph += dt * B.breath * (1 - d.sigh * .45); d.pph += dt * 10.5;
     const dx = (d.tx - d.x) * W, dist = Math.abs(dx);
     const walking = !busy && (d.mood === 'walk' || d.mood === 'trot' || d.mood === 'zoom' || d.mood === 'visit' || d.mood === 'fetch' || M.party || d.follow) && dist > 2;
     d.gait = damp(d.gait, walking && d.rest < .08 && d.sit < .1 ? 1 : 0, dt, 6);
@@ -367,6 +424,8 @@ export class Pups {
     let want = d.mood === 'lookback' ? inward * 135 : d.mood === 'watch' || d.mood === 'beg' || d.mood === 'bark' || petted ? 0 : inward * 45;
     if (d.attn > .5 && !walking && !resting) want = Math.round(clamp(dxp / (S * 3), -1, 1) * .9) * 45; // face the visitor (on a drawn view)
     if (resting) want = inward * 45;
+    // awe at the sky beyond the window: they turn their backs to us and watch it with us
+    if (d.mood === 'gaze' && !resting && !(d.attn > .5)) want = d.em.aw > .55 && this.mode === 'tender' ? inward * 135 : inward * 45;
     const x0 = d.x;
     if (walking) {
       want = dx > 0 ? 90 : -90;
@@ -396,8 +455,9 @@ export class Pups {
     const stepBounce = walking ? Math.sin(d.phase * (trot ? 2 : 2)) * (trot ? 220 : 90) : 0;
     d.ear.forEach((e, k) => spring(e, -ax * .02 + ay * .012 + stepBounce * (k ? 1 : -1) * .02 + d.shake * Math.sin(t * 38) * 260, dt, 70, 6));
     spring(d.body, -ax * .006 + d.shake * Math.sin(t * 38) * 90, dt, 90, 9);
-    if (t > d.nextBlink) { d.blinkUntil = t + .13 + Math.random() * .06; d.nextBlink = t + 2.6 + Math.random() * 3.4; if (Math.random() < .18) d.nextBlink = t + .32; }
-    d.closed = d.rest > .75 || (t < d.blinkUntil && !petted && d.pet < .3); // eyes stay open (and bright) while she pets or taps them
+    // blinking by feeling: wide-eyed in awe, slow heavy blinks when sleepy; eyes stay open (and bright) while she pets them
+    if (t > d.nextBlink) { d.blinkUntil = t + B.blinkLen * (.8 + Math.random() * .5); d.nextBlink = d.blinkUntil + B.blinkGap * (.6 + Math.random() * .9); if (Math.random() < .18 && B.blinkLen < .3) d.nextBlink = t + .32; }
+    d.closed = (!awake && (d.rest > .75 || d.doze > .55 || d.yawn > .45 || (this.mode === 'quiet' && d.rest > .4))) || (t < d.blinkUntil && !petted && d.pet < .3);
     d.hopping = hopping ? hopT : -1; d.walking = walking; d.trot = trot;
     d.hearts = d.hearts.filter(h => (h.age += dt) < 1.8);
   }
@@ -456,7 +516,7 @@ export class Pups {
   }
   draw(d, S, gy) {
     const t = this.t + d.i * 3.71, yaw = ang(d.yaw), facing = yaw < 0 ? -1 : 1, view = Math.abs(yaw), pose = poseAt(yaw);
-    const gait = d.gait, trot = d.trot, breath = Math.sin(t * (d.i ? 1.72 : 2)) * (1 + d.rest * .6);
+    const gait = d.gait, trot = d.trot, Bd = d.B, breath = Math.sin(d.bph) * (1 + d.rest * .6) * (1 + d.sigh * 1.8) + Math.sin(d.pph) * Bd.pant * .35;
     const hopT = d.hopping; let hop = 0, crouch = 0;
     if (hopT >= 0) {
       if (hopT < .22) crouch = Math.sin(hopT / .22 * Math.PI / 2);
@@ -505,21 +565,24 @@ export class Pups {
       });
     };
     const tail = () => {
-      const r = pose.tail, excited = d.greet * 16 + (hopT >= 0 ? 15 : 0) + gait * 7 + d.tilt * 8 + d.attn * 6 + (d.pet > .3 ? 10 : 0);
-      const speed = excited > 8 ? 14 : 7, wag = Math.sin(t * speed) * (excited + 4) * (1 - d.rest * .85) + Math.sin(t * 2.1) * 2 - d.rest * 17 + d.bow * 14;
+      // carriage and wag from the feeling (high and quick when excited, low and slow when tender or sleepy)
+      const r = pose.tail, excited = d.greet * 16 + (hopT >= 0 ? 15 : 0) + gait * 7 + d.tilt * 8 + d.attn * 6 + (d.pet > .3 ? 10 : 0) + d.joy * 14;
+      const amp = (excited + 4) * (Bd.wagA + (excited > 8 ? .4 : 0)) * (1 - d.rest * .85) * (1 - d.doze * .7);
+      const wag = Math.sin(d.wph) * amp + Math.sin(t * 2.1) * 2 - d.rest * 17 + d.bow * 14 + Bd.tail * (1 - d.rest);
       const bx = r[0] + r[2] * .5, by = r[1] + r[3] * .86;
       const tm = T(m, -d.sit * 4 * sv, d.sit * 20 + d.rest * 24);
       this.part('tail', yaw, r, tm, color, A, 4, 4, (p, u, v) => {
         // distance from the root drives a travelling wave: the tip lags and curls further
         const k = clamp(Math.hypot((p[0] - bx) / r[2], (p[1] - by) / r[3]) / 1.1);
-        const lagW = Math.sin(t * speed - k * 1.6) * (excited + 4) * (1 - d.rest * .85) * .5;
+        const lagW = Math.sin(d.wph - k * 1.6) * amp * .5;
         rot(p, bx, by, (wag * (.55 + k * .3) + lagW * k + d.tailS.x * 8 * k) * D2R);
       });
     };
     const head = () => {
       const sn = t - d.sneezeAt, sneeze = sn > -.4 && sn < 0 ? -(sn + .4) / .4 * 10 : sn >= 0 && sn < .35 ? Math.sin(sn / .35 * Math.PI) * 26 : 0;
-      const r = pose.head, tilt = sneeze - d.beg * 8 + d.sniff * 18 + d.rest * 20 - d.tilt * 13 + Math.sin(d.phase - .8) * gait * 2.2 + Math.sin(t * .9) * 1.2 * (1 - gait) + d.gazeY * 7 + d.bow * 6 - d.scratch * 10;
-      const hm0 = T(m, d.sniff * 8 + d.rest * 9 - d.lag * 2 + d.body.x * .04, d.sniff * 23 + d.rest * 46 - d.sit * 3 + breath * .3 - d.tilt * 2 + d.bow * 18 * sv + d.scratch * 4);
+      const feel = Bd.low * 5 + d.doze * 18 - d.look * 13 - d.yawn * 22 + d.sigh * 4;   // chin down when soft or sleepy, up to the sky in awe, back in a yawn
+      const r = pose.head, tilt = sneeze - d.beg * 8 + d.sniff * 18 + d.rest * 20 - d.tilt * 13 * d.tiltS + Math.sin(d.phase - .8) * gait * 2.2 + Math.sin(t * .9) * 1.2 * (1 - gait) + d.gazeY * 7 + d.bow * 6 - d.scratch * 10 + feel;
+      const hm0 = T(m, d.sniff * 8 + d.rest * 9 - d.lag * 2 + d.body.x * .04, d.sniff * 23 + d.rest * 46 - d.sit * 3 + breath * .3 - d.tilt * 2 + d.bow * 18 * sv + d.scratch * 4 + Bd.low * 6 + d.doze * 12 - d.look * 3 - d.yawn * 4 + d.sigh * 3);
       const hm = about(hm0, pose.neck[0], pose.neck[1], q => R(q, (tilt + d.shake * Math.sin(t * 38) * 14) * D2R));
       // the head is drawn facing its own yaw; the face drifts a little toward the gaze within a view
       const gaze = clamp(ang((d.gazeRaw ?? d.headYaw) - d.headYaw) / 25, -1, 1) * (d.headYaw < 0 ? -1 : 1);
@@ -534,7 +597,8 @@ export class Pups {
           const e = ears[s]; if (!e) continue;
           const du = (u - e[0]) / (Math.abs(e[2] - e[0]) + .14), dv = (v - e[1]) / (e[3] - e[1]);
           const w = clamp(1 - Math.abs(du)) * sstep(0, 1, dv) * (1 - sstep(1, 1.35, dv));
-          if (w > 0) rot(p, r[0] + e[0] * r[2], r[1] + e[1] * r[3], w * (d.ear[s].x * 9 + (s ? 1 : -1) * d.tilt * 3) * D2R);
+          // the ear set: pricked outward when alert, hanging soft when tender or sleepy; now and then one flicks
+          if (w > 0) rot(p, r[0] + e[0] * r[2], r[1] + e[1] * r[3], w * (d.ear[s].x * 9 + (s ? 1 : -1) * d.tilt * 3 * d.tiltS + (s ? -1 : 1) * (d.earSet * 10 + (s === d.twitchS ? d.twitch * 9 : 0))) * D2R);
         }
         // breathing swells the cheeks very slightly
         p[0] += (u - .5) * r[2] * .008 * breath * bump;

@@ -285,7 +285,20 @@ export class Keepsake {
     if (this.mark) this.drawMark(g);
   }
   layout(W, H) {
-    const L = this.L, chrome = this.k === 'p' ? 238 : 214, s = Math.min((W - 32) / L.w, (H - chrome) / L.h, 1);
+    const k = this.env.portrait ? 'p' : 'l';
+    if (k !== this.k) {   // the phone turned: the card is set again for the new frame (the same wish, the same postmark)
+      this.k = k; const L = this.L = CARD[k];
+      this.el.classList.remove('ks-p', 'ks-l'); this.el.classList.add('ks-' + k);
+      this.cv.width = L.w; this.cv.height = L.h; this.foil.width = Math.round(L.w / 2); this.foil.height = Math.round(L.h / 2);
+      const [hx0, hy0, hx1, hy1] = L.hit; Object.assign(this.el.querySelector('.ks-wish').style, { left: hx0 / L.w * 100 + '%', top: hy0 / L.h * 100 + '%', width: (hx1 - hx0) / L.w * 100 + '%', height: (hy1 - hy0) / L.h * 100 + '%' });
+      this.ready = null; this.base = null; this.file = null;
+      if (this.el.classList.contains('on')) this.prepare().then(() => this.compose());
+    }
+    // a short landscape screen: the words and buttons stand beside the card instead of above and below it
+    const side = k === 'l' && H < 560, top = this.env.safe ? this.env.safe().t : 0;
+    this.el.classList.toggle('ks-side', side);
+    const L = this.L, chrome = side ? 32 + top : k === 'p' ? 238 : 214, wide = side ? W * .6 - 40 : W - 32;
+    const s = Math.min(wide / L.w, (H - chrome) / L.h, 1);
     Object.assign(this.cardEl.style, { width: Math.round(L.w * s) + 'px', height: Math.round(L.h * s) + 'px' });
   }
   show(t) {

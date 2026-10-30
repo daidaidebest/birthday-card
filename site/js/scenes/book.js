@@ -65,13 +65,15 @@ export default {
 
     const defs = buildPages(A);
     const SPREADS = defs.length / 2;
-    let win = { x: 0, y: 0, w: 1, h: 1 }, rs = 1, pw = 300, ph = 400, dpr = env.dpr, N = env.q < 1 ? 10 : env.portrait ? 14 : 18;
+    // the pages are drawn at the screen's real pixel density (env.textDpr), not the scene's performance cap: ink stays sharp
+    let win = { x: 0, y: 0, w: 1, h: 1 }, rs = 1, pw = 300, ph = 400, dpr = env.textDpr(), N = env.q < 1 ? 10 : env.portrait ? 14 : 18;
     // phones: one page faces her at a time. It is still a whole book: the camera frames the right-hand page for reading,
     // with the spine and a sliver of the left page at the edge, and eases back a little while a leaf turns over.
-    const single = env.portrait; el.classList.toggle('bk-single', single);
+    // Turning the phone over switches between the two (setMode, from layout()).
+    let single = env.portrait; el.classList.toggle('bk-single', single);
     let portrait = env.portrait;
     const R = rng(5);
-    const room = A.room && !A.room.failed ? A.room : null;
+    let room = A.room && !A.room.failed ? A.room : null;
     if (room) { room.v.loop = true; room.portrait = env.portrait; play(room, .5); } // a 5 s in-and-out loop, played slow
 
     // ---------------- warm light: soft bokeh far back in the lamplight, a little dust in the air ----------------
@@ -83,9 +85,17 @@ export default {
     // The pages are laid out at their reading size (so the writing is drawn sharp at the size she reads it); before she
     // opens the book the camera holds it smaller, with the room around it.
     let map = { s: 1, x: 0, y: 0 }, view = null, viewFor = null; const tmp = {};
-    let zClosed = .86, zOpen = .6, sxRead = .5;
+    let zClosed = .86, zOpen = .6, sxRead = .5, midY = 0;
     function layout() {
-      const W = env.W, H = env.H; portrait = env.portrait; dpr = env.dpr;
+      const W = env.W, H = env.H; portrait = env.portrait; dpr = env.textDpr(); N = env.q < 1 ? 10 : portrait ? 14 : 18;
+      if (portrait !== single) setMode(portrait);
+      if (room && room.portrait !== portrait) {   // turned: the filmed room for this orientation takes over once it can play
+        const want = portrait;
+        loadClip(portrait ? 'studyp' : 'study').then(c => { if (c.failed || env.portrait !== want) return; c.v.loop = true; c.portrait = want; play(c, .5); if (room !== c) stop(room); room = A.room = c; });
+      }
+      // the book lives in the frame that is left once the notch, the home bar and the dock's band are taken out
+      const sf = env.safe(), availH = Math.max(H * .5, sf.h - 16);
+      midY = (sf.t + sf.h / 2) - H / 2;
       const img = portrait ? A.port : A.study;
       map = coverRect(img.width, img.height, W, H, .5, portrait ? .7 : .78);
       // 2.5D room: four depth planes; the window's sky lives on the farthest plane, behind its glass
@@ -93,10 +103,10 @@ export default {
       if (viewFor !== dm) { viewFor = dm; view = new DepthView(dm, { amp: .045, focus: .72 }); }
       rs = env.res(false); light.width = Math.round(W * rs); light.height = Math.round(H * rs);
       if (single) { // reading: the page spans ~88% of the screen's width
-        pw = Math.round(Math.min(W * .86, H * .48)); zClosed = Math.min(W * .76, H * .42) / pw;
+        pw = Math.round(Math.min(W * .86, H * .48, availH * .95 / 1.36)); zClosed = Math.min(W * .76, H * .42) / pw;
         zOpen = Math.min(1, W * .96 / (pw * 2.09)); sxRead = (W - pw) / 2 / W + .012;
       } else {
-        pw = Math.round(Math.min(W * .33, H * .54)); zClosed = zOpen = Math.min(W * .31, H * .47) / pw; sxRead = .5;
+        pw = Math.round(Math.min(W * .33, H * .54, availH * .96 / 1.36)); zClosed = zOpen = Math.min(W * .31, H * .47) / pw; sxRead = .5;
       }
       ph = Math.round(pw * 1.36);
       camEl.style.perspective = Math.round(Math.hypot(W, H) * 1.25) + 'px';   // a lens, not a telephoto: the leaf reads in depth
@@ -113,12 +123,12 @@ export default {
       return { i, c, g, side: single ? 'right' : defs[i].side, ...defs[i].build(g, pw, ph) };
     }
     function render(p, prog, time) {
-      if (!p) return; const g = p.g; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.drawImage(paper(Math.round(pw), Math.round(ph), p.side, A.tex), 0, 0, pw, ph);
-      g.textAlign = 'left'; p.draw(prog, time);
+      if (!p) return; const g = p.g; g.setTransform(1, 0, 0, 1, 0, 0);
+      g.drawImage(paper(p.c.width, p.c.height, p.side, A.tex, undefined, dpr), 0, 0);   // the paper's grain at full resolution too
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.textAlign = 'left'; p.draw(prog, time);
     }
     /** The back of a turned leaf, lying on the left (phones: the left page only ever shows the backs of turned leaves). */
-    function blankLeft() { const g = pageL.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(paper(Math.round(pw), Math.round(ph), 'left', A.tex), 0, 0, pageL.width, pageL.height); }
+    function blankLeft() { const g = pageL.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(paper(pageL.width, pageL.height, 'left', A.tex, undefined, dpr), 0, 0); }
     // Which page index each surface shows; layout() can rebuild everything from these at any moment.
     let idxL = -1, idxR = single ? 0 : 1, leafF = -1, leafB = -1, cur = 0, leftBlank = false;
     const isLast = () => single ? cur >= defs.length - 1 : spread >= SPREADS - 1;
@@ -133,7 +143,7 @@ export default {
       const a = canvas(pageR.width, pageR.height), b = canvas(pageR.width, pageR.height);
       render(makePage(leafF, a), 99, T); sliceInto(a, 'f');
       if (leafB >= 0) render(makePage(leafB, b), 0, T);
-      else { const g = b.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(paper(Math.round(pw), Math.round(ph), 'left', A.tex), 0, 0, b.width, b.height); } // the back of a leaf: plain paper
+      else { const g = b.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(paper(b.width, b.height, 'left', A.tex, undefined, dpr), 0, 0); } // the back of a leaf: plain paper
       sliceInto(b, 'b');
     }
     // ---------------- turning leaf: a sheet of paper made of hinged strips ----------------
@@ -144,7 +154,7 @@ export default {
       for (let i = 0; i < N; i++) {
         const s = document.createElement('div'); s.className = 'bk-strip' + (i === 0 ? ' first' : '');
         // each strip carries 1.5 px of its neighbour's paper, tucked under the next strip: no hairline seams between layers
-        const f = canvas((pw / N + SEAM) * dpr, ph * dpr), b = canvas((pw / N + SEAM) * dpr, ph * dpr); f.className = 'f'; b.className = 'b';
+        const sw = Math.ceil((pw / N + SEAM) * dpr), f = canvas(sw, Math.round(ph * dpr)), b = canvas(sw, Math.round(ph * dpr)); f.className = 'f'; b.className = 'b';
         const sf = document.createElement('i'), sb = document.createElement('i'); sf.className = 'sf'; sb.className = 'sb';
         s.append(f, sf, b, sb); parent.appendChild(s); parent = s; strips.push({ s, f, b, sf, sb });
       }
@@ -202,13 +212,12 @@ export default {
 
     // ---------------- timeline state ----------------
     let T = 0, spread = -1, writeL = 0, writeR = 0, phase = 'intro', phaseAt = 0, turnP = 0, coverP = 0, rise = 0, dive = 0, focus = 0, focusTarget = 0;
-    let hurry = false, ended = false, cardShown = false, frameN = 0, openedAt = -1, curlK = 0, fireAt = null, fireCss = '';
+    let hurry = false, ended = false, cardShown = false, frameN = 0, openedAt = -1, curlK = 0, fireAt = null, fireCss = '', steady = 0, readingOn = false;
     const OPEN_AT = 4.4;
     // she turns the pages herself: drag a page (or the cover) leftward, or tap. Only the test mode (?auto) turns them for her.
     const IDLE_TURN = 3.4, IDLE_OPEN = 3.5, IDLE_DIVE = 4.5;
     let manual = false, turnTarget = 1, dragX = 0, dragP = 0, downAt = 0, waitAt = 0, turnsDone = 0;
-    const hintEl = document.createElement('p'); hintEl.className = 'bk-hint'; el.appendChild(hintEl);
-    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    const hint = text => env.hint(text);   // in the dock, under the page
     function startTurn(byHand) {
       if (phase !== 'hold' && phase !== 'write') return;
       hint(null); curlK = 0; curlEl.style.setProperty('--c', 0);
@@ -232,6 +241,28 @@ export default {
       spread++;
       idxL = spread * 2; inst.L = makePage(idxL, pageL); writeL = 0; render(inst.L, 0, T);
       phase = 'write'; phaseAt = T; hurry = false;
+    }
+    /** The phone turned: one page at a time (upright) ⇄ the open spread (on its side), keeping her place and the ink. */
+    function setMode(toSingle) {
+      if (phase === 'turn') { if (turnTarget || turnP > .5) finishTurn(); else cancelTurn(); }   // a leaf in the air lands at once
+      const open = openedAt >= 0;
+      if (toSingle) {
+        if (open) {   // read on from the page she was on: the right one once it has begun, else the left
+          const lDur = inst.L?.dur || 0, onRight = idxR >= 0 && (writeR > 0 || writeL >= lDur);
+          cur = onRight ? idxR : Math.max(0, idxL); writeR = onRight ? writeR : writeL;
+          idxR = cur; leftBlank = cur > 0;
+        } else { idxR = 0; leftBlank = false; }
+        idxL = -1; writeL = 0;
+      } else {
+        if (open) {
+          spread = Math.floor(cur / 2); idxL = spread * 2; idxR = idxL + 1;
+          if (cur % 2 === 0) { writeL = writeR; writeR = 0; } else writeL = 99;   // the left page was already written
+        } else { idxL = 0; idxR = 1; writeL = writeR = 0; }
+        leftBlank = false;
+      }
+      single = toSingle; el.classList.toggle('bk-single', single);
+      if (phase === 'hold') { phase = 'write'; phaseAt = T; }
+      curlEl.style.setProperty('--c', 0); curlK = 0;
     }
     /** A turn let go too early falls back: the leaf lies down again on the right. */
     function cancelTurn() {
@@ -270,7 +301,7 @@ export default {
       progress: () => single ? clamp((cur + 1 + turnP) / (defs.length + 1)) : clamp((spread + 1 + turnP) / (SPREADS + 1)),
       debug: () => ({ phase, spread, cur, writeL, writeR, T, turnP: +turnP.toFixed(3), lDur: inst.L?.dur, rDur: inst.R?.dur, z: +cam.z.toFixed(3), sx: +cam.sx.toFixed(3), pw, page: (r => [Math.round(r.left), Math.round(r.right), Math.round(r.width)])(pageR.getBoundingClientRect()) }),
       resize() { layout(); },
-      destroy() { removeEventListener('pointerup', release); removeEventListener('pointercancel', release); stop(room); hearth.remove(); },
+      destroy() { env.reading(false); removeEventListener('pointerup', release); removeEventListener('pointercancel', release); stop(room); hearth.remove(); },
       update(dt, t) {
         T = t; const W = env.W, H = env.H;
         if (!cardShown && t > .2) { cardShown = true; env.chapterCard('I', 1700); }
@@ -376,21 +407,32 @@ export default {
         spring(Math.min(dt, .05), zT, sxT, phase === 'turn' ? 3.6 : reading ? 2.3 : 2.8);
 
         // ---------- book transform ----------
-        const bob = Math.sin(t * .9) * 5 * rise * (1 - push * .7), sway = Math.sin(t * .5) * 1.1 * rise * (1 - push * .6);
+        // while she reads, the book steadies in her hands: no tilt, sway or float, true scale and whole device pixels, so the
+        // page reaches the screen 1:1 (any tilt or sub-pixel drift would resample the writing and soften the ink). It
+        // comes alive again the moment a leaf lifts.
+        const steadyWant = reading && (phase === 'write' || phase === 'hold') && !dive ? 1 : 0;
+        steady += (steadyWant - steady) * (1 - Math.exp(-dt * (steadyWant ? 2.4 : 7))); if (steady > .985 && steadyWant) steady = 1;   // the last hair of the ease would only blur
+        const calm = 1 - steady;
+        if ((steady > .5) !== readingOn) { readingOn = steady > .5; env.reading(readingOn); }
+        const bob = Math.sin(t * .9) * 5 * rise * (1 - push * .7) * calm, sway = Math.sin(t * .5) * 1.1 * rise * (1 - push * .6) * calm;
         const tableY = portrait ? H * .3 : H * .27;
-        const ty = lerp(tableY, portrait ? -H * .02 : -H * .015, rise) + bob;
-        const rx = lerp(64, 15, rise) - 8 * push, sc = lerp(.52, 1, rise);
+        const ty = lerp(tableY, midY - H * .01, rise) + bob;   // up into the middle of the free frame, clear of the dock
+        const rx = (lerp(64, 15, rise) - 8 * push) * calm, sc = lerp(.52, 1, rise);
         const bp = view.at(1.12, tmp), bk = bp.s / map.s;
-        let s = sc * cam.z, spineX = cam.sx * W, y = ty + (bp.y + (H / 2 - map.y) * bk - H / 2);
-        spineX += (bp.x + (W / 2 - map.x) * bk - W / 2) * (1 - push * .6);
+        let s = sc * cam.z, spineX = cam.sx * W, y = ty + (bp.y + (H / 2 - map.y) * bk - H / 2) * calm;
+        spineX += (bp.x + (W / 2 - map.x) * bk - W / 2) * (1 - push * .6) * calm;
         if (dive > 0) { const k = 1 + dive * 5, cx = spineX + pw * s * .5; s *= k; spineX = cx - (cx - spineX) * k; y += ph * .05 * dive * 5; }
-        floatEl.style.transform = `translate3d(${(spineX - W / 2).toFixed(1)}px,${y.toFixed(1)}px,0) rotateX(${(rx - dive * 10).toFixed(2)}deg) rotateZ(${sway.toFixed(2)}deg) scale3d(${s.toFixed(4)},${s.toFixed(4)},${s.toFixed(4)})`;
+        else if (steady === 1) {   // settled: snap the page's corner to the pixel grid
+          if (Math.abs(s - 1) < .02) s = 1;
+          spineX = Math.round(spineX * dpr) / dpr; y = Math.round((H / 2 + y - ph / 2) * dpr) / dpr - H / 2 + ph / 2;
+        }
+        floatEl.style.transform = `translate3d(${(spineX - W / 2).toFixed(3)}px,${y.toFixed(3)}px,0) rotateX(${(rx - dive * 10).toFixed(2)}deg) rotateZ(${sway.toFixed(2)}deg) scale3d(${s.toFixed(4)},${s.toFixed(4)},${s.toFixed(4)})`;
         coverEl.style.transform = `rotateY(${(-180 * easeInOut(coverP)).toFixed(2)}deg) translateZ(2px)`;
         bookEl.classList.toggle('is-open', coverP > .5);
         // the hearth's light on the pages: warm from the fire's side, rising and sinking with the flames
         if (fireAt && coverP > .3) {
           const vx = (spineX - fireAt[0]), vy = (H / 2 + y - fireAt[1]), ang = Math.atan2(vx, -vy) * 180 / Math.PI, lv = (hearth.level || .7) * warm, near = clamp(1.3 - Math.hypot(vx, vy) / Math.max(W, H));
-          const o = (.07 + .1 * lv) * (.6 + .4 * near) * clamp((coverP - .3) / .4), css = `linear-gradient(${ang.toFixed(1)}deg,rgba(255,132,52,${o.toFixed(3)}),rgba(255,170,90,${(o * .35).toFixed(3)}) 45%,rgba(24,12,6,${(o * .5).toFixed(3)}))`;
+          const o = (.07 + .1 * lv) * (.6 + .4 * near) * clamp((coverP - .3) / .4) * (1 - .5 * steady), css = `linear-gradient(${ang.toFixed(1)}deg,rgba(255,132,52,${o.toFixed(3)}),rgba(255,170,90,${(o * .35).toFixed(3)}) 45%,rgba(24,12,6,${(o * .5).toFixed(3)}))`;
           if (css !== fireCss) { fireCss = css; fireL.forEach(e => { e.style.backgroundImage = css; }); }
         }
         camX = spineX + (single && coverP > .5 ? pw * s * .5 : 0); camY = H / 2 + y; camS = s;

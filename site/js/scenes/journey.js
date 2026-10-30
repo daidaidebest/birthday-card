@@ -215,7 +215,14 @@ export default {
         });
       }
       gg.globalCompositeOperation = 'source-over'; gg.globalAlpha = 1;
-      labelEls.forEach(({ id, s }) => { const on = Math.min(progressFor(0, id), progressFor(1, id)) <= Math.max(fh, fm) + .001 && t > 2; s.classList.toggle('on', on); });
+      labelEls.forEach(L => {
+        const { id, s } = L, on = Math.min(progressFor(0, id), progressFor(1, id)) <= Math.max(fh, fm) + .001 && t > 2; s.classList.toggle('on', on);
+        if (on && !L.fit) {   // a name that would run off the screen's edge is written on the other side of its dot
+          L.fit = true; const r = s.getBoundingClientRect(), sf = env.safe();
+          if (r.right > env.W - sf.r - 6 && !s.classList.contains('l')) s.classList.add('l'), L.flipped = true;
+          else if (r.left < sf.l + 6 && s.classList.contains('l')) s.classList.remove('l'), L.flipped = true;
+        }
+      });
     }
 
     // ---------- her hands in the sand ----------
@@ -224,8 +231,7 @@ export default {
     // each new city settling on the downbeat (the score is a 116 bpm pop groove in 4/4, tools/music.py journey()).
     const BAR = 240 / 116, STEP = 2 * BAR, PAN = 1.15, AUTO_END = 5;
     const HIS_AT = [0, 1, 2, 2, 3]; // his road has one stop fewer: he waits in Shanghai while she crosses to Hong Kong
-    const hintEl = document.createElement('p'); hintEl.className = 'jr-hint'; el.appendChild(hintEl);
-    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    const hint = text => env.hint(text);   // in the dock, under the sand
     let lastAt = null, touchAny = false, endAsked = 0, wantNext = false, wantEnd = false, step = -1, nextAt = BAR, mt = 0;
     const laneAt = (x, y) => lanes.find(l => { const r = l.sand.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && r.width > 0; });
     let stroke = null;
@@ -262,14 +268,23 @@ export default {
     let T = 0, mode = 'routes', ended = false, cardShown = false, mapT = 0, skipOffered = false;
     let mapStart = 1e9;
     const cuesMap = env.cues([[.5, 4, '各自走来的路，在东京写下同一页。'], [4.3, MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
+    // The two tables and their captions live in the free frame: under the notch (and, on larger screens, the chapter's
+    // running head), above the dock where the subtitle, the hint and the way on appear. Captions keep a fixed height, so
+    // nothing moves when a city has no school line, and the sand never slides under the words below it.
     function resize() {
-      const Wv = env.W, Hv = env.H, portrait = env.portrait;
+      const Wv = env.W, Hv = env.H, portrait = env.portrait, sf = env.safe();
       el.classList.toggle('portrait', portrait);
-      const ar = 1280 / 850;
-      let bw = portrait ? Math.min(Wv * .9, (Hv * .3) * ar) : Math.min(Wv * .43, Hv * .56 * ar);
+      const compact = (portrait && Wv < 600) || Hv < 560;   // phones: the chapter card has just said the title, and the HUD lives up there
+      el.classList.toggle('jr-compact', compact);
+      const top = compact ? sf.t + 6 : sf.t + 70, bottom = sf.b + 4, zoneH = Hv - top - bottom;
+      Object.assign(field.style, { top: top + 'px', bottom: bottom + 'px', left: sf.l + 'px', right: sf.r + 'px' });
+      const ar = 1280 / 850, metaH = portrait ? 66 : Hv < 500 ? 58 : 124, gap = portrait ? 14 : 0;
+      el.style.setProperty('--metah', metaH + 'px');
+      const bw = portrait ? Math.min(sf.w * .92, (zoneH - 2 * (metaH + 8) - gap) / 2 * ar) : Math.min(sf.w * .44, (zoneH - metaH - 10) * ar);
       el.style.setProperty('--bw', bw + 'px'); el.style.setProperty('--bh', bw / ar + 'px');
-      const mw = portrait ? Math.min(Wv * .98, Hv * .5 * ar) : Math.min(Wv * .8, Hv * .7 * ar);
+      const mw = portrait ? Math.min(sf.w * .98, zoneH * .96 * ar) : Math.min(sf.w * .8, zoneH * .95 * ar);
       el.style.setProperty('--mw', mw + 'px'); el.style.setProperty('--mh', mw / ar + 'px');
+      labelEls.forEach(L => { if (L.flipped) { L.s.classList.toggle('l'); L.flipped = false; } L.fit = false; });   // measured again in the new frame
     }
     resize();
     return {

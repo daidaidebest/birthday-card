@@ -1,0 +1,1587 @@
+{
+ "files": {
+  "video/castle.mp4": {
+   "group": "castle-film",
+   "orig": "ea4ea8897f38aa05d9c5d30423a9c985eceddb11",
+   "graded": "6e0584fdad22cab564822314c717275445526a23",
+   "bytes_before": 4920914,
+   "bytes_after": 4588574,
+   "enc": "crf20",
+   "when": "2026-10-30 20:34"
+  },
+  "video/castlep.mp4": {
+   "group": "castle-film",
+   "orig": "ee1e3baa8336ac02f0d58950a7690796f6bee617",
+   "graded": "1e85a57dabfe719d2069ab986522d8ae3f59f6a1",
+   "bytes_before": 7377967,
+   "bytes_after": 6766059,
+   "enc": "crf20",
+   "when": "2026-10-30 20:34"
+  },
+  "video/castle-hold.mp4": {
+   "group": "castle-film",
+   "orig": "a9c6e0fcc5b2b581e6dd262db823277a5b5cf011",
+   "graded": "f14ae968dc1c35996f44d285fc02803207761994",
+   "bytes_before": 2115811,
+   "bytes_after": 1846361,
+   "enc": "crf22",
+   "when": "2026-10-30 20:34"
+  },
+  "video/castle-holdp.mp4": {
+   "group": "castle-film",
+   "orig": "632c93700381bb2c0dd573e55145ea9e5500d84f",
+   "graded": "e25fc65b70fdc1df46c697cc9e11f68b1fd371b1",
+   "bytes_before": 3059877,
+   "bytes_after": 2658326,
+   "enc": "crf22",
+   "when": "2026-10-30 20:35"
+  },
+  "img/castle.webp": {
+   "group": "castle-paint",
+   "orig": "8a4b919a6b2a6df27cae8eaf7b0c7525b1541323",
+   "graded": "40456dd198d38c79850ae05de00c959362d72bc8",
+   "bytes_before": 56434,
+   "bytes_after": 59228,
+   "enc": "q89",
+   "when": "2026-10-30 20:35"
+  },
+  "depth/castle/0.webp": {
+   "group": "castle-paint",
+   "orig": "36e3f46af6ea20b9278aa2625c76562ff1325a2a",
+   "graded": "6a8de3795b463ec360f6c4865aa1e166aef60e3e",
+   "bytes_before": 10658,
+   "bytes_after": 10714,
+   "enc": "q85",
+   "when": "2026-10-30 20:35"
+  },
+  "depth/castle/1.webp": {
+   "group": "castle-paint",
+   "orig": "2d4242781a0046662496ce6663863f739ec8f798",
+   "graded": "7193d8aa62938fcd84bc7930d7d07155179211f0",
+   "bytes_before": 20630,
+   "bytes_after": 21618,
+   "enc": "q88",
+   "when": "2026-10-30 20:35"
+  },
+  "depth/castle/2.webp": {
+   "group": "castle-paint",
+   "orig": "0cbcffc3a3e28eb65361943ba5fe4fda45c378d3",
+   "graded": "c8954b73c410c86598ce395ec606a6b17c64779f",
+   "bytes_before": 43984,
+   "bytes_after": 45664,
+   "enc": "q87",
+   "when": "2026-10-30 20:35"
+  },
+  "depth/castle/3.webp": {
+   "group": "castle-paint",
+   "orig": "93ce2826f0d2a4e59c91479524fe1d1c07855426",
+   "graded": "bb012e465c08c4e796ac7a4251cdd2d4fa6b6148",
+   "bytes_before": 19118,
+   "bytes_after": 20498,
+   "enc": "q91",
+   "when": "2026-10-30 20:35"
+  },
+  "depth/castle/4.webp": {
+   "group": "castle-paint",
+   "orig": "c7eceb427bba70f2451a0623456d1ba6f3d03896",
+   "graded": "7c4d570b122b0c3da01ddda5136d0649837bab9f",
+   "bytes_before": 5456,
+   "bytes_after": 5854,
+   "enc": "q90",
+   "when": "2026-10-30 20:35"
+  },
+  "video/study.mp4": {
+   "group": "study-film",
+   "orig": "63329cb0ef5c296606f56da298acf4ff08be9303",
+   "graded": "eb9df4b106be3ac79fa066aa36a2c761bc805491",
+   "bytes_before": 4119379,
+   "bytes_after": 3253481,
+   "enc": "crf22",
+   "when": "2026-10-30 20:36"
+  },
+  "video/studyp.mp4": {
+   "group": "study-film",
+   "orig": "78edcb51eff1c15918fa7104065cbe8487f31d3f",
+   "graded": "0073bc37374b8b0fa86a4dc41fa593711f409809",
+   "bytes_before": 6755953,
+   "bytes_after": 5460807,
+   "enc": "crf22",
+   "when": "2026-10-30 20:37"
+  },
+  "img/study-land.webp": {
+   "group": "study-paint",
+   "orig": "5d7fe14ec7098d84c2b92e9ab0fa05e19e4f56d7",
+   "graded": "e3ecde1adc2bb2b1d955b771d25aa2b990188ca9",
+   "bytes_before": 109306,
+   "bytes_after": 112658,
+   "enc": "q88",
+   "when": "2026-10-30 20:37"
+  },
+  "img/study-port.webp": {
+   "group": "study-paint",
+   "orig": "b5462f877ee671b2f3943a0f0f229cde1b4d6033",
+   "graded": "9dade12e17553dfbb8be11363e4c2a556458943f",
+   "bytes_before": 107250,
+   "bytes_after": 115028,
+   "enc": "q89",
+   "when": "2026-10-30 20:37"
+  },
+  "depth/study-land/0.webp": {
+   "group": "study-paint",
+   "orig": "4ad0a1c288129128779dd6c9c91af90a037366cb",
+   "graded": "6dd297717bb574d5447eab05b29c475db5129955",
+   "bytes_before": 88604,
+   "bytes_after": 93546,
+   "enc": "q88",
+   "when": "2026-10-30 20:37"
+  },
+  "depth/study-land/1.webp": {
+   "group": "study-paint",
+   "orig": "549b556244a93ad2522965656ace3d647dd92fa0",
+   "graded": "3b2c56e2c40d5b23b6094cc3a800ba47ff985bdb",
+   "bytes_before": 115986,
+   "bytes_after": 122692,
+   "enc": "q91",
+   "when": "2026-10-30 20:37"
+  },
+  "depth/study-land/2.webp": {
+   "group": "study-paint",
+   "orig": "678981a22c3d6981bf6bbbdfca2cf9f8e5e0dc3c",
+   "graded": "61eca519406b4f99b50ed6bb65017c3a9da6ef02",
+   "bytes_before": 96214,
+   "bytes_after": 101856,
+   "enc": "q94",
+   "when": "2026-10-30 20:37"
+  },
+  "depth/study-land/3.webp": {
+   "group": "study-paint",
+   "orig": "aad3a19c145e2d5b5c417d2fb9a6d23374f75859",
+   "graded": "d0d8f9be28b7104e1d6d3270a1a12250f50dee65",
+   "bytes_before": 27512,
+   "bytes_after": 28388,
+   "enc": "q89",
+   "when": "2026-10-30 20:37"
+  },
+  "depth/study-land/4.webp": {
+   "group": "study-paint",
+   "orig": "cdc118964658c7e188743251a900132992015339",
+   "graded": "887cb5ead72578da5b93c885e9c411a135a1762d",
+   "bytes_before": 17710,
+   "bytes_after": 18152,
+   "enc": "q89",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/study-port/0.webp": {
+   "group": "study-paint",
+   "orig": "12cb9075ab39e9df8e9ca2236ca4bce486253d03",
+   "graded": "30e699d226c1656cd9442d0efc14b38f76382425",
+   "bytes_before": 101740,
+   "bytes_after": 105990,
+   "enc": "q88",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/study-port/1.webp": {
+   "group": "study-paint",
+   "orig": "b1bc1d5d1229ba9be86c3e2841ad02f9b7e39585",
+   "graded": "44db99d76d18276666068d9eb9a050ecf50048a7",
+   "bytes_before": 108310,
+   "bytes_after": 115040,
+   "enc": "q92",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/study-port/2.webp": {
+   "group": "study-paint",
+   "orig": "13bdf8313de143010893eca910ee7d0e130909f0",
+   "graded": "adc69a271e4a018cd1e4ffea85c23f4eda2f8bbc",
+   "bytes_before": 22886,
+   "bytes_after": 23842,
+   "enc": "q89",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/study-port/3.webp": {
+   "group": "study-paint",
+   "orig": "19c8d7910169f2aab553ffbffd74e122638951cb",
+   "graded": "ce5bdf6d7659342d2d8098c0db6846a9f764994b",
+   "bytes_before": 17052,
+   "bytes_after": 17428,
+   "enc": "q90",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/study-port/4.webp": {
+   "group": "study-paint",
+   "orig": "c020127cc7b47af90b17aed2d16c1b3fff2cf3b1",
+   "graded": "e3fd17ed4a1a2fd160ec34deabb656319674750c",
+   "bytes_before": 7884,
+   "bytes_after": 8300,
+   "enc": "q90",
+   "when": "2026-10-30 20:38"
+  },
+  "img/photo-ocean-evening.webp": {
+   "group": "photo-ocean-evening",
+   "orig": "7f2c7023a51fab6e10bb600776778ab27363f385",
+   "graded": "38e1b236d917f720066241f2faf3c721bd49e0da",
+   "bytes_before": 138138,
+   "bytes_after": 146206,
+   "enc": "q87",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/photo-ocean-evening/0.webp": {
+   "group": "photo-ocean-evening",
+   "orig": "f7f56ec2f574f7051f6b9f124511bca77c7031c8",
+   "graded": "4534dc39fcaa7a177d9a04d16aea977ad9595650",
+   "bytes_before": 50948,
+   "bytes_after": 54780,
+   "enc": "q91",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/photo-ocean-evening/1.webp": {
+   "group": "photo-ocean-evening",
+   "orig": "3a99cf95a2d99e0936f4457b1663e16cf52a83dd",
+   "graded": "138a6272e87a39536746114dc9b41f51f639a0af",
+   "bytes_before": 73950,
+   "bytes_after": 78966,
+   "enc": "q91",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/photo-ocean-evening/2.webp": {
+   "group": "photo-ocean-evening",
+   "orig": "4dafc9c423791a1ecd56c1631f3334f581215afb",
+   "graded": "2dc51a06b1ca7124752f48fe8e294c66d1586ac2",
+   "bytes_before": 62458,
+   "bytes_after": 66944,
+   "enc": "q93",
+   "when": "2026-10-30 20:38"
+  },
+  "img/photo-sunlit-book.webp": {
+   "group": "photo-sunlit-book",
+   "orig": "4746565008e8dde911ac7a881bfa6efca856658e",
+   "graded": "0562326da262d26abf5253bd1d209b04e9349e81",
+   "bytes_before": 126624,
+   "bytes_after": 134886,
+   "enc": "q87",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/photo-sunlit-book/0.webp": {
+   "group": "photo-sunlit-book",
+   "orig": "d224f28fa760403356ec88060bd4b38899a3c9e9",
+   "graded": "ea9f08c08dc87271803f4b4edcaa4e1d5dee2c69",
+   "bytes_before": 51956,
+   "bytes_after": 54290,
+   "enc": "q90",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/photo-sunlit-book/1.webp": {
+   "group": "photo-sunlit-book",
+   "orig": "9609705effff314d15ebe29430e2aa5f1b5452d0",
+   "graded": "18bed64adf5d0c4e89c6176b2cfb295c488cf12d",
+   "bytes_before": 52686,
+   "bytes_after": 54834,
+   "enc": "q93",
+   "when": "2026-10-30 20:38"
+  },
+  "depth/photo-sunlit-book/2.webp": {
+   "group": "photo-sunlit-book",
+   "orig": "83f5fd8825611e8808e37ea160f08e96b38319bd",
+   "graded": "670dfd7088990a0ec982c37948b26a50ce63ad1d",
+   "bytes_before": 95244,
+   "bytes_after": 99272,
+   "enc": "q90",
+   "when": "2026-10-30 20:39"
+  },
+  "img/photo-night-sky.webp": {
+   "group": "photo-night-sky",
+   "orig": "6377de63e33d45de05148a8807d296b975cdd36a",
+   "graded": "10581682cf2830bb2b4cf0a4902cf3440743eb27",
+   "bytes_before": 223918,
+   "bytes_after": 235814,
+   "enc": "q88",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/photo-night-sky/0.webp": {
+   "group": "photo-night-sky",
+   "orig": "7cb7eb0d0fa8daee50f32eedc8db0cb2ae7f3a77",
+   "graded": "b8e39d2a7c3c1f1fc6928ff24030f3cc51e61c6a",
+   "bytes_before": 208530,
+   "bytes_after": 220248,
+   "enc": "q90",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/photo-night-sky/1.webp": {
+   "group": "photo-night-sky",
+   "orig": "4c609f985bb2639b2a5d3540b89f58938aa65c19",
+   "graded": "ebfef558e4cc9a8b342d96a2236272d1d04c83c2",
+   "bytes_before": 38014,
+   "bytes_after": 40972,
+   "enc": "q96",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/photo-night-sky/2.webp": {
+   "group": "photo-night-sky",
+   "orig": "2486adc97c157a9752317b39f73659017778d4cc",
+   "graded": "c8a801109a67bd93651cd28f1c099470d0be8c49",
+   "bytes_before": 23418,
+   "bytes_after": 21524,
+   "enc": "q96",
+   "when": "2026-10-30 20:39"
+  },
+  "img/prairie-gold.webp": {
+   "group": "prairie",
+   "orig": "cee0737e37428112fd6c5974f4ab294509e6c3a2",
+   "graded": "136dd498d9b50dc04555dc97ae7877def7ff75c2",
+   "bytes_before": 122048,
+   "bytes_after": 130612,
+   "enc": "q91",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/prairie-gold/0.webp": {
+   "group": "prairie",
+   "orig": "c82ec6ee50fd516c73c1879a8deaa6e75054b6c0",
+   "graded": "70cfc921e1604d9065972eed38e7b372b3a9375c",
+   "bytes_before": 48354,
+   "bytes_after": 49824,
+   "enc": "q88",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/prairie-gold/1.webp": {
+   "group": "prairie",
+   "orig": "0d1de06f9adc0444c451af3f429a61eef359ae2c",
+   "graded": "d3f3e8da1bf4e81bd5ccd71318c88492ccc67a67",
+   "bytes_before": 14014,
+   "bytes_after": 14972,
+   "enc": "q92",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/prairie-gold/2.webp": {
+   "group": "prairie",
+   "orig": "c457334a92a9d11b53634aa391ea0b09d91f1790",
+   "graded": "7eeabca2fb750a7ff48dd0d206490fad4f1848ad",
+   "bytes_before": 38438,
+   "bytes_after": 40752,
+   "enc": "q91",
+   "when": "2026-10-30 20:39"
+  },
+  "depth/prairie-gold/3.webp": {
+   "group": "prairie",
+   "orig": "ee0221b88c5332e9e024ea0e9cc7f721870ad2ce",
+   "graded": "10d9818e665145573042252ff58ea0e29192a499",
+   "bytes_before": 55276,
+   "bytes_after": 58910,
+   "enc": "q90",
+   "when": "2026-10-30 20:39"
+  },
+  "film/horse-buckskin-gallop.webp": {
+   "group": "horses",
+   "orig": "572091b4c7584c73bc48922b2a6891db104512d8",
+   "graded": "d20f2644ba91592e2a59ed95579b696aec1aa18c",
+   "bytes_before": 180558,
+   "bytes_after": 192626,
+   "enc": "q89",
+   "when": "2026-10-30 20:40"
+  },
+  "film/horse-buckskin-gallop_jump.webp": {
+   "group": "horses",
+   "orig": "ebae5edea9dba39f6976018a82542f3e370ea99a",
+   "graded": "44db6beec8524d2f32ec23f573adc4116def6d4d",
+   "bytes_before": 424954,
+   "bytes_after": 452496,
+   "enc": "q89",
+   "when": "2026-10-30 20:40"
+  },
+  "film/horse-buckskin-idle.webp": {
+   "group": "horses",
+   "orig": "5eeef6bfaa579b67ade70ff0c55dba9d5e580cb1",
+   "graded": "579c0e6b43fb5d14a630953c2e386bf109c0697e",
+   "bytes_before": 364512,
+   "bytes_after": 393358,
+   "enc": "q90",
+   "when": "2026-10-30 20:41"
+  },
+  "film/horse-buckskin-walk.webp": {
+   "group": "horses",
+   "orig": "fc63a3417127652ca2ecf92d29fca37daa82841b",
+   "graded": "0e8de294f6d1fc3073c9199d3b108c7384984038",
+   "bytes_before": 358546,
+   "bytes_after": 377032,
+   "enc": "q89",
+   "when": "2026-10-30 20:42"
+  },
+  "film/horse-paint-gallop.webp": {
+   "group": "horses",
+   "orig": "1dcfc15e193e2714b3e30eef91cb7c2d91b5a045",
+   "graded": "9066383897dfd4b874499e1d6c2a4a96d6dbc266",
+   "bytes_before": 175040,
+   "bytes_after": 187988,
+   "enc": "q88",
+   "when": "2026-10-30 20:42"
+  },
+  "film/horse-paint-gallop_jump.webp": {
+   "group": "horses",
+   "orig": "422fb1b6038cc767c08f0537fb86c9ed99ec5d17",
+   "graded": "3b55bd734934963fec5aa48a4236a6547d2e3047",
+   "bytes_before": 414346,
+   "bytes_after": 446672,
+   "enc": "q88",
+   "when": "2026-10-30 20:43"
+  },
+  "film/horse-paint-idle.webp": {
+   "group": "horses",
+   "orig": "96312885f1bcd8b6f5123d3cc26e59e08807f965",
+   "graded": "b11def6f705fc31cce640dded17c292a0e935d46",
+   "bytes_before": 351398,
+   "bytes_after": 373380,
+   "enc": "q88",
+   "when": "2026-10-30 20:43"
+  },
+  "film/horse-paint-walk.webp": {
+   "group": "horses",
+   "orig": "db60254e00be27e21f9059b1cbcf4450d7229f8f",
+   "graded": "08612a5f789b475bbf9695d46f2923096f13fece",
+   "bytes_before": 344690,
+   "bytes_after": 368818,
+   "enc": "q88",
+   "when": "2026-10-30 20:44"
+  },
+  "video/run.mp4": {
+   "group": "run-film",
+   "orig": "074e4fe335072a30cd6a0342b0d1a527a4b06e5b",
+   "graded": "ebecbacc569e954bff71f226ce7033cbfdfefa84",
+   "bytes_before": 3011830,
+   "bytes_after": 2683382,
+   "enc": "crf21",
+   "when": "2026-10-30 20:44"
+  },
+  "video/runp.mp4": {
+   "group": "run-film",
+   "orig": "e2feca0dc2b3c5e09f969b035ef44cd7bd970e56",
+   "graded": "c1814483473c6ebb60ffbab80ae76a5ad413f76e",
+   "bytes_before": 2825417,
+   "bytes_after": 2583010,
+   "enc": "crf21",
+   "when": "2026-10-30 20:45"
+  },
+  "video/kiss.mp4": {
+   "group": "kiss",
+   "orig": "d88d25bded3da0995ba7c5695e3ad117d0e0e638",
+   "graded": "654f58910009ab63edb5f855029e2e6248b2bf58",
+   "bytes_before": 1189280,
+   "bytes_after": 1134972,
+   "enc": "crf21",
+   "when": "2026-10-30 20:45"
+  },
+  "img/horses-kiss.webp": {
+   "group": "kiss",
+   "orig": "187477cbe08983cfd8579bfc7137de02692a775a",
+   "graded": "ce8a97acd5d9d709567ce553f4d9ec46b1a1b006",
+   "bytes_before": 168832,
+   "bytes_after": 178946,
+   "enc": "q90",
+   "when": "2026-10-30 20:45"
+  },
+  "depth/horses-kiss/0.webp": {
+   "group": "kiss",
+   "orig": "0c9e33ddaeb04ac5f0ac68815b3f96d481b64a1c",
+   "graded": "798579d9464e6eafa9a952288c00d5e6d86b4cdc",
+   "bytes_before": 23464,
+   "bytes_after": 24802,
+   "enc": "q87",
+   "when": "2026-10-30 20:45"
+  },
+  "depth/horses-kiss/1.webp": {
+   "group": "kiss",
+   "orig": "a7f946c04fe9dd31a03506c91c93971050f95ddd",
+   "graded": "729ee1b3bea7ccae2c6e7f3ffbacdca9062e22b6",
+   "bytes_before": 85578,
+   "bytes_after": 90472,
+   "enc": "q91",
+   "when": "2026-10-30 20:45"
+  },
+  "depth/horses-kiss/2.webp": {
+   "group": "kiss",
+   "orig": "3db56acefb2173eb7609dd60906abb970176fa29",
+   "graded": "267c14e248ff001af92531d4eea7ee1ada5b7717",
+   "bytes_before": 177840,
+   "bytes_after": 187216,
+   "enc": "q90",
+   "when": "2026-10-30 20:45"
+  },
+  "img/lions.webp": {
+   "group": "lions-day",
+   "orig": "6d8422fefdaafe2aa9255160593c89bfb4254634",
+   "graded": "46daa1714bc9cf7a097edd0be06d1ba27ec58733",
+   "bytes_before": 109788,
+   "bytes_after": 115748,
+   "enc": "q92",
+   "when": "2026-10-30 20:45"
+  },
+  "depth/lions/0.webp": {
+   "group": "lions-day",
+   "orig": "6af5b15778850a7ebff1183748b16c3c9ec1cd8f",
+   "graded": "9a293bf1b26e8ed61cefc2f6643395f5fc1bdd23",
+   "bytes_before": 49854,
+   "bytes_after": 51884,
+   "enc": "q90",
+   "when": "2026-10-30 20:45"
+  },
+  "depth/lions/1.webp": {
+   "group": "lions-day",
+   "orig": "86f68973b8d88153d3d5cc366e9f9fd7638dea31",
+   "graded": "8b8f444a2a9671abbd34faaff0c5b55b0a384215",
+   "bytes_before": 30210,
+   "bytes_after": 31360,
+   "enc": "q92",
+   "when": "2026-10-30 20:45"
+  },
+  "depth/lions/2.webp": {
+   "group": "lions-day",
+   "orig": "f625f43fe857fd341a50be49af2180cd8b280992",
+   "graded": "ff3d9557f5028406dbbd4b6209ccc32e3cc0261b",
+   "bytes_before": 46238,
+   "bytes_after": 49248,
+   "enc": "q91",
+   "when": "2026-10-30 20:46"
+  },
+  "depth/lions/3.webp": {
+   "group": "lions-day",
+   "orig": "8140ffbf11e024ecf3e8c955972bdc380377f0f9",
+   "graded": "38551470f6f54da3ccdd10ab437017171b3ba7ab",
+   "bytes_before": 19278,
+   "bytes_after": 19952,
+   "enc": "q91",
+   "when": "2026-10-30 20:46"
+  },
+  "img/lions-night.webp": {
+   "group": "lions-night",
+   "orig": "0af7a3c27ec8f8c4741ce8f3ebc5c7437eaf20dd",
+   "graded": "bb6f5ce3655ddc298048415cd2eb4f259e5f66a6",
+   "bytes_before": 40956,
+   "bytes_after": 43236,
+   "enc": "q88",
+   "when": "2026-10-30 20:46"
+  },
+  "depth/lions-night/0.webp": {
+   "group": "lions-night",
+   "orig": "9d51cad3b530a750353069de495449e24ca2e406",
+   "graded": "d3441d38690130956b53c53896729988afa79650",
+   "bytes_before": 21606,
+   "bytes_after": 22604,
+   "enc": "q85",
+   "when": "2026-10-30 20:46"
+  },
+  "depth/lions-night/1.webp": {
+   "group": "lions-night",
+   "orig": "bfaa40806808cee10a3546c395b6116678446e0d",
+   "graded": "bb852b59285d60f29f35f47f5d4d6a34bc4075ac",
+   "bytes_before": 22942,
+   "bytes_after": 23790,
+   "enc": "q90",
+   "when": "2026-10-30 20:46"
+  },
+  "depth/lions-night/2.webp": {
+   "group": "lions-night",
+   "orig": "a22738a23575682d6dca16a06aaba576f5ab24d1",
+   "graded": "33047ca5f43eac2417d417300d38a052688061c2",
+   "bytes_before": 28018,
+   "bytes_after": 30000,
+   "enc": "q91",
+   "when": "2026-10-30 20:46"
+  },
+  "depth/lions-night/3.webp": {
+   "group": "lions-night",
+   "orig": "eb4e3db1d2e8ad393e98318e7aaddf2cf1034565",
+   "graded": "fef1cc65f12b00a2acb0731c58d0b79a7eb29af4",
+   "bytes_before": 10344,
+   "bytes_after": 10914,
+   "enc": "q92",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-unlit-l.webp": {
+   "group": "cake",
+   "orig": "e9dbae63ce1f7a8819d1136b936c5164f49f6c41",
+   "graded": "ebe585e065e0f15a53ac96e4995a3120590e4d94",
+   "bytes_before": 73536,
+   "bytes_after": 76420,
+   "enc": "q91",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-unlit-p.webp": {
+   "group": "cake",
+   "orig": "e0bf1f7008243f19b8ff9581c932186befb88547",
+   "graded": "d712aac31e866f3ac3b5fd90acdee9d4aceb751b",
+   "bytes_before": 89426,
+   "bytes_after": 95306,
+   "enc": "q90",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-lit-l.webp": {
+   "group": "cake",
+   "orig": "f3ee8f33ce5f3ee78dd237b3852b277c09f37459",
+   "graded": "ae291fcba05b1133808936b5b7551e010d00e995",
+   "bytes_before": 72884,
+   "bytes_after": 77068,
+   "enc": "q91",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-lit-p.webp": {
+   "group": "cake",
+   "orig": "83fe114abb477a396242eb30aa6c1b1a03757b05",
+   "graded": "691755e0687adc2f8aacedf5542dae1e9b05d75e",
+   "bytes_before": 90124,
+   "bytes_after": 92762,
+   "enc": "q89",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-after-l.webp": {
+   "group": "cake",
+   "orig": "de7aac4e577c103342dece6e10a96b2552449a00",
+   "graded": "069e82c900873f1dd0d2341538258948df0b4c68",
+   "bytes_before": 75788,
+   "bytes_after": 79620,
+   "enc": "q91",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-after-p.webp": {
+   "group": "cake",
+   "orig": "7feaf34ae3f8617b1e0dd5eb3c23716fc78676a3",
+   "graded": "8ce987e8d5d50de0984b16dd63432b1dc5806082",
+   "bytes_before": 96100,
+   "bytes_after": 99854,
+   "enc": "q90",
+   "when": "2026-10-30 20:46"
+  },
+  "img/cake3d-close-unlit-l.webp": {
+   "group": "cake",
+   "orig": "bd22776d9a5c05f16995e83cf73013a8b89bfbc2",
+   "graded": "b33d4356333faef81bdf4ad4b21619fda73ae259",
+   "bytes_before": 63306,
+   "bytes_after": 65640,
+   "enc": "q90",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-unlit-p.webp": {
+   "group": "cake",
+   "orig": "f7628a4ac16e8090b5ee226cd0b932def4d8a91e",
+   "graded": "5b94f8500878d72f2f68ee64ecf4ddf32989eeec",
+   "bytes_before": 95184,
+   "bytes_after": 99012,
+   "enc": "q90",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-lit-l.webp": {
+   "group": "cake",
+   "orig": "9cd01f3fb1107533eab6cc90bb0171fa2e868a6e",
+   "graded": "f3150c4449775217ea2b925fb2fb5eece82c470f",
+   "bytes_before": 63202,
+   "bytes_after": 65680,
+   "enc": "q90",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-lit-p.webp": {
+   "group": "cake",
+   "orig": "de6d0624fb7a100168f67d20ed8b1a33fa1bb857",
+   "graded": "4e9c22ad9b75fca99b5f7d4978d352d304be2a23",
+   "bytes_before": 96314,
+   "bytes_after": 99250,
+   "enc": "q90",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light0-l.webp": {
+   "group": "cake-passes",
+   "orig": "02650ce6741934f457cd0a4689d0026c48c625bb",
+   "graded": "f78f2df55ec3444d0b0866b3fa710011d2fba743",
+   "bytes_before": 2708,
+   "bytes_after": 2874,
+   "enc": "q91",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light0-p.webp": {
+   "group": "cake-passes",
+   "orig": "b8c38c5d0880f09b81143797e296af2da3c08704",
+   "graded": "85b173ff670114bf1fd06d7425bbe0f8dca6ac3f",
+   "bytes_before": 5770,
+   "bytes_after": 6180,
+   "enc": "q91",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light1-l.webp": {
+   "group": "cake-passes",
+   "orig": "2b05a4da9b3c55c4c008c85cc2e9868aef308be6",
+   "graded": "fb750b1df32ed54ea656b93e7c07dbe92946f9a7",
+   "bytes_before": 2186,
+   "bytes_after": 2346,
+   "enc": "q92",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light1-p.webp": {
+   "group": "cake-passes",
+   "orig": "9bd70b8fa139656af09949d8e68d502296f42a37",
+   "graded": "d2c600e281d82767b6331a2654ecc37047c8e8e8",
+   "bytes_before": 4304,
+   "bytes_after": 4610,
+   "enc": "q92",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light2-l.webp": {
+   "group": "cake-passes",
+   "orig": "79ec5b5b99992f156a982637ee0a85f9516134b2",
+   "graded": "667c50b260014972227ea8098fd0cd342e2a18c3",
+   "bytes_before": 2228,
+   "bytes_after": 2386,
+   "enc": "q92",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light2-p.webp": {
+   "group": "cake-passes",
+   "orig": "c6726a0225f22de11f9c04a4fcf055b1456188e8",
+   "graded": "949347bc481960b75ff111e471bc0a34ddc42bed",
+   "bytes_before": 4200,
+   "bytes_after": 4444,
+   "enc": "q91",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light3-l.webp": {
+   "group": "cake-passes",
+   "orig": "f9b7a71fc3491217830ba97a8dd5a8e08fd107c5",
+   "graded": "bf693c83c73a5059e2f4fc12e8a2a679bb4fb2ed",
+   "bytes_before": 2274,
+   "bytes_after": 2414,
+   "enc": "q92",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light3-p.webp": {
+   "group": "cake-passes",
+   "orig": "be852a575322aae4dec2bc32a0bb10e1dc05b6ca",
+   "graded": "c4b7d6289cfada14c991cbfbd82a5920a1349563",
+   "bytes_before": 4334,
+   "bytes_after": 4604,
+   "enc": "q91",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light4-l.webp": {
+   "group": "cake-passes",
+   "orig": "79c1e60eadebd4d8b3ae28f85970c5bf9ea75539",
+   "graded": "3fb157c761e7209c3152e7b7869a44f4e09b441a",
+   "bytes_before": 2372,
+   "bytes_after": 2520,
+   "enc": "q92",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light4-p.webp": {
+   "group": "cake-passes",
+   "orig": "774f4e2674fa4fdd51eb9987db2d0d70cf6d792f",
+   "graded": "a5dbaf980ae1cda850db602cec4312823988528f",
+   "bytes_before": 4522,
+   "bytes_after": 4700,
+   "enc": "q91",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light5-l.webp": {
+   "group": "cake-passes",
+   "orig": "8cffc432741b41e12e75d2caff0303d9333a939b",
+   "graded": "6f1f7995f5de06106c81608ae764b74314051eb7",
+   "bytes_before": 2862,
+   "bytes_after": 2994,
+   "enc": "q91",
+   "when": "2026-10-30 20:47"
+  },
+  "img/cake3d-close-light5-p.webp": {
+   "group": "cake-passes",
+   "orig": "db64dfc0aac7e7b9834597cb7f62651607edbd30",
+   "graded": "cf380d8125daddfdfab4c1d00bc77563ec91a8c7",
+   "bytes_before": 5850,
+   "bytes_after": 6310,
+   "enc": "q92",
+   "when": "2026-10-30 20:47"
+  }
+ },
+ "groups": {
+  "castle-film": {
+   "chapter": "prologue",
+   "params": {
+    "o": -0.010442150882240039,
+    "ev": -0.030551147460937497,
+    "sh": [
+     -0.02015799880027769,
+     -8.230639934539795
+    ],
+    "mid": [
+     -0.03359666466712949,
+     0.7942018508911115
+    ],
+    "hi": [
+     -0.03359666466712949,
+     2.1227307319641113
+    ],
+    "sat": 0.9743895432127222,
+    "cmax": 36.0
+   },
+   "ref": [
+    "video/castle.mp4",
+    "video/castlep.mp4"
+   ],
+   "before": {
+    "black": 0.7152000665664673,
+    "white": 218.74041748046875,
+    "mean": 81.52066802978516,
+    "meanL": 34.18843078613281,
+    "sat": 16.235214233398438,
+    "sat95": 24.17928123474121,
+    "contrast": 21.427413940429688,
+    "neu_a": 0.20242372155189514,
+    "neu_b": -9.579434394836426,
+    "hi_b": -15.20569133758545,
+    "sh_b": -2.8360321521759033,
+    "cct": 9538.1513671875
+   },
+   "after": {
+    "black": 3.5512266159057617,
+    "white": 216.3385467529297,
+    "mean": 82.2493896484375,
+    "meanL": 34.557533264160156,
+    "sat": 16.54440689086914,
+    "sat95": 23.243465423583984,
+    "contrast": 21.02461814880371,
+    "neu_a": 0.09314277023077011,
+    "neu_b": -9.445860862731934,
+    "hi_b": -13.14527416229248,
+    "sh_b": -2.7094829082489014,
+    "cct": 8988.431640625
+   }
+  },
+  "castle-paint": {
+   "chapter": "prologue",
+   "params": {
+    "o": 0.0075559208059915025,
+    "ev": 0.79998779296875,
+    "sh": [
+     0.18728432985953986,
+     -6.486374795436859
+    ],
+    "mid": [
+     0.3121405497658998,
+     -5.458900451660155
+    ],
+    "hi": [
+     0.3121405497658998,
+     14.0
+    ],
+    "sat": 0.7,
+    "cmax": 36.0
+   },
+   "ref": [
+    "img/castle.webp"
+   ],
+   "before": {
+    "black": 6.3662004470825195,
+    "white": 148.91078186035156,
+    "mean": 52.61213302612305,
+    "meanL": 23.66691017150879,
+    "sat": 17.6015625,
+    "sat95": 27.565311431884766,
+    "contrast": 14.044818878173828,
+    "neu_a": -0.10619230568408966,
+    "neu_b": -5.2755913734436035,
+    "hi_b": -14.965734481811523,
+    "sh_b": -1.853911280632019,
+    "cct": 11432.0859375
+   },
+   "after": {
+    "black": 8.238839149475098,
+    "white": 190.76702880859375,
+    "mean": 71.71687316894531,
+    "meanL": 30.69882583618164,
+    "sat": 17.939010620117188,
+    "sat95": 26.7214412689209,
+    "contrast": 17.314167022705078,
+    "neu_a": 0.14803043007850647,
+    "neu_b": -6.882893085479736,
+    "hi_b": -16.113771438598633,
+    "sh_b": -2.742323875427246,
+    "cct": 10819.1640625
+   }
+  },
+  "study-film": {
+   "chapter": "book",
+   "params": {
+    "o": -0.012479826062423772,
+    "ev": -0.10805969238281249,
+    "sh": [
+     -1.531620025634765,
+     4.095383942127228
+    ],
+    "mid": [
+     -2.5527000427246085,
+     0.3811891078948957
+    ],
+    "hi": [
+     -2.5527000427246085,
+     -1.5592937469482493
+    ],
+    "sat": 0.9892801349661953,
+    "cmax": 56.0
+   },
+   "ref": [
+    "video/study.mp4",
+    "video/studyp.mp4"
+   ],
+   "before": {
+    "black": 0.07220000773668289,
+    "white": 239.5273895263672,
+    "mean": 66.55137634277344,
+    "meanL": 30.581939697265625,
+    "sat": 40.02311325073242,
+    "sat95": 73.45545196533203,
+    "contrast": 21.538618087768555,
+    "neu_a": 7.965981483459473,
+    "neu_b": 3.5078959465026855,
+    "hi_b": 43.31196975708008,
+    "sh_b": 1.2824090719223022,
+    "cct": 3053.42138671875
+   },
+   "after": {
+    "black": 3.2737789154052734,
+    "white": 228.776123046875,
+    "mean": 68.05058288574219,
+    "meanL": 30.247575759887695,
+    "sat": 34.64576721191406,
+    "sat95": 54.274620056152344,
+    "contrast": 20.629371643066406,
+    "neu_a": 4.420320510864258,
+    "neu_b": 5.321572303771973,
+    "hi_b": 36.76233673095703,
+    "sh_b": 0.9909117817878723,
+    "cct": 3405.994384765625
+   }
+  },
+  "study-paint": {
+   "chapter": "book",
+   "params": {
+    "o": -0.012708498808578238,
+    "ev": 0.11157531738281248,
+    "sh": [
+     -1.9197827339172362,
+     3.726300150156021
+    ],
+    "mid": [
+     -3.1996378898620605,
+     3.8314497470855713
+    ],
+    "hi": [
+     -3.1996378898620605,
+     -8.580713272094727
+    ],
+    "sat": 1.15,
+    "cmax": 56.0
+   },
+   "ref": [
+    "img/study-land.webp",
+    "img/study-port.webp"
+   ],
+   "before": {
+    "black": 0.0,
+    "white": 229.805419921875,
+    "mean": 49.625614166259766,
+    "meanL": 22.2976131439209,
+    "sat": 29.47064971923828,
+    "sat95": 60.9920768737793,
+    "contrast": 19.12187957763672,
+    "neu_a": 6.16680908203125,
+    "neu_b": 2.416466236114502,
+    "hi_b": 38.75603103637695,
+    "sh_b": 0.6544337272644043,
+    "cct": 2840.720458984375
+   },
+   "after": {
+    "black": 3.7963058948516846,
+    "white": 233.43978881835938,
+    "mean": 54.68202590942383,
+    "meanL": 24.248292922973633,
+    "sat": 30.290700912475586,
+    "sat95": 54.69172668457031,
+    "contrast": 19.30245018005371,
+    "neu_a": 3.582677125930786,
+    "neu_b": 3.3422346115112305,
+    "hi_b": 37.03093719482422,
+    "sh_b": 0.7558574080467224,
+    "cct": 3157.0234375
+   }
+  },
+  "photo-ocean-evening": {
+   "chapter": "memories",
+   "params": {
+    "o": 0.07856304241985804,
+    "ev": 0.0,
+    "sh": [
+     1.0,
+     3.0
+    ],
+    "mid": [
+     0.5,
+     5.0
+    ],
+    "hi": [
+     0.5,
+     7.0
+    ],
+    "sat": 0.92,
+    "cmax": 46.0
+   },
+   "ref": [
+    "img/photo-ocean-evening.webp"
+   ],
+   "before": {
+    "black": 35.70997619628906,
+    "white": 191.1346893310547,
+    "mean": 118.31704711914062,
+    "meanL": 50.710670471191406,
+    "sat": 25.377775192260742,
+    "sat95": 44.95515441894531,
+    "contrast": 13.372401237487793,
+    "neu_a": 4.514862060546875,
+    "neu_b": -0.5273397564888,
+    "hi_b": 28.73094367980957,
+    "sh_b": 2.0026838779449463,
+    "cct": 2812.0703125
+   },
+   "after": {
+    "black": 17.227603912353516,
+    "white": 184.9184112548828,
+    "mean": 107.1236343383789,
+    "meanL": 46.27202224731445,
+    "sat": 27.300687789916992,
+    "sat95": 42.53988265991211,
+    "contrast": 14.802128791809082,
+    "neu_a": 3.841127872467041,
+    "neu_b": 2.770122528076172,
+    "hi_b": 30.024194717407227,
+    "sh_b": 4.94138240814209,
+    "cct": 2911.1689453125
+   }
+  },
+  "photo-sunlit-book": {
+   "chapter": "memories",
+   "params": {
+    "o": 0.06347208542203395,
+    "ev": 0.0,
+    "sh": [
+     1.0,
+     3.0
+    ],
+    "mid": [
+     0.5,
+     5.0
+    ],
+    "hi": [
+     0.5,
+     7.0
+    ],
+    "sat": 0.92,
+    "cmax": 46.0
+   },
+   "ref": [
+    "img/photo-sunlit-book.webp"
+   ],
+   "before": {
+    "black": 30.715200424194336,
+    "white": 254.2899932861328,
+    "mean": 114.00947570800781,
+    "meanL": 46.976951599121094,
+    "sat": 14.367055892944336,
+    "sat95": 36.7184944152832,
+    "contrast": 26.446704864501953,
+    "neu_a": 7.19396448135376,
+    "neu_b": -1.395820140838623,
+    "hi_b": 0.6867508888244629,
+    "sh_b": 0.21480906009674072,
+    "cct": 6477.59375
+   },
+   "after": {
+    "black": 15.571019172668457,
+    "white": 244.65286254882812,
+    "mean": 103.41402435302734,
+    "meanL": 42.53076171875,
+    "sat": 15.24597454071045,
+    "sat95": 39.28319549560547,
+    "contrast": 27.938846588134766,
+    "neu_a": 7.400850296020508,
+    "neu_b": -1.846023678779602,
+    "hi_b": 3.49118971824646,
+    "sh_b": 1.2330728769302368,
+    "cct": 6162.08544921875
+   }
+  },
+  "photo-night-sky": {
+   "chapter": "memories",
+   "params": {
+    "o": -0.009049400435977545,
+    "ev": 0.0,
+    "sh": [
+     1.0,
+     3.0
+    ],
+    "mid": [
+     0.5,
+     5.0
+    ],
+    "hi": [
+     0.5,
+     7.0
+    ],
+    "sat": 0.92,
+    "cmax": 46.0
+   },
+   "ref": [
+    "img/photo-night-sky.webp"
+   ],
+   "before": {
+    "black": 5.807400226593018,
+    "white": 162.8176727294922,
+    "mean": 41.90142059326172,
+    "meanL": 17.39361000061035,
+    "sat": 16.86902618408203,
+    "sat95": 33.70661926269531,
+    "contrast": 11.51479434967041,
+    "neu_a": 3.125941276550293,
+    "neu_b": -6.26358699798584,
+    "hi_b": -18.86170768737793,
+    "sh_b": -5.687963962554932,
+    "cct": 13626.02734375
+   },
+   "after": {
+    "black": 8.233020782470703,
+    "white": 163.58641052246094,
+    "mean": 44.66863250732422,
+    "meanL": 18.2282772064209,
+    "sat": 12.321431159973145,
+    "sat95": 27.670970916748047,
+    "contrast": 11.399138450622559,
+    "neu_a": 2.765089750289917,
+    "neu_b": -6.817581653594971,
+    "hi_b": -12.517874717712402,
+    "sh_b": -2.5299925804138184,
+    "cct": 9315.3935546875
+   }
+  },
+  "prairie": {
+   "chapter": "film-day",
+   "params": {
+    "o": 0.06779491619510093,
+    "ev": -0.08636169433593752,
+    "sh": [
+     4.250346529483794,
+     -14.0
+    ],
+    "mid": [
+     7.08391088247299,
+     14.0
+    ],
+    "hi": [
+     7.08391088247299,
+     3.382844924926765
+    ],
+    "sat": 0.8898113017328992,
+    "cmax": 62.0
+   },
+   "ref": [
+    "img/prairie-gold.webp"
+   ],
+   "before": {
+    "black": 31.055999755859375,
+    "white": 236.41578674316406,
+    "mean": 154.57272338867188,
+    "meanL": 65.78275299072266,
+    "sat": 50.2618522644043,
+    "sat95": 81.23841094970703,
+    "contrast": 17.805709838867188,
+    "neu_a": -2.0734546184539795,
+    "neu_b": 0.26026904582977295,
+    "hi_b": 41.7856330871582,
+    "sh_b": 25.561365127563477,
+    "cct": 4050.108154296875
+   },
+   "after": {
+    "black": 19.38837242126465,
+    "white": 225.06666564941406,
+    "mean": 144.9894256591797,
+    "meanL": 61.63563919067383,
+    "sat": 43.746517181396484,
+    "sat95": 60.59608840942383,
+    "contrast": 18.491601943969727,
+    "neu_a": 0.6049896478652954,
+    "neu_b": -6.575174808502197,
+    "hi_b": 39.33548355102539,
+    "sh_b": 15.848342895507812,
+    "cct": 3914.51123046875
+   }
+  },
+  "horses": {
+   "chapter": "film-day",
+   "params": {
+    "o": 0.06779491619510093,
+    "ev": -0.08636169433593752,
+    "sh": [
+     4.250346529483794,
+     -14.0
+    ],
+    "mid": [
+     7.08391088247299,
+     14.0
+    ],
+    "hi": [
+     7.08391088247299,
+     3.382844924926765
+    ],
+    "sat": 0.8898113017328992,
+    "cmax": 62.0
+   },
+   "ref": [
+    "img/prairie-gold.webp"
+   ],
+   "before": {
+    "black": 31.055999755859375,
+    "white": 236.41578674316406,
+    "mean": 154.57272338867188,
+    "meanL": 65.78275299072266,
+    "sat": 50.2618522644043,
+    "sat95": 81.23841094970703,
+    "contrast": 17.805709838867188,
+    "neu_a": -2.0734546184539795,
+    "neu_b": 0.26026904582977295,
+    "hi_b": 41.7856330871582,
+    "sh_b": 25.561365127563477,
+    "cct": 4050.108154296875
+   },
+   "after": {
+    "black": 19.38837242126465,
+    "white": 225.06666564941406,
+    "mean": 144.9894256591797,
+    "meanL": 61.63563919067383,
+    "sat": 43.746517181396484,
+    "sat95": 60.59608840942383,
+    "contrast": 18.491601943969727,
+    "neu_a": 0.6049896478652954,
+    "neu_b": -6.575174808502197,
+    "hi_b": 39.33548355102539,
+    "sh_b": 15.848342895507812,
+    "cct": 3914.51123046875
+   }
+  },
+  "run-film": {
+   "chapter": "film-day",
+   "params": {
+    "o": -0.010192885248138847,
+    "ev": 0.0404388427734375,
+    "sh": [
+     0.964563721418381,
+     -3.252584934234619
+    ],
+    "mid": [
+     1.6076062023639683,
+     6.370679259300228
+    ],
+    "hi": [
+     1.6076062023639683,
+     4.574775695800788
+    ],
+    "sat": 0.9479909016353004,
+    "cmax": 62.0
+   },
+   "ref": [
+    "video/run.mp4",
+    "video/runp.mp4"
+   ],
+   "before": {
+    "black": 2.073791980743408,
+    "white": 244.51319885253906,
+    "mean": 118.37276458740234,
+    "meanL": 52.25425720214844,
+    "sat": 53.445274353027344,
+    "sat95": 81.56475830078125,
+    "contrast": 22.317955017089844,
+    "neu_a": 0.9000944495201111,
+    "neu_b": 3.5776121616363525,
+    "hi_b": 51.439125061035156,
+    "sh_b": 8.525674819946289,
+    "cct": 3757.482421875
+   },
+   "after": {
+    "black": 4.973763942718506,
+    "white": 239.7663116455078,
+    "mean": 122.99442291259766,
+    "meanL": 53.03626251220703,
+    "sat": 45.651424407958984,
+    "sat95": 60.03022384643555,
+    "contrast": 21.915205001831055,
+    "neu_a": 1.7045873403549194,
+    "neu_b": 6.504945755004883,
+    "hi_b": 42.911136627197266,
+    "sh_b": 7.215747833251953,
+    "cct": 4009.7265625
+   }
+  },
+  "kiss": {
+   "chapter": "film-day",
+   "params": {
+    "o": 0.005021935835557567,
+    "ev": 0.27124328613281246,
+    "sh": [
+     0.6052828788757324,
+     4.640788316726685
+    ],
+    "mid": [
+     1.0088047981262207,
+     5.557954862713814
+    ],
+    "hi": [
+     1.0088047981262207,
+     14.0
+    ],
+    "sat": 1.0623252544479216,
+    "cmax": 62.0
+   },
+   "ref": [
+    "video/kiss.mp4",
+    "img/horses-kiss.webp"
+   ],
+   "before": {
+    "black": 7.918599605560303,
+    "white": 244.80880737304688,
+    "mean": 101.90520477294922,
+    "meanL": 43.88642883300781,
+    "sat": 36.85295486450195,
+    "sat95": 78.17893981933594,
+    "contrast": 24.90104866027832,
+    "neu_a": 1.3142163753509521,
+    "neu_b": 0.46779903769493103,
+    "hi_b": 44.869117736816406,
+    "sh_b": 2.093216896057129,
+    "cct": 3997.2158203125
+   },
+   "after": {
+    "black": 8.150127410888672,
+    "white": 249.86492919921875,
+    "mean": 109.86685180664062,
+    "meanL": 46.99003601074219,
+    "sat": 38.50843811035156,
+    "sat95": 60.8443489074707,
+    "contrast": 25.988056182861328,
+    "neu_a": 1.7904174327850342,
+    "neu_b": 5.658555507659912,
+    "hi_b": 39.04509353637695,
+    "sh_b": 3.954362154006958,
+    "cct": 4299.99755859375
+   }
+  },
+  "lions-day": {
+   "chapter": "film-day",
+   "params": {
+    "o": 0.016559772666495845,
+    "ev": 0.34888000488281257,
+    "sh": [
+     -1.4237827062606812,
+     9.006125178188086
+    ],
+    "mid": [
+     -2.3729711771011353,
+     14.0
+    ],
+    "hi": [
+     -2.3729711771011353,
+     -14.0
+    ],
+    "sat": 1.15,
+    "cmax": 62.0
+   },
+   "ref": [
+    "img/lions.webp"
+   ],
+   "before": {
+    "black": 12.287601470947266,
+    "white": 228.54440307617188,
+    "mean": 97.91783142089844,
+    "meanL": 43.86115646362305,
+    "sat": 43.7205810546875,
+    "sat95": 75.08924102783203,
+    "contrast": 21.260684967041016,
+    "neu_a": 11.171786308288574,
+    "neu_b": -6.199001789093018,
+    "hi_b": 63.53178787231445,
+    "sh_b": -5.393723487854004,
+    "cct": 2511.046875
+   },
+   "after": {
+    "black": 10.458978652954102,
+    "white": 246.94886779785156,
+    "mean": 108.9500732421875,
+    "meanL": 47.478912353515625,
+    "sat": 40.52109909057617,
+    "sat95": 61.36086654663086,
+    "contrast": 23.203489303588867,
+    "neu_a": 5.7413225173950195,
+    "neu_b": -9.80834674835205,
+    "hi_b": 48.03465270996094,
+    "sh_b": 0.15442883968353271,
+    "cct": 3045.590087890625
+   }
+  },
+  "lions-night": {
+   "chapter": "film-night",
+   "params": {
+    "o": 0.006405961700279692,
+    "ev": 0.26355285644531246,
+    "sh": [
+     0.0,
+     -13.023603439331055
+    ],
+    "mid": [
+     0.0,
+     0.0
+    ],
+    "hi": [
+     0.0,
+     4.749755859375
+    ],
+    "sat": 0.7174810218644601,
+    "cmax": 36.0
+   },
+   "ref": [
+    "img/lions-night.webp"
+   ],
+   "before": {
+    "black": 7.657800197601318,
+    "white": 102.8330307006836,
+    "mean": 37.56475830078125,
+    "meanL": 15.558816909790039,
+    "sat": 24.044246673583984,
+    "sat95": 33.449371337890625,
+    "contrast": 9.281769752502441,
+    "neu_a": NaN,
+    "neu_b": NaN,
+    "hi_b": -20.4482421875,
+    "sh_b": -9.176743507385254,
+    "cct": 17365.56640625
+   },
+   "after": {
+    "black": 7.5180182456970215,
+    "white": 111.65010070800781,
+    "mean": 40.19413757324219,
+    "meanL": 16.77956199645996,
+    "sat": 22.25182342529297,
+    "sat95": 31.5922908782959,
+    "contrast": 10.063830375671387,
+    "neu_a": 13.549756050109863,
+    "neu_b": -5.783282279968262,
+    "hi_b": -17.08553123474121,
+    "sh_b": -5.90584135055542,
+    "cct": 12194.23046875
+   }
+  },
+  "cake": {
+   "chapter": "wish",
+   "params": {
+    "o": -0.012708498808578238,
+    "ev": -0.03022155761718749,
+    "sh": [
+     -1.5817055225372314,
+     2.872976541519165
+    ],
+    "mid": [
+     -2.6361758708953857,
+     -3.4945564270019496
+    ],
+    "hi": [
+     -2.6361758708953857,
+     4.497051239013675
+    ],
+    "sat": 1.1283110565585257,
+    "cmax": 56.0
+   },
+   "ref": [
+    "img/cake3d-unlit-l.webp",
+    "img/cake3d-lit-l.webp",
+    "img/cake3d-close-unlit-l.webp"
+   ],
+   "before": {
+    "black": 0.0,
+    "white": 227.58941650390625,
+    "mean": 74.08985137939453,
+    "meanL": 32.549686431884766,
+    "sat": 32.37407302856445,
+    "sat95": 65.84227752685547,
+    "contrast": 23.541709899902344,
+    "neu_a": 5.247936725616455,
+    "neu_b": 10.908733367919922,
+    "hi_b": 20.495346069335938,
+    "sh_b": 3.959292411804199,
+    "cct": 4122.751953125
+   },
+   "after": {
+    "black": 3.4409360885620117,
+    "white": 223.30001831054688,
+    "mean": 75.9918441772461,
+    "meanL": 33.05714416503906,
+    "sat": 31.049558639526367,
+    "sat95": 54.119232177734375,
+    "contrast": 22.962276458740234,
+    "neu_a": 3.8485727310180664,
+    "neu_b": 10.430488586425781,
+    "hi_b": 23.844497680664062,
+    "sh_b": 3.9505109786987305,
+    "cct": 4119.65234375
+   }
+  },
+  "cake-passes": {
+   "chapter": "wish",
+   "params": {
+    "o": -0.012708498808578238,
+    "ev": -0.03022155761718749,
+    "sh": [
+     -1.5817055225372314,
+     2.872976541519165
+    ],
+    "mid": [
+     -2.6361758708953857,
+     -3.4945564270019496
+    ],
+    "hi": [
+     -2.6361758708953857,
+     4.497051239013675
+    ],
+    "sat": 1.1283110565585257,
+    "cmax": 56.0
+   },
+   "ref": [
+    "img/cake3d-unlit-l.webp",
+    "img/cake3d-lit-l.webp",
+    "img/cake3d-close-unlit-l.webp"
+   ],
+   "before": {
+    "black": 0.0,
+    "white": 227.58941650390625,
+    "mean": 74.08985137939453,
+    "meanL": 32.549686431884766,
+    "sat": 32.37407302856445,
+    "sat95": 65.84227752685547,
+    "contrast": 23.541709899902344,
+    "neu_a": 5.247936725616455,
+    "neu_b": 10.908733367919922,
+    "hi_b": 20.495346069335938,
+    "sh_b": 3.959292411804199,
+    "cct": 4122.751953125
+   },
+   "after": {
+    "black": 3.4409360885620117,
+    "white": 223.30001831054688,
+    "mean": 75.9918441772461,
+    "meanL": 33.05714416503906,
+    "sat": 31.049558639526367,
+    "sat95": 54.119232177734375,
+    "contrast": 22.962276458740234,
+    "neu_a": 3.8485727310180664,
+    "neu_b": 10.430488586425781,
+    "hi_b": 23.844497680664062,
+    "sh_b": 3.9505109786987305,
+    "cct": 4119.65234375
+   }
+  }
+ }
+}

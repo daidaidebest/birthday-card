@@ -1,10 +1,12 @@
 // Sound, all through Web Audio (v16 engine; v18 a game score). The music is decoded buffers, so loops are gapless, and
 // the next chapter's music is decoded ahead of time, so there is never a silent gap.
 // v18: each chapter's cue is two or three time-aligned layers of one score (tools/score.py; the grid, chords and sections
-// are in js/score-map.js). The story plays it like a game score:
+// are in js/score-map.js). v19: the score builds toward the last chapter; Happy Birthday is heard only there (the candles
+// ring its first line, the sixth calls the 'song' section in, the finale brings it in full), never before: no earlier cue,
+// cadence or stinger plays a fragment of it (tools/check_hb.py). The story plays it like a game score:
 //   layer(name, level, sec)   raises or lowers a layer ('bed', 'lead'; the film also has 'pulse', the gallop)
 //   section(name)             moves the music to a section on its next phrase or bar line (the film's run holds until the
-//                             horses meet; the book's hearth holds until the cover opens)
+//                             horses meet; the book's hearth holds until the cover opens; the wish's glow until the song)
 //   hit(kind, {quantize, ...}) a stinger from the soft sample bank (harp, celesta, music box, piano), its notes chosen from
 //                             the chord that is playing, landing on the next 16th/8th/beat/bar; returns the context time it
 //                             sounds (until(when) = seconds from now), so the picture can land on it
@@ -26,7 +28,7 @@ const CUES = MAP.cues;
 const AFTER = { wish: 'finale' };   // music a chapter moves on to by itself (decoded ahead like the next chapter's)
 // layer levels a cue starts with; the prologue's melody comes in with the owl (or by itself after 3.5 s)
 const MIX = { prologue: { lead: 0 } }, INTRO = { prologue: { lead: [3.5, 2.5] } };
-const HOLDS = 4;                    // a held section comes round at most this often before the music moves on anyway
+const HOLDS = 4;                    // a held section comes round at most this often before the music moves on anyway (or its own count)
 const WET = .42;                    // how much of the last beat rings on in the reverb when a loop stops or jumps
 const SFX = ['chime', 'light', 'sparkle', 'tap', 'seal', 'rustle', 'page', 'whoosh', 'wings', 'blow', 'bark1', 'bark2', 'yip', 'patter', 'wag', 'sneeze', 'glint', 'shimmer', 'sand'];
 const ALIAS = { owl: 'wings', pop: 'fw-burst1' };
@@ -55,13 +57,24 @@ const STEP = { '32nd': .125, '16th': .25, '8th': .5, beat: 1 };
 const inSet = (lo, hi, pcs) => { const out = []; for (let p = lo; p <= hi; p++) if (pcs.includes(p % 12)) out.push(p); return out; };
 const near = (p, pcs) => { for (let d = 0; d < 7; d++) for (const q of [p - d, p + d]) if (pcs.includes(((q % 12) + 12) % 12)) return q; return p; };
 const low = (pc, lo) => lo + ((pc - lo) % 12 + 12) % 12;
-const KINDS = {
+/** the chord's root, third and fifth (falling figures use only these: a falling seventh chord with a step under it can
+ *  sound like a line of Happy Birthday, which waits for the last chapter; tools/check_hb.py checks every stinger) */
+const triad = h => h.tones.filter(pc => [0, 3, 4, 7].includes(((pc - h.root) % 12 + 12) % 12));
+/** pitch classes without semitone neighbours (of two a semitone apart, the lower goes): the stardust's open scale */
+const open = pcs => pcs.filter(pc => !pcs.includes((pc + 1) % 12));
+export const KINDS = {
   // the prologue: stardust in the night sky (random, a step or two from the last), the owl, the letter
-  twinkle: { q: '16th', gap: .08, v: .32, f: (h, o, A) => { const s = inSet(84, 100, h.tw); let i = s.indexOf(A.lastTw); i = i < 0 ? (Math.random() * s.length) | 0 : Math.max(0, Math.min(s.length - 1, i + [-2, -1, 1, 2][(Math.random() * 4) | 0])); A.lastTw = s[i]; return [['cel', s[i], 0, .8]]; } },
+  // (a step or two from the last note, never the same note and never straight back to the one before it)
+  twinkle: { q: '16th', gap: .08, v: .32, f: (h, o, A) => {
+    const s = inSet(84, 100, open(h.tw)); let i = s.indexOf(A.lastTw);
+    if (i < 0) i = (Math.random() * s.length) | 0;
+    else { const to = [-2, -1, 1, 2].map(d => i + d).filter(j => j >= 0 && j < s.length && s[j] !== A.prevTw); if (to.length) i = to[(Math.random() * to.length) | 0]; }
+    A.prevTw = A.lastTw; A.lastTw = s[i]; return [['cel', s[i], 0, .8]];
+  } },
   owl: { q: '8th', v: .4, f: h => inSet(67, 91, h.tw).slice(0, 9).map((p, i) => ['harp', p, i * .125, .5 + i * .04]).concat([['cel', inSet(88, 100, h.tones)[0], 1.1, .45]]) },
   land: { q: 'beat', v: .5, f: h => [['harp', low(h.bass, 43), 0, .7], ['harp', low(h.root, 50) + 7, .08, .5], ['harp', near(low(h.root, 60) + 4, h.tones), .16, .5], ['cel', inSet(84, 96, h.tones)[1], .3, .45]] },
   open: { q: '8th', v: .4, f: h => inSet(76, 96, h.tones).slice(0, 5).map((p, i) => ['cel', p, i * .25, .6]) },
-  done: { q: '8th', v: .42, f: h => inSet(76, 98, h.tones).reverse().slice(0, 5).map((p, i) => ['cel', p, i * .25, .65 - i * .06]) },
+  done: { q: '8th', v: .42, f: h => inSet(76, 98, triad(h)).reverse().slice(0, 5).map((p, i) => ['cel', p, i * .25, .65 - i * .06]) },
   // the book: the cover, a page, the dive into the next chapter
   cover: { q: '8th', v: .48, f: h => [low(h.bass, 43), ...inSet(52, 76, h.tones).slice(0, 5)].map((p, i) => ['harp', p, i * .125, .55 + i * .05]) },
   page: { q: '8th', v: .4, f: h => inSet(60, 79, h.tones).slice(0, 4).map((p, i) => ['harp', p, i * .25, .5 + i * .06]) },
@@ -72,21 +85,25 @@ const KINDS = {
   photo: { q: '8th', v: .4, f: (h, o) => { const s = inSet(76, 98, h.tones), p = s[(o.index || 0) % s.length]; return [['cel', p, 0, .7], ['cel', p - 12, .02, .25]]; } },
   flip: { q: '8th', v: .36, f: h => { const s = inSet(76, 91, h.tones).reverse().slice(0, 3); return [...s.map((p, i) => ['cel', p, i * .5, .6 - i * .1]), ['harp', low(h.root, 48), 0, .35]]; } },
   letter: { q: 'beat', v: .38, f: h => [['harp', low(h.bass, 43), 0, .5], ...inSet(64, 84, h.tones).slice(0, 4).map((p, i) => ['harp', p, .25 + i * .25, .4])] },
-  // the film: the horses meet, the stars she taps into a heart (a phrase that comes home on the last one), the heart
-  // complete, the brightest star falling
+  // the film: the horses meet, the stars she taps into a heart (the last notes of the stars' own tune, home on the last
+  // one), the heart complete, the brightest star falling
   kiss: { q: 'beat', v: .42, f: h => [['harp', low(h.bass, 43), 0, .55], ...inSet(60, 79, h.tones).slice(0, 3).map((p, i) => ['harp', p, .1 + i * .1, .45]), ['cel', inSet(84, 96, h.tones)[0], .5, .45], ['cel', inSet(88, 100, h.tones)[0], .75, .4]] },
   star: { q: '8th', v: .44, f: (h, o, A) => {
-    const n = Math.max(2, Math.min(MAP.phrases.theme.length, o.of || 8)), i = Math.max(0, Math.min(n - 1, o.index || 0)), th = MAP.phrases.theme;
-    let p = th[th.length - n + i] + A.semis(h.key); if (p < 79) p += 12; p = near(p, h.tw);
+    const n = Math.max(2, Math.min(MAP.phrases.star.length, o.of || 8)), i = Math.max(0, Math.min(n - 1, o.index || 0)), th = MAP.phrases.star;
+    const ph = th.slice(th.length - n), up = 12 * Math.max(0, Math.ceil((79 - Math.min(...ph) - A.semis(h.key)) / 12));   // (the whole phrase moves by octaves)
+    const p = ph[i] + A.semis(h.key) + up;   // (exactly the tune: snapped to the chord, two notes could merge into a line of Happy Birthday)
     const last = i === n - 1;
     return last ? [['cel', p, 0, .85], ['box', p - 12, .01, .45], ['harp', low(h.bass, 43), 0, .5], ...inSet(55, 74, h.tones).slice(0, 3).map((q, k) => ['harp', q, .12 + k * .12, .4])] : [['cel', p, 0, .7], ['box', p - 12, .01, .3]];
   } },
-  heart: { q: 'beat', v: .46, f: h => [['pno', low(h.bass, 36), 0, .5], ...inSet(55, 91, h.tw).slice(0, 12).map((p, i) => ['harp', p, i * .125, .4 + i * .03]), ...inSet(84, 100, h.tones).slice(0, 3).map((p, i) => ['cel', p, 1.5 + i * .25, .5])] },
-  fall: { q: '8th', v: .42, f: h => inSet(76, 100, h.tones).reverse().slice(0, 7).map((p, i) => ['cel', p, i * .25, .7 - i * .06]) },
-  // the wish: each candle the next note of the theme (six candles, a phrase home), her closed eyes, a firework's glint
+  heart: { q: 'beat', v: .46, f: h => { const up = inSet(55, 91, h.tw).slice(0, 12), top = up[up.length - 1] || 84;   // (the celesta starts above the harp's sweep)
+    return [['pno', low(h.bass, 36), 0, .5], ...up.map((p, i) => ['harp', p, i * .125, .4 + i * .03]), ...inSet(Math.max(84, top + 3), 103, h.tones).slice(0, 3).map((p, i) => ['cel', p, 1.5 + i * .25, .5])];
+  } },
+  fall: { q: '8th', v: .42, f: h => inSet(76, 100, triad(h)).reverse().slice(0, 7).map((p, i) => ['cel', p, i * .25, .7 - i * .06]) },
+  // the wish (the last chapter): each candle the next note of Happy Birthday's first line, exactly (she plays it herself;
+  // the sixth calls the song in), her closed eyes, a firework's glint
   candle: { q: '8th', v: .5, f: (h, o, A) => {
-    const c = MAP.phrases.candle, i = Math.max(0, Math.min(c.length - 1, o.index || 0)); let p = c[i] + A.semis(h.key); if (p < 72) p += 12; p = near(p, h.tw);
-    const n = [['box', p, 0, .8], ['cel', p + 12, .01, .22]];
+    const c = MAP.phrases.candle, i = Math.max(0, Math.min(c.length - 1, o.index || 0)), s = A.semis(h.key), p = c[i] + s + 12 * Math.max(0, Math.ceil((72 - Math.min(...c) - s) / 12));
+    const n = [['cel', p, 0, .8], ['harp', p - 12, .01, .3]];
     if (i === c.length - 1) inSet(p + 3, p + 19, h.tones).slice(0, 3).forEach((q, k) => n.push(['cel', q, .5 + k * .25, .5]));
     return n;
   } },
@@ -209,7 +226,7 @@ export class Audio {
     const c = this.ctx, D = tr.D, m = tr.m, L0 = secOf(D, D.loop[0]), o = secOf(D, b) - L0;
     const sec = Object.entries(D.sections).find(([, s]) => s[2] && b >= s[0] - 1e-6 && b < s[2] - 1e-6);
     const loop = sec ? [secOf(D, sec[1][0]) - L0, secOf(D, sec[1][2]) - L0] : [0, D.len];
-    tr.hold = sec ? { name: sec[0], at, len: loop[1] - loop[0] } : null;
+    tr.hold = sec ? { name: sec[0], at, len: loop[1] - loop[0], rounds: sec[1][3] || HOLDS } : null;
     const seg = { kind: 'loop', at, o, loop, voices: [] };
     for (const s of D.stems) {
       const buf = m.stems[s]; if (!buf) continue;
@@ -408,7 +425,7 @@ export class Audio {
   conduct() {
     const c = this.ctx; if (!c || c.state !== 'running') return; const now = c.currentTime, tr = this.cur;
     if (tr?.intro && now >= tr.intro.at) { const { s, ramp } = tr.intro; tr.intro = null; const g = tr.layers[s].gain; g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.setTargetAtTime(this.mix[tr.name]?.[s] ?? 1, now, ramp / 3); }
-    if (tr?.hold && now > tr.hold.at + tr.hold.len * (HOLDS - .5)) this.unhold(tr);
+    if (tr?.hold && now > tr.hold.at + tr.hold.len * (tr.hold.rounds - .5)) this.unhold(tr);
     if (this.next && !this.changing() && !this.music.has(this.next) && CUES[this.next]) { this.decode(this.next); this.evict(); }
     if (this.prev && now > this.prev.exit + .5 && !this.prev.voices.size) this.prev = null;
     if (this.cur?.done && !this.cur.voices.size) this.cur = null;
@@ -436,6 +453,8 @@ export class Audio {
     const h = this.harmony(when), spb = 60 / (this.grid(this.sounding(when) || {}, when)?.bpm || 90), level = K.v * vel / Math.sqrt(1 + Math.max(0, this.busy - 2) / 3);
     const notes = K.f(h, { index, of }, this).filter(n => n && n[1] != null);
     this.bank?.then(B => { if (B) for (const [inst, p, dt, v] of notes) this.note(B, inst, p, when + dt * Math.min(spb, .5), v * level, pan + (Math.random() - .5) * .1); });
+    // the last chapter: the sixth candle (or, if the candles were lit for her, the wish itself) calls Happy Birthday in
+    if ((kind === 'candle' && index >= MAP.phrases.candle.length - 1) || kind === 'wish') this.section('song');
     return when;
   }
   /** One note from the bank, bent from the nearest sample; the oldest notes give way past twelve at once. */

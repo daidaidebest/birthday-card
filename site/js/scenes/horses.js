@@ -33,7 +33,10 @@ export class Horse {
   }
   frameOf(name, f) { const c = this.m.clips[name], n = c.n; return name === 'Gallop_Jump' ? Math.min(n - 1, Math.floor(f)) : ((Math.floor(f) % n) + n) % n; }
   /** Draws the horse with its feet on (x, y), h pixels tall (the frame height), facing right unless flip. */
-  draw(g, x, y, h, { flip = false, alpha = 1, wind = 0, dt = 0, speed = 0, warm = 1 } = {}) {
+  /** A gust lifts the hair: a quick extra push that dies away (wind.js decides when). */
+  flick(s = 1) { this.kick = Math.max(this.kick || 0, s); }
+  /** wind: the airflow of running (0..1); windX: the weather's wind along screen x (signed, wind.js strength). */
+  draw(g, x, y, h, { flip = false, alpha = 1, wind = 0, windX = 0, dt = 0, speed = 0, warm = 1 } = {}) {
     const [fw, fh] = this.m.frame, s = h / fh, w = fw * s;
     // the frame's ground line sits at the lowest hoof of the idle pose: keep it on y
     const ground = this.groundY ??= Math.max(...this.m.clips.Idle.anchors[0] ? ['hoofFL', 'hoofFR', 'hoofBL', 'hoofBR'].map(k => this.m.clips.Idle.anchors[0][k][1]) : [.95]) + .015;
@@ -52,19 +55,20 @@ export class Horse {
     const c = this.m.clips[this.clip], an = c.anchors[this.frameOf(this.clip, this.f)];
     // ---------- far tail strands and mane locks behind the body ----------
     const tailRoot = P(an.tail), crest = [an.poll, an.crest2, an.crest, an.withers].map(P);
-    const gust = wind * (1 + .3 * Math.sin(performance.now() / 380 + this.seed));
+    const kick = this.kick || 0; this.kick = Math.max(0, kick - dt * 2.2);
+    const gust = wind * (1 + .12 * Math.sin(performance.now() / 380 + this.seed)), wx = windX + Math.sign(windX || -dir) * kick * .9;
     const back = -dir; // streaming direction (behind the horse)
     const len = h * .06;
-    this.tails.forEach((st, k) => { st.len = len * (1.15 - k * .12); st.update(tailRoot[0], tailRoot[1] + k * h * .012, back * (.6 + speed * .3), .8 - speed * .65, dt, back * (40 + gust * 220) * (1 + k * .2), 260 * (1 - speed * .5), 22); });
+    this.tails.forEach((st, k) => { st.len = len * (1.15 - k * .12); st.update(tailRoot[0], tailRoot[1] + k * h * .012, back * (.6 + speed * .3), .8 - speed * .65, dt, (back * (40 + gust * 220) + wx * 260) * (1 + k * .2), 260 * (1 - speed * .5) - kick * 120, 22); });
     this.forelock.len = h * .03;
     const locks = this.locks.map((st, k) => {
       const u = k / (this.locks.length - 1), seg = Math.min(2, Math.floor(u * 3)), t = u * 3 - seg;
       const a = crest[seg], b = crest[seg + 1], ax = lerp(a[0], b[0], t), ay = lerp(a[1], b[1], t) - h * .02;
       st.len = h * (.036 + .02 * Math.sin(u * Math.PI)) * (1 + speed * .3);
-      st.update(ax, ay, back * (.55 + speed * .35), .5 - speed * .85, dt, back * (40 + gust * 300) * (1 + u * .3), 260 * (1 - speed * .75), 24);
+      st.update(ax, ay, back * (.55 + speed * .35), .5 - speed * .85, dt, (back * (40 + gust * 300) + wx * 330) * (1 + u * .3), 260 * (1 - speed * .75) - kick * 200, 24);
       return st;
     });
-    this.forelock.update(...P(an.poll), dir * .3, .9, dt, back * gust * 120, 200, 30);
+    this.forelock.update(...P(an.poll), dir * .3, .9, dt, back * gust * 120 + wx * 150, 200 - kick * 120, 30);
     const now = performance.now() / 1000;
     /** A lock of hair: a few fine wavy strands following the simulated chain, tapering to soft tips. */
     const lock = (st, w0, seed, strands = 3) => {

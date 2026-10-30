@@ -51,8 +51,7 @@ export default {
     // ---------- looking at photos: tap one to take it down, tap again to hang it back ----------
     const AUTO_IDLE = 4.5, HOLD_LOOK = 5;
     let focusIdx = -1, focusAt = 0, lastInput = 0, lookE = 0; const seen = new Set();
-    const hintEl = document.createElement('p'); hintEl.className = 'mm-hint'; el.appendChild(hintEl);
-    const hint = text => { if (text) hintEl.textContent = text; hintEl.classList.toggle('on', !!text); };
+    const hint = text => env.hint(text);
     const focus = i => { focusIdx = i; focusAt = T; if (i >= 0) { seen.add(i); env.audio.sfx('page', .3); env.audio.hit?.('photo', { index: seen.size - 1 }); if (!turnHinted) { turnHinted = true; setTimeout(() => { if (focusIdx >= 0 && !cards.some(c => c.flipped)) hint('再轻点一下，看看照片背面'); }, 1800); } } };
     // the back of a photo: a line written for her. The card squashes edge-on and opens again on its other side
     let turnHinted = false;
@@ -94,8 +93,10 @@ export default {
         row.forEach((ci, k) => { const x = W * ((k + 1) / (row.length + 1)) + (portrait ? 0 : (k - (row.length - 1) / 2) * W * .01); anchors[ci] = [x, pts(x)]; });
         return pts;
       });
-      const lw = Math.min(600, W * .9);
-      letterEl.style.setProperty('--lw', lw + 'px'); letterEl.style.setProperty('--fs', Math.max(14, Math.min(18, lw * .031)) + 'px');
+      // the letter stands in the free frame, above the dock, on whole pixels (the writing is never resampled)
+      const sf = env.safe(), lw = Math.round(Math.min(600, sf.w * .9)), lh = Math.round(Math.min(sf.h * .97, lw * 1.34));
+      letterEl.style.setProperty('--lw', lw + 'px'); letterEl.style.setProperty('--lh', lh + 'px'); letterEl.style.setProperty('--fs', Math.max(15.5, Math.min(19, lw * .042)) + 'px');
+      letterEl.style.left = Math.round(sf.l + (sf.w - lw) / 2) + 'px'; letterEl.style.bottom = Math.round(sf.b + (sf.h - lh) * .35) + 'px';
     }
     let strings = [];
     layout();

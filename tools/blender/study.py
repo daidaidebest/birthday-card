@@ -28,7 +28,7 @@ BACK = 3.0
 FLOOR = mat_ph('floor', 'wood_floor_worn', scale=.5, tint=(.62, .5, .42), bump=.4, size=1024)
 PLASTER = mat_ph('plaster', 'plastered_wall_03', scale=.45, tint=(.78, .66, .54), bump=.3, size=1024)
 STONE = mat_ph('stone', 'stone_wall', scale=1.1, tint=(.42, .36, .31), bump=.8, size=1024)
-FBSTONE = mat_ph('fb_stone', 'stone_wall', scale=1.6, tint=(.12, .095, .08), bump=1.0, size=1024) if CAKE else None  # sooty firebox
+FBSTONE = mat_ph('fb_stone', 'stone_wall', scale=1.6, tint=(.12, .095, .08), bump=1.0, size=1024)  # sooty firebox (v19: the book loop too)
 DARKWOOD = mat_ph('darkwood', 'dark_wood', scale=.8, tint=(.55, .38, .26), bump=.25, rough_mul=.8, size=1024)
 RUG = mat('rug', (.32, .07, .06), .9)
 GOLD = mat('gold', (1.0, .76, .38), .25, metal=1)
@@ -54,12 +54,19 @@ def wall_with_window():
     cube((WIN['x0'] + WIN['x1']) / 2, (WIN['z1'] + H_) / 2, WIN['x1'] - WIN['x0'], H_ - WIN['z1'])  # above
     # the arch: fill the corners above the springing line with wedges following a semicircle
     cx, r, zs = (WIN['x0'] + WIN['x1']) / 2, (WIN['x1'] - WIN['x0']) / 2, WIN['z1'] - (WIN['x1'] - WIN['x0']) / 2
-    n = 14
-    for i in range(n):
-        a0, a1 = math.pi * i / n, math.pi * (i + 1) / n
-        xa, xb = cx + math.cos(a0) * r, cx + math.cos(a1) * r
-        za = zs + math.sin((a0 + a1) / 2) * r
-        bmesh.ops.create_cube(bm, size=1, matrix=Matrix.Translation(((xa + xb) / 2, y, (za + WIN['z1']) / 2)) @ Matrix.Diagonal((abs(xb - xa) + .01, t, WIN['z1'] - za + .01, 1)))
+    # v19: two smooth spandrels (a curved soffit) instead of 14 stepped wedges, which caught the moonlight as a white staircase
+    n = 32
+    for half in (0, 1):
+        arc = [math.pi - math.pi / 2 * k / n if half == 0 else math.pi / 2 - math.pi / 2 * k / n for k in range(n + 1)]
+        pts = [(cx + math.cos(a) * r, zs + math.sin(a) * r) for a in arc]
+        corner = (WIN['x0'] - .005, WIN['z1'] + .005) if half == 0 else (WIN['x1'] + .005, WIN['z1'] + .005)
+        poly = pts + [(cx, WIN['z1'] + .005), corner] if half == 0 else [(cx, WIN['z1'] + .005)] + pts + [corner]
+        front = [bm.verts.new((px, y - t / 2, pz)) for px, pz in poly]
+        back = [bm.verts.new((px, y + t / 2, pz)) for px, pz in poly]
+        bm.faces.new(front); bm.faces.new(list(reversed(back)))
+        for k in range(len(poly)):
+            a, b = k, (k + 1) % len(poly); bm.faces.new((front[b], front[a], back[a], back[b]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     o = obj_from_bm('backwall', bm, [PLASTER], col=ROOM)
     return cx, r, zs
 WCX, WR, WZS = wall_with_window()
@@ -118,6 +125,8 @@ def window():
     bmesh.ops.create_cube(bm, size=1, matrix=Matrix.Translation((WCX, BACK + 2.65, .5)) @ Matrix.Diagonal((4, .1, 1.2, 1)))
     obj_from_bm('towers', bm, [mat('silhouette', (.004, .006, .012), .9)], col=ROOM).visible_shadow = False
 window()
+import drapes   # v19: crimson velvet curtains on a brass rod, tied back, stirred by a draught (loop-periodic)
+drapes.drapes(ROOM, WIN, BACK, FRAMES, LOOP, FPS, GOLD, BRASS)
 
 # ------------------------------------------------------------------ fireplace and fire
 FIRE = Vector((-.7, BACK - .45, .1))
@@ -130,7 +139,7 @@ def fireplace():
     box('fp_back', (cx, y + .1, .62), (1.25, .1, 1.25), soot, ROOM); box('fp_in_l', (cx - .6, y - .05, .62), (.04, .5, 1.25), soot, ROOM); box('fp_in_r', (cx + .6, y - .05, .62), (.04, .5, 1.25), soot, ROOM); box('fp_in_t', (cx, y - .05, 1.26), (1.25, .5, .04), soot, ROOM)
     box('fp_hearth', (cx, y - .35, .04), (2.1, .9, .08), DARKWOOD, ROOM)
     box('fp_chimney', (cx, y + .05, 2.9), (1.6, .4, 2.6), STONE, ROOM)
-    if CAKE:   # v17 cake stills: a glowing ember and log bed (the page paints the living flames over it)
+    if True:   # v17 cake stills, v19 book loop too: a glowing ember and log bed (cake: the page paints the flames; book: flame_vol)
         import embers; embers.build(ROOM, cx, FIRE.y, .08)
         for o in ROOM.objects:
             if o.name.startswith(('fp_back', 'fp_in_')): o.data.materials[0] = FBSTONE
@@ -175,7 +184,7 @@ def fireplace():
     inv = N.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1; link(nt, fr.outputs['Facing'], inv.inputs[1])
     link(nt, inv.outputs[0], mx.inputs[0]); link(nt, tr.outputs[0], mx.inputs[1]); link(nt, em.outputs[0], mx.inputs[2]); link(nt, mx.outputs[0], N['Material Output'].inputs[0])
     rr = random.Random(5)
-    for i in range(0 if CAKE else 13):
+    for i in range(0):   # v19: no tongue cards (they rendered as pale cones); the book loop has flame_vol
         bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=10, radius=1)
         for v in bm.verts:
             z = (v.co.z + 1) / 2; k = (1 - z) ** .8 * (.35 + .65 * min(1, z * 4))
@@ -190,15 +199,21 @@ def fireplace():
     # a faint ember glow inside the firebox
     eg = bpy.data.objects.new('ember_glow', bpy.data.lights.new('ember_glow', 'POINT')); ROOM.objects.link(eg)
     eg.data.energy = 18; eg.data.color = (1, .3, .06); eg.data.shadow_soft_size = .2; eg.location = (cx, FIRE.y, .25); eg.visible_camera = False
-    if CAKE: eg.data.energy = 6; eg.location = (cx, FIRE.y - .38, .36)
+    eg.data.energy = 6; eg.location = (cx, FIRE.y - .38, .36)
+    if not CAKE:   # v19 book loop: a volumetric flame over the embers, and its light low inside the firebox
+        import drapes; _, FLAME_ST = drapes.fire(ROOM, cx, FIRE.y, .08, FRAMES, FPS)
+        fl = bpy.data.objects.new('flame_core', bpy.data.lights.new('flame_core', 'POINT')); ROOM.objects.link(fl)
+        fl.data.color = (1, .38, .08); fl.data.shadow_soft_size = .12; fl.location = (cx, FIRE.y - .05, .3); fl.visible_camera = False
+        for f in range(1, FRAMES + 1, 2): fl.data.energy = 10 * FLAME_ST[f - 1]; fl.data.keyframe_insert('energy', frame=f)
     # firelight: two flickering points (baked keyframes)
     for i, (dx, e) in enumerate(((-.15, 170), (.2, 140))):
         L = bpy.data.objects.new('firelight', bpy.data.lights.new('firelight', 'POINT')); ROOM.objects.link(L)
         L.data.color = (1, .42, .12); L.data.shadow_soft_size = .3; L.location = (cx + dx, FIRE.y - .62, 1.0)
         for f in range(1, FRAMES + 1, 2):
             t = f / FPS; L.data.energy = e * (.75 + .18 * noise.noise(Vector((t * 3.1, i * 4.3, 0))) + .09 * noise.noise(Vector((t * 9.7, i, 2))))
+            if not CAKE: L.data.energy = e * (FLAME_ST[f - 1] + .05 * noise.noise(Vector((t * 9.7, i, 2))))   # v19: the room's firelight follows the flame
             L.data.keyframe_insert('energy', frame=f)
-        if CAKE:   # the flames' room light passes the sooty inside of the firebox and the bed by (only the embers light those)
+        if True:   # the flames' room light passes the sooty inside of the firebox and the bed by (only the embers and flame_core light those)
             fbx = bpy.data.collections.new('firebox_dark')
             for o in ROOM.objects:
                 if o.name.startswith(('fp_back', 'fp_in_', 'log', 'coals', 'ash_bed')): fbx.objects.link(o)

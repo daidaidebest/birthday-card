@@ -1,0 +1,52 @@
+{
+ "about": "v19 grade: one film stock, a narrative temperature arc. Read by tools/grade/grade.py (see its docstring). Targets are CIELAB numbers on the baked asset (before the runtime matte/vignette/grain of css/grade.css and before the scenes' own canvas tints): [value, strength 0..1]. neu = mean a*,b* of near-neutrals (white balance), hi_b / sh_b = b* of the brightest / darkest 10 % (+ warm, - cool), sat = mean chroma, cmax = soft chroma ceiling, black/mean on 0..255 luma.",
+ "common": {
+  "black": 4, "toe": 0.02, "ev_max": 0.6, "sat_range": [0.7, 1.15], "cmax": 60, "sat_knee": 0.62, "hi_desat": 0.35, "lo_desat": 0.4,
+  "knee": 0.8, "shoulder": 1.25,
+  "hal_threshold": 0.78, "hal_sigma": 0.012, "hal_tint": [1.0, 0.5, 0.28]
+ },
+ "chapters": {
+  "prologue":   {"arc": "moonlit, cool",          "black": [4, 0.8], "mean": [84, 0.35], "neu": [[0, -9], 0.6],  "hi_b": [-12, 0.5], "sh_b": [-5, 0.5], "sat": [17, 0.4], "cmax": 36},
+  "book":       {"arc": "candle-warm study",      "black": [4, 0.8], "mean": [64, 0.3],  "neu": [[3, 6], 0.7],   "hi_b": [34, 0.7],  "sh_b": [2, 0.5],  "sat": [31, 0.6], "cmax": 56},
+  "memories":   {"arc": "nostalgic warm prints",  "mode": "print", "black": [9, 0.7], "offset": {"sh": [1, 3], "mid": [0.5, 5], "hi": [0.5, 7]}, "sat_gain": 0.92, "cmax": 46},
+  "film-day":   {"arc": "golden sunset",          "black": [6, 0.65], "mean": [124, 0.35], "neu": [[2, 8], 0.7], "hi_b": [40, 0.7],  "sh_b": [6, 0.5],  "sat": [40, 0.6], "cmax": 62},
+  "film-night": {"arc": "blue night",             "black": [5, 0.6], "mean": [44, 0.4],  "neu": [[2, -9], 0.75], "hi_b": [-16, 0.5], "sh_b": [-8, 0.5], "sat": [20, 0.5], "cmax": 36},
+  "wish":       {"arc": "candle-warm finale",     "black": [4, 0.8], "mean": [80, 0.2],  "neu": [[3, 9], 0.6],   "hi_b": [26, 0.6],  "sh_b": [4, 0.5],  "sat": [30, 0.5], "cmax": 56}
+ },
+ "groups": [
+  {"name": "castle-film", "chapter": "prologue", "files": ["video/castle.mp4", "video/castlep.mp4", "video/castle-hold.mp4", "video/castle-holdp.mp4"],
+   "ref": ["video/castle.mp4", "video/castlep.mp4"], "times": [1, 4, 7, 10, 13], "halation": 0, "crf": {"video/castle-hold*": 22, "default": 20},
+   "note": "already bloomed in finish18.sh; castle-hold is a cut of castle, so both share one transform"},
+  {"name": "castle-paint", "chapter": "prologue", "files": ["img/castle.webp", "depth/castle/*.webp"], "ref": ["img/castle.webp"], "halation": 0.08,
+   "targets": {"mean": [84, 0.6], "ev_max": 0.8}, "note": "the painted fallback (Low Power Mode) should not be dimmer than the film"},
+  {"name": "study-film", "chapter": "book", "files": ["video/study.mp4", "video/studyp.mp4"], "ref": ["video/study.mp4", "video/studyp.mp4"],
+   "times": [1, 3, 5, 7, 9], "halation": 0.08, "crf": 22, "note": "a new render (curtains) dropped in place is graded by the same targets"},
+  {"name": "study-paint", "chapter": "book", "files": ["img/study-land.webp", "img/study-port.webp", "depth/study-land/*.webp", "depth/study-port/*.webp"],
+   "ref": ["img/study-land.webp", "img/study-port.webp"], "halation": 0.08, "note": "also the out-of-focus room behind the memories"},
+  {"name": "photo-ocean-evening", "chapter": "memories", "files": ["img/photo-ocean-evening.webp", "depth/photo-ocean-evening/*.webp"], "ref": ["img/photo-ocean-evening.webp"], "halation": 0.04},
+  {"name": "photo-sunlit-book", "chapter": "memories", "files": ["img/photo-sunlit-book.webp", "depth/photo-sunlit-book/*.webp"], "ref": ["img/photo-sunlit-book.webp"], "halation": 0.04},
+  {"name": "photo-night-sky", "chapter": "memories", "files": ["img/photo-night-sky.webp", "depth/photo-night-sky/*.webp"], "ref": ["img/photo-night-sky.webp"], "halation": 0,
+   "note": "also the closing sky (keepsake.js findStars needs stars >= 110 luma)"},
+  {"name": "prairie", "chapter": "film-day", "files": ["img/prairie-gold.webp", "depth/prairie-gold/*.webp"], "ref": ["img/prairie-gold.webp"], "halation": 0.05},
+  {"name": "horses", "chapter": "film-day", "files": ["film/horse-*.webp"], "params_from": "prairie", "note": "the cel horses run in the prairie's light"},
+  {"name": "run-film", "chapter": "film-day", "files": ["video/run.mp4", "video/runp.mp4"], "ref": ["video/run.mp4", "video/runp.mp4"], "times": [0.5, 1.5, 2.5, 3.5],
+   "halation": 0.05, "crf": 21},
+  {"name": "kiss", "chapter": "film-day", "files": ["video/kiss.mp4", "img/horses-kiss.webp", "depth/horses-kiss/*.webp"], "ref": ["video/kiss.mp4", "img/horses-kiss.webp"],
+   "times": [0.5, 2, 3.5], "halation": 0.05, "crf": 21, "note": "the filmed close-up and its painted fallback share one transform"},
+  {"name": "lions-day", "chapter": "film-day", "files": ["img/lions.webp", "depth/lions/*.webp"], "ref": ["img/lions.webp"], "halation": 0.05,
+   "note": "lion-rig.png is a weight map: never graded. A new rig baked from the painting must sample the GRADED lions.webp"},
+  {"name": "lions-night", "chapter": "film-night", "files": ["img/lions-night.webp", "depth/lions-night/*.webp"], "ref": ["img/lions-night.webp"], "halation": 0},
+  {"name": "cake", "chapter": "wish", "files": ["img/cake3d-unlit-*.webp", "img/cake3d-lit-*.webp", "img/cake3d-after-*.webp", "img/cake3d-close-unlit-*.webp", "img/cake3d-close-lit-*.webp"],
+   "ref": ["img/cake3d-unlit-l.webp", "img/cake3d-lit-l.webp", "img/cake3d-close-unlit-l.webp"], "halation": 0.06,
+   "note": "unlit/lit/after crossfade, so one transform; cake3d-mask-* are masks: never graded"},
+  {"name": "cake-passes", "chapter": "wish", "files": ["img/cake3d-close-light*.webp"], "params_from": "cake", "additive": "img/cake3d-close-unlit-{k}.webp",
+   "note": "per-candle light passes added with 'lighter': graded as T(base + pass) - T(base)"}
+ ],
+ "not_graded": {
+  "gate, journey": "procedural canvas: palette constants are the scene owners' (see the v19 grade report)",
+  "letter*, paper, env-*, seal, cover, spell, botanical": "reading surfaces and book pages: text/page readability first",
+  "teddy-*": "the pups appear in several chapters; the runtime grade carries them",
+  "moon, owl-glide, cake.webp, lions*.mp4": "moon is the gate's own; owl-glide/cake.webp minor fallbacks; lions*.mp4 no longer played",
+  "lion-rig.png, *-glass.png, cake3d-mask-*": "weight maps and masks"
+ }
+}

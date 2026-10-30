@@ -3,7 +3,17 @@
 // (Before v18: a crescent moon at the heart of a hairline-gold orrery.) Pressing and holding the moon
 // lets it wax to full; letting go early lets it wane again. When it is full, moonlight floods the
 // screen and the story begins on the moonlit lake.
+// v19: one night air over all of it (wind.js). A breeze drifts in from the right now and then; the clouds go a little
+// faster as it arrives, a cat's-paw of fine ripples runs across the lake under it, the moon's path breaks from a steady
+// column into scattered glints where it passes and slowly mends, the castle's reflected candles shiver, and the fireflies
+// over the shore are carried a little way downwind. Between gusts the lake is nearly still. Now and then a single slow
+// ring opens on the water where a firefly touched it.
 import { asset, loadImage, canvas, clamp, lerp, smooth, rng, TAU, fbm, noise1, glowSprite } from './util.js';
+import { windAt, WIND_DIR } from './wind.js';
+
+const AIR = { seed: 5, speed: .22, base: .2 };   // a slow, soft night air (a gust takes ~4.5 s to cross the frame)
+const DIR = WIND_DIR.gate || -1;                 // it blows toward the left
+const air = (t, x01) => windAt(t, DIR < 0 ? 1 - x01 : x01, AIR);   // x01: 0 left … 1 right of the screen
 
 const HOLD = 2.6;      // seconds of holding to go from crescent to full
 const WANE = 1.4;      // seconds to fall back when released
@@ -23,7 +33,9 @@ export class Gate {
     this.stars = Array.from({ length: 170 }, () => ({ x: R(), y: R(), r: R() * R() * 1.3 + .25, p: R() * TAU, s: .4 + R() * 1.6, warm: R() < .2 }));
     this.shoot = { at: 4 + R() * 4, x: 0, y: 0, k: 1 };
     this.clouds = [0, 1, 2, 3].map(i => ({ img: cloudSprite(11 + i * 7.3), x: R(), y: .2 + i * .13 + R() * .05, s: .7 + R() * .5, v: .004 + R() * .006, a: .35 + R() * .25 }));
-    this.flies = Array.from({ length: 34 }, () => ({ x: R(), y: .55 + R() * .45, p: R() * TAU, s: .4 + R() * .9, v: .01 + R() * .02, r: .6 + R() * 1.4 }));
+    this.flies = Array.from({ length: 34 }, () => ({ x: R(), y: .55 + R() * .45, p: R() * TAU, s: .4 + R() * .9, v: .01 + R() * .02, r: .6 + R() * 1.4, dx: 0 }));
+    this.ring = { at: 7 + R() * 6, x: .5, y: .5, k: 1 };   // a single slow ring on the water now and then
+    this.reduced = env.reduced;
     this.warm = glowSprite('255,206,140', 64, 2); this.cool = glowSprite('226,234,255', 128, 1.6);
     loadImage(asset('img/moon.webp')).then(img => { this.moon = img; this.resize(); });
     this.resize(); addEventListener('resize', () => this.resize());
@@ -113,8 +125,9 @@ export class Gate {
     }
     sg.globalAlpha = 1;
     // clouds drifting slowly past, lit at their edges by the moon (brighter as it fills)
-    for (const c of this.clouds) {
-      const w = W * c.s * 1.1, h = w * c.img.height / c.img.width, x = ((c.x + t * c.v) % 1.6 - .3) * W - w / 2, y = c.y * H - h / 2;
+    for (const c of this.clouds) {   // they drift with the air aloft: a little quicker while a gust passes beneath them
+      c.pos = (c.pos ?? c.x) + dt * c.v * (.6 + 1.6 * air(t, (c.pos ?? c.x) % 1.6 - .3));
+      const w = W * c.s * 1.1, h = w * c.img.height / c.img.width, x = (c.pos % 1.6 - .3) * W - w / 2, y = c.y * H - h / 2;
       sg.globalAlpha = c.a * (.8 + lift * .5); sg.drawImage(c.img, x, y, w, h);
     }
     sg.globalAlpha = 1;
@@ -122,21 +135,55 @@ export class Gate {
     sg.drawImage(L.c, 0, 0);
     // the moon's path on the water: short trembling strokes under the moon, wider as it fills
     const r = this.btn.getBoundingClientRect(), k = W / innerWidth, mx = (r.left + r.width / 2) * k, hz = L.hz, mw = r.width * k * (.35 + lift * .35);
+    const lw = this.lakeAir ??= { v: 0, ph: 0 }, here = air(t, mx / W) - AIR.base;   // the water roughens under a gust and calms slowly
+    lw.v += (Math.max(0, here) - lw.v) * (1 - Math.exp(-dt * (here > lw.v ? 1.8 : .45)));
+    const rough = clamp(lw.v * 1.6) * (this.reduced ? .4 : 1);
+    lw.ph += dt * (1 + rough * 1.6);   // the shimmer's clock: quicker on rough water (integrated, so it never jumps)
     sg.globalCompositeOperation = 'lighter';
+    // a cat's-paw: fine ripples catching the sky, running across the lake under the gust (faint)
+    sg.fillStyle = '#c8d4ff';
+    for (let i = 0; i < 26; i++) {
+      const v = (i + .5) / 26, y = hz + 2 + v * v * (H - hz), x = ((i * .618 + .13) % 1) * W, g = Math.max(0, air(t, x / W) - AIR.base);
+      if (g < .04) continue;
+      const len = W * (.04 + .08 * v) * (.6 + .6 * Math.abs(noise1(i * 2.3 + t * .8)));
+      sg.globalAlpha = Math.min(.09, g * .14) * (1 - v * .5); sg.fillRect(x - len / 2 + noise1(i + t * 1.3) * W * .02, y, len, Math.max(1, H * .0012));
+    }
+    // the moon's path: a steady column of long strokes on still water; a gust breaks it into short scattered glints
+    // that tremble faster and spread wider, and it mends slowly after
+    const spread = 1 + rough * .9, ts = lw.ph;
+    sg.fillStyle = '#e8eeff';
     for (let i = 0; i < 46; i++) {
-      const v = i / 46, y = hz + 3 + v * (H - hz), wob = noise1(i * 3.1 + t * 1.7) * mw * (.3 + v), len = mw * (.25 + .6 * Math.abs(noise1(i * 7.7 + t * 2.3))) * (1 - v * .4);
-      sg.globalAlpha = (.18 + .3 * Math.abs(noise1(i * 1.9 + t * 3.1))) * (1 - v * .6) * (.6 + lift * .6);
-      sg.fillStyle = '#e8eeff'; sg.fillRect(mx + wob - len / 2, y, len, Math.max(1, H * .0018));
+      const v = i / 46, y = hz + 3 + v * (H - hz), wob = noise1(i * 3.1 + ts * 1.7) * mw * (.3 + v) * spread;
+      const len = mw * (.25 + .6 * Math.abs(noise1(i * 7.7 + ts * 2.3))) * (1 - v * .4) * (1 - rough * .45);
+      sg.globalAlpha = (.18 + .3 * Math.abs(noise1(i * 1.9 + ts * 3.1))) * (1 - v * .6) * (.6 + lift * .6);
+      sg.fillRect(mx + wob - len / 2, y, len, Math.max(1, H * .0018));
+      if (rough > .15 && i % 3 === 1) {   // a few glints thrown wide of the path
+        const gx = mx + noise1(i * 5.3 + ts * 3.7) * mw * (1.2 + v) * spread;
+        sg.globalAlpha *= rough * .8; sg.fillRect(gx - len * .18, y, len * .36, Math.max(1, H * .0016));
+      }
+    }
+    // a slow ring on the water where a firefly touched it (never in a gust; one at a time)
+    const rg = this.ring;
+    if (t > rg.at && rg.k >= 1 && rough < .1 && !this.reduced) { rg.k = 0; rg.x = mx / W + (Math.random() - .5) * .35; rg.y = .25 + Math.random() * .5; }
+    if (rg.k < 1) {
+      rg.k += dt / 5.5; const e = smooth(rg.k), rx = W * (.012 + .07 * e), cx = rg.x * W, cy = hz + rg.y * (H - hz);
+      sg.globalAlpha = .16 * Math.sin(Math.PI * Math.min(1, rg.k * 1.3)) * (1 - rg.k); sg.strokeStyle = '#dfe6ff'; sg.lineWidth = Math.max(1, W / 1400);
+      sg.beginPath(); sg.ellipse(cx, cy, rx, rx * .16, 0, 0, TAU); sg.stroke();
+      if (rg.k > .15) { const r2 = W * (.01 + .05 * smooth((rg.k - .15) / .85)); sg.globalAlpha *= .6; sg.beginPath(); sg.ellipse(cx, cy, r2, r2 * .16, 0, 0, TAU); sg.stroke(); }
+      if (rg.k >= 1) rg.at = t + 9 + Math.random() * 12;
     }
     // candles in the castle's windows, and their trembling reflections
     for (const wl of L.lights) {
       const f = .6 + .3 * noise1(t * 1.3 + wl.p) + .1 * noise1(t * 5 + wl.p), s2 = wl.r * 4;
       sg.globalAlpha = f * .9; sg.drawImage(this.warm, wl.x - s2, wl.y - s2, s2 * 2, s2 * 2);
-      sg.globalAlpha = f * .35; sg.drawImage(this.warm, wl.x - s2 + noise1(t * 2 + wl.p) * 2, 2 * hz - wl.y - s2, s2 * 2, s2 * 2.6);
+      const sv = 1 + rough * 3;   // the reflection shivers and stretches on rougher water
+      sg.globalAlpha = f * .35 * (1 - rough * .3); sg.drawImage(this.warm, wl.x - s2 + noise1(ts * 2 + wl.p) * 2 * sv, 2 * hz - wl.y - s2, s2 * 2, s2 * (2.6 + rough * 1.8));
     }
     // fireflies rising over the shore
-    for (const fl of this.flies) {
-      const y = ((fl.y - t * fl.v) % .5 + .5) % .5 + .5, x = fl.x * W + Math.sin(t * fl.s + fl.p) * W * .02, a = Math.max(0, Math.sin(t * fl.s * 2.1 + fl.p)) ** 2;
+    for (const fl of this.flies) {   // carried a little way downwind by a gust, drifting back on their own after
+      const y = ((fl.y - t * fl.v) % .5 + .5) % .5 + .5, g = Math.max(0, air(t, fl.x + fl.dx) - AIR.base);
+      fl.dx = clamp(fl.dx + dt * (DIR * g * .05 * fl.s - fl.dx * .12), -.12, .12);
+      const x = (fl.x + fl.dx) * W + Math.sin(t * fl.s + fl.p) * W * .02, a = Math.max(0, Math.sin(t * fl.s * 2.1 + fl.p)) ** 2;
       if (a < .02) continue; const s2 = fl.r * W / 260;
       sg.globalAlpha = a * .8; sg.drawImage(this.warm, x - s2 * 3, y * H - s2 * 3, s2 * 6, s2 * 6);
     }

@@ -23,41 +23,43 @@ def fbm(h, w, scales=(180, 60, 18, 5), amps=(1, .5, .3, .15), seed=0):
     return out / sum(amps)
 
 
-def deckle(h, w, depth=10, seed=3):
+def deckle(h, w, depth=10, seed=3, k=1):
     r = np.random.RandomState(seed); a = np.ones((h, w))
     yy, xx = np.mgrid[0:h, 0:w]
-    edge = [gaussian_filter(r.randn(n), 7) * depth * 1.6 + gaussian_filter(r.randn(n), 1.2) * depth * .25 + depth for n in (w, w, h, h)]
-    for k in range(4):
-        n = edge[k]; n = np.clip(n, 2, depth * 2.2)
-        if k == 0: d = yy - n[None, :]
-        elif k == 1: d = (h - 1 - yy) - n[None, :]
-        elif k == 2: d = xx - n[:, None]
+    depth *= k
+    edge = [gaussian_filter(r.randn(n), 7 * k) * depth * 1.6 + gaussian_filter(r.randn(n), 1.2 * k) * depth * .25 + depth for n in (w, w, h, h)]
+    for side in range(4):
+        n = edge[side]; n = np.clip(n, 2, depth * 2.2)
+        if side == 0: d = yy - n[None, :]
+        elif side == 1: d = (h - 1 - yy) - n[None, :]
+        elif side == 2: d = xx - n[:, None]
         else: d = (w - 1 - xx) - n[:, None]
-        a = np.minimum(a, np.clip(d / 2.5 + .5, 0, 1))
-    grain = gaussian_filter(r.rand(h, w), 1)
+        a = np.minimum(a, np.clip(d / (2.5 * k) + .5, 0, 1))
+    grain = gaussian_filter(r.rand(h, w), k)
     return np.clip(a * (.92 + grain * .16), 0, 1) * (a > .02)
 
 
-def parchment(h, w, seed=1, base=(222, 198, 150)):
-    """Thick, mottled, sun-yellowed parchment: blotches, fibres, foxing, darker worn edges."""
+def parchment(h, w, seed=1, base=(222, 198, 150), k=1):
+    """Thick, mottled, sun-yellowed parchment: blotches, fibres, foxing, darker worn edges. k: pixel scale (k=1.5 draws
+    the same sheet at 1.5x the resolution, every feature the same size relative to the sheet)."""
     r = np.random.RandomState(seed)
     img = np.ones((h, w, 3)) * np.array(base, float)
-    blot = fbm(h, w, (220, 90, 30), (1, .6, .3), seed)                          # large tea-coloured mottling
+    blot = fbm(h, w, (220 * k, 90 * k, 30 * k), (1, .6, .3), seed)                          # large tea-coloured mottling
     img += blot[..., None] * np.array([10, 12, 16])
-    img -= np.clip(fbm(h, w, (60, 20), (1, .5), seed + 1) - 1.0, 0, None)[..., None] * np.array([18, 24, 32])
-    img += fbm(h, w, (3, 1.2), (1, .6), seed + 2)[..., None] * 5               # tooth of the skin
+    img -= np.clip(fbm(h, w, (60 * k, 20 * k), (1, .5), seed + 1) - 1.0, 0, None)[..., None] * np.array([18, 24, 32])
+    img += fbm(h, w, (3 * k, 1.2 * k), (1, .6), seed + 2)[..., None] * 5               # tooth of the skin
     fib = Image.new('L', (w, h), 0); d = ImageDraw.Draw(fib)
-    for _ in range(int(w * h / 500)):
-        x0, y0 = r.rand() * w, r.rand() * h; a = r.rand() * np.pi; L = 6 + r.rand() * 26
-        d.line([x0, y0, x0 + np.cos(a) * L, y0 + np.sin(a) * L], fill=int(25 + r.rand() * 70), width=1)
-    f = np.asarray(fib.filter(ImageFilter.GaussianBlur(.7)), float) / 255
+    for _ in range(int(w * h / 500 / k / k)):
+        x0, y0 = r.rand() * w, r.rand() * h; a = r.rand() * np.pi; L = (6 + r.rand() * 26) * k
+        d.line([x0, y0, x0 + np.cos(a) * L, y0 + np.sin(a) * L], fill=int(25 + r.rand() * 70), width=max(1, round(k)))
+    f = np.asarray(fib.filter(ImageFilter.GaussianBlur(.7 * k)), float) / 255
     img -= f[..., None] * np.array([16, 18, 22])
-    for _ in range(int(w * h / 60000)):                                          # foxing: small rusty spots
-        cx, cy, rr = r.rand() * w, r.rand() * h, 2 + r.rand() * 7
+    for _ in range(int(w * h / 60000 / k / k)):                                  # foxing: small rusty spots
+        cx, cy, rr = r.rand() * w, r.rand() * h, (2 + r.rand() * 7) * k
         yy, xx = np.ogrid[:h, :w]; m = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * rr * rr))
         img -= m[..., None] * np.array([20, 34, 50]) * r.rand()
     yy, xx = np.mgrid[0:h, 0:w]; e = np.minimum.reduce([xx, yy, w - 1 - xx, h - 1 - yy]) / min(w, h)
-    img -= (np.exp(-e / .05) * (.8 + .4 * fbm(h, w, (30, 8), (1, .5), seed + 3)))[..., None] * np.array([40, 52, 66])
+    img -= (np.exp(-e / .05) * (.8 + .4 * fbm(h, w, (30 * k, 8 * k), (1, .5), seed + 3)))[..., None] * np.array([40, 52, 66])
     img *= (1 - .18 * ((xx / w - .3) ** 2 + (yy / h - .25) ** 2))[..., None]       # warm light from the upper left
     return np.clip(img, 0, 255)
 
@@ -66,7 +68,8 @@ def rgba(rgb, a):
     return np.dstack([np.clip(rgb, 0, 255), np.clip(a * 255, 0, 255)]).astype(np.uint8)
 
 
-SIZE = {'env-inside': 600, 'letter': 820}   # px wide on disk; the envelope's faces are drawn at most ~520 CSS px wide
+SIZE = {'env-inside': 600, 'letter': 1400, 'letter-wide': 1500}  # px wide on disk; the envelope's faces are drawn at most ~520 CSS px wide;
+# the letter is read up close (up to ~540 CSS px wide, 3x on an iPhone), so it keeps its fibres at full density
 
 
 def save(arr, name):
@@ -117,15 +120,18 @@ def envelope():
     save(rgba(inside, a), 'env-inside')
 
 
-def letter():
-    w, h = 1000, 1340
-    rgb = parchment(h, w, seed=31, base=(228, 208, 164))
+def letter(k=1.5, wide=False):
+    w, h = round(1000 * k), round(1340 * k)
+    if wide: w, h = h, w   # a landscape sheet for short landscape screens, still folded in thirds
+    rgb = parchment(h, w, seed=31, base=(228, 208, 164), k=k)
     yy = np.arange(h)[:, None].astype(float)
     for fy in (h / 3, 2 * h / 3):                                                # folded in thirds to fit the envelope
-        d = yy - fy; rgb -= (np.exp(-(d - 2) ** 2 / 50) * 14)[..., None]; rgb += (np.exp(-(d + 3) ** 2 / 4) * 9)[..., None]
-    save(rgba(rgb, deckle(h, w, depth=9, seed=33)), 'letter')
+        d = yy - fy; rgb -= (np.exp(-(d - 2 * k) ** 2 / (50 * k * k)) * 14)[..., None]; rgb += (np.exp(-(d + 3 * k) ** 2 / (4 * k * k)) * 9)[..., None]
+    save(rgba(rgb, deckle(h, w, depth=9, seed=33, k=k)), 'letter-wide' if wide else 'letter')
 
 
 if __name__ == '__main__':
+    import sys
+    if sys.argv[1:] == ['letter']: letter(); letter(wide=True); sys.exit()   # v19: only the letters, at full density
     envelope(); letter()
     print(json.dumps({'envAspect': round(W / H, 4), 'tip': [TIP[0] / W, TIP[1] / H]}))

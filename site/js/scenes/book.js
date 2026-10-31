@@ -322,7 +322,7 @@ export default {
         { // the hearth: living flame over the filmed fire, and its light breathing over the room
           const F = FIRE[portrait ? 'study-port' : 'study-land'], img = portrait ? A.port : A.study, pm = view.at(.55, tmp);
           const hx = pm.x + F.x * img.width * pm.s, hy = pm.y + F.y * img.height * pm.s, hw = F.w * img.width * pm.s;
-          lg.setTransform(rs, 0, 0, rs, 0, 0); const leap = drawFire(lg, hx, hy, hw, t, warm); hearth.update(t, hx, hy, hw, warm, leap);
+          lg.setTransform(rs, 0, 0, rs, 0, 0); const leap = filmed ? null : drawFire(lg, hx, hy, hw, t, warm); hearth.update(t, hx, hy, hw, warm, leap);   // the v19 film has a real flame of its own
           fireAt = [hx, hy];
         }
         { const pm = view.at(.75, tmp); lg.setTransform(rs * pm.s, 0, 0, rs * pm.s, rs * pm.x, rs * pm.y); if (!filmed) studySteam(lg, portrait ? 'study-port' : 'study-land', t, warm * (1 - rise * .6)); lg.setTransform(rs, 0, 0, rs, 0, 0); } // the film has its own steam

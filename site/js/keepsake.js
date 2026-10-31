@@ -10,7 +10,7 @@ const WISHES = [
   '愿你每一顿饭，都有人陪你好好吃。',
   '愿你的烦恼都很小，快乐都很大。',
   '愿你累了的时候，总有一个肩膀可以靠。',
-  '愿你想念的人，此刻也正想着你。',
+  '愿你想见的人，此刻就在身边。',
   '愿你走过的每一条路，都开着花。',
   '愿你一直勇敢，也一直被温柔以待。',
   '愿你被这个世界，偏爱多一点点。',
@@ -219,7 +219,7 @@ export class Keepsake {
     g.fillStyle = GOLD; g.font = `${fLabel}px ${SERIF}`; let lw = spaced(g, '每日心愿', L.x0, L.label, fLabel * .3);
     g.font = `${fLabel * .82}px ${LATIN}`; spaced(g, '·  DAILY WISH', L.x0 + lw + fLabel * .7, L.label, fLabel * .22);
     for (let i = 0; i < 3; i++) goldLine(g, L.x0, L.x1, L.wish[0] + 22 + i * L.wish[1], .42, 1.2);
-    g.fillStyle = INK; g.globalAlpha = .82; g.font = `${fSign}px ${SERIF}`; spaced(g, '—— 一个在东京想你的人', L.x1, L.sign, fSign * .1, 'right'); g.globalAlpha = 1;
+    g.fillStyle = INK; g.globalAlpha = .82; g.font = `${fSign}px ${SERIF}`; spaced(g, '—— 爱你的daidaide', L.x1, L.sign, fSign * .1, 'right'); g.globalAlpha = 1;
     g.fillStyle = GOLD; g.font = `${fFoot}px ${LATIN}`; spaced(g, 'FAIRY TALE POST  ·  Nº 1103', L.x0, L.foot, fFoot * .32);
     this.goldMask = this.drawGold();
     return c;

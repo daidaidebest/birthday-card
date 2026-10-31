@@ -28,8 +28,8 @@ const C3 = {
     fire: { wide: [.269, .686, .14], close: [.258, .536, .17] } },
 };
 const N = 6, FIRST = 2, ORDER = [2, 3, 1, 4, 0, 5]; // the star lights a middle candle first; the hint walks outward from it
-const WHISPERS = ['这一支，为你走过的那些路。', '这一支，为我们相遇的那座城。', '这一支，为隔着山海的想念。', '这一支，为一起看过的星星。', '这一支，为往后的每一天。', '最后这一支，为你。'];
-const FINAL = ['今晚我在东京，|你在远方。', '隔着一片海，|和很多很多公里的夜空，', '我们看的，|是同一片星星。', '愿你一直勇敢，|也一直被爱。', '往后的每一页，|想和你一起写。']; // | : where a narrow screen may break
+const WHISPERS = ['这一支，为你走过的那些路。', '这一支，为我们相遇的那座城。', '这一支，为每一个想你的时刻。', '这一支，为一起看过的星星。', '这一支，为往后的每一天。', '最后这一支，为你。'];
+const FINAL = ['这是我们在一起后，|你的第一个生日。', '从各自的来路，|走到同一座城，', '今晚的星星，|都在陪着你。', '愿你一直勇敢，|也一直被爱。', '往后的每一页，|想和你一起写。']; // | : where a narrow screen may break
 // after the wish (seconds after she blows): the pull back into the room, the lamps, the fireworks, the letter
 const PULL = [1.4, 5], LAMPS = 3.8, FW_START = 5.6, LETTER = 7.2;
 // lighting by hand: a carried flame must rest this long on a candle, and lights at most one candle per GAP
@@ -98,10 +98,10 @@ export default {
         <div class="ws-wish"><p class="w1">闭上眼睛……</p><p class="w2">把最想实现的那个愿望，<br>悄悄放在心里。</p><i class="ws-breath"></i>
           <div class="ws-blow"><p>许好了吗？</p><button class="ws-btn" type="button" data-blow>吹灭蜡烛 <span>～</span></button><button class="ws-mic" type="button">或者，对着麦克风轻轻吹一口气</button></div></div>
         <div class="ws-final"><h1>师宝宝，生日快乐。</h1>${FINAL.map(l => `<p>${l.split('|').map(s => `<span>${s}</span>`).join('')}</p>`).join('')}
-          <div class="ws-arc"><span class="me">东京<small>此刻的我</small></span><span class="you">深圳<small>我们相遇的地方</small></span></div></div>
+          <div class="ws-arc"><span class="me">来路<small>你和我，各自走来</small></span><span class="you">深圳<small>我们相遇的地方</small></span></div></div>
         <div class="ws-credits"><div class="roll">
           <p class="big">师宝宝的生日童话</p><p class="rule"></p>
-          <p><small>主演</small>师宝宝</p><p><small>特别出演</small>两只小泰迪</p><p><small>编剧 · 导演 · 想念</small>一个在东京的人</p>
+          <p><small>主演</small>师宝宝</p><p><small>特别出演</small>两只小泰迪</p><p><small>编剧 · 导演 · 想你</small>爱你的daidaide</p>
           <p><small>魔法书、沙画、旷野与星空</small>为你一页一页画出来</p><p><small>配乐</small>为今晚写的小夜曲</p>
           <p><small>致敬</small>《哈利·波特》《小马王》《狮子王》带来的灵感</p><p><small>示意照片</small>Unsplash 的摄影师们</p>
           <p class="rule"></p><p class="big">To be continued……</p><p class="last">下一页，我们一起写。</p>

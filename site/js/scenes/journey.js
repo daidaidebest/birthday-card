@@ -1,9 +1,9 @@
 // Chapter II: two backlit sand-art lightboxes play her road and his road side by side,
-// then merge into one map where both paths are carved in light, pass through Shenzhen and end together in Tokyo.
+// then merge into one map where both paths are carved in light and meet in Shenzhen.
 import { canvas, clamp, lerp, between, easeInOut, easeOut, smooth, rng, fbm, glowSprite, TAU, wait } from '../util.js';
 import { drawSandArtwork } from './sandart.js';
 import { wander } from '../depth.js';
-import { CHINA_OUTLINE, JAPAN_OUTLINE, CITIES, mapXY, HER_ROUTE, HIS_ROUTE } from './pages.js';
+import { CHINA_OUTLINE, CITIES, mapXY, HER_ROUTE, HIS_ROUTE } from './pages.js';
 
 const PLACES = {
   zhoukou: { region: '河南', city: '周口', line: '你的故事，从河南周口开始。' },
@@ -19,7 +19,7 @@ const PLACES = {
 const HER = ['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhenHer'], HIS = ['wuhan', 'nanjing', 'shanghai', 'shenzhenHis'];
 const MAP_LEN = 7.5;
 const SAND = [44, 26, 12];
-const MAP_OFF = [-12, 6]; // centres China + Japan inside the light table
+const MAP_OFF = [61, -3]; // centres China inside the light table
 const mxy = c => { const [x, y] = mapXY(c); return [x + MAP_OFF[0], y + MAP_OFF[1]]; };
 let ART = null; // { w, h, arts: { id: { a: Uint8Array, r: Float32Array, emit: [] } }, map }
 
@@ -35,7 +35,7 @@ async function bake(id, w, h, grain) {
   const c = canvas(w, h), g = c.getContext('2d', { willReadFrequently: true }), s = w / 1280;
   g.save(); g.scale(s, s);
   if (id === 'map') {
-    const p = new Path2D(CHINA_OUTLINE + JAPAN_OUTLINE); g.translate(MAP_OFF[0], MAP_OFF[1]);
+    const p = new Path2D(CHINA_OUTLINE); g.translate(MAP_OFF[0], MAP_OFF[1]);
     g.fillStyle = 'rgba(0,0,0,.78)'; g.fill(p); g.strokeStyle = '#000'; g.lineWidth = 6; g.stroke(p);
   } else drawSandArtwork(g, id, 'her');
   g.restore();
@@ -166,10 +166,11 @@ export default {
     const routes = [HER_ROUTE, HIS_ROUTE].map(r => r.map(id => mxy(CITIES[id]).map(v => v * W / 1280)));
     const lens = routes.map(pts => { let L = 0; const seg = []; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); L += d; } return { L, seg }; });
     const at = (k, f) => { const pts = routes[k], { L, seg } = lens[k]; let left = L * clamp(f); for (let i = 1; i < pts.length; i++) { if (left <= seg[i - 1]) { const u = left / seg[i - 1]; return [lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)]; } left -= seg[i - 1]; } return pts[pts.length - 1]; };
-    const LABELS = [['zhoukou', '周口', -1, 0], ['tianjin', '天津', 1, 0], ['beijing', '北京 · 中国政法大学', -1, -1], ['hongkong', '香港 · 香港科技大学', 1, 1], ['wuhan', '武汉', -1, 0], ['nanjing', '南京 · 东南大学', -1, -1], ['shanghai', '上海 · 上海交通大学', 1, 0], ['shenzhen', '深圳', -1, -1], ['tokyo', '日本 · 东京', 1, 1]];
+    const LABELS = [['zhoukou', '周口', -1, 0], ['tianjin', '天津', 1, 0], ['beijing', '北京 · 中国政法大学', -1, -1], ['hongkong', '香港 · 香港科技大学', -1, 1], ['wuhan', '武汉', -1, 0], ['nanjing', '南京 · 东南大学', 1, -1], ['shanghai', '上海 · 上海交通大学', 1, 1], ['shenzhen', '广东 · 深圳', 1, -1]];
+    const CITY = Object.values(CITIES).map(c => c.name);
     const labelEls = LABELS.map(([id, text, sx, sy]) => {
       const [x, y] = mxy(CITIES[id]); const s = document.createElement('span'); s.className = 'jr-city' + (sx < 0 ? ' l' : '') + (sy < 0 ? ' u' : sy > 0 ? ' d' : '');
-      s.textContent = text; s.style.left = (x / 1280 * 100) + '%'; s.style.top = (y / 850 * 100) + '%'; labels.appendChild(s); return { id, s };
+      s.textContent = text; s.style.left = (x / 1280 * 100) + '%'; s.style.top = (y / 850 * 100) + '%'; labels.appendChild(s); return { id, s, text, city: text.split(' · ').find(t => t.length === 2 && CITY.includes(t)) || text };
     });
     const progressFor = (k, id) => { const route = k ? HIS_ROUTE : HER_ROUTE, i = route.indexOf(id); if (i < 0) return 9; let d = 0; for (let j = 1; j <= i; j++) d += lens[k].seg[j - 1]; return d / lens[k].L; };
     let heart = 0, met = false, heartAt = null, metAt = 0, goldAt = null, lastMapT = 0, dt0 = 0;
@@ -197,13 +198,13 @@ export default {
       [fh, fm].forEach((f, k) => { if (f <= 0) return; gg.beginPath(); const N = 80; for (let i = 0; i <= N; i++) { const [x, y] = at(k, f * i / N); i ? gg.lineTo(x, y) : gg.moveTo(x, y); } gg.stroke(); });
       gg.restore();
       [fh, fm].forEach((f, k) => { if (f <= 0 || f >= 1) return; const [x, y] = at(k, f), s = W / 14; gg.globalAlpha = .9; gg.drawImage(spark, x - s / 2, y - s / 2, s, s); });
-      if (fh >= 1 && fm >= 1 && !met) { met = true; metAt = t; env.audio.sfx('shimmer', .42); env.audio.sfx('glint', .22, { delay: .5 }); const r = lane.glow.getBoundingClientRect(), [x, y] = mxy(CITIES.tokyo); heartAt = [r.left + x / 1280 * r.width, r.top + y / 850 * r.height]; }
+      if (fh >= 1 && fm >= 1 && !met) { met = true; metAt = t; env.audio.sfx('shimmer', .42); env.audio.sfx('glint', .22, { delay: .5 }); const r = lane.glow.getBoundingClientRect(), [x, y] = mxy(CITIES.shenzhen); heartAt = [r.left + x / 1280 * r.width, r.top + y / 850 * r.height]; }
       // liquid gold, used sparingly: one slow sheen across the sand when the map has gathered, a warmer one when the roads meet
       if (goldAt == null) goldAt = t;
       sheen(gg, t - goldAt - .3, .14); if (met) sheen(gg, t - metAt - .15, .26);
       if (met) {
         // the two roads become one golden thread, tied in a loop at the place they meet (红线): carved in the sand and drawn in light
-        heart = Math.min(1, heart + dt0 / 1.6); const [x, y] = mxy(CITIES.tokyo).map(v => v * W / 1280), s = W / 26, e = easeInOut(heart);
+        heart = Math.min(1, heart + dt0 / 1.6); const [x, y] = mxy(CITIES.shenzhen).map(v => v * W / 1280), s = W / 26, e = easeInOut(heart);
         const knot = (c, n = 72) => { c.beginPath(); for (let i = 0; i <= n * e; i++) { const a = -Math.PI / 2 + i / n * TAU, d = 1 + Math.sin(a) ** 2, kx = Math.cos(a) / d, ky = Math.sin(a) * Math.cos(a) / d; const px = x + kx * s * 1.9, py = y - s * .9 + ky * s * 1.7; i ? c.lineTo(px, py) : c.moveTo(px, py); } };
         gg.globalAlpha = .38 * between(t - metAt, 0, 1.2) + .04 * Math.sin(t * 1.1); gg.drawImage(spark, x - s * 2.2, y - s * 2.2, s * 4.4, s * 4.4);
         g.save(); g.globalCompositeOperation = 'destination-out'; g.lineCap = 'round'; knot(g); g.lineWidth = W / 320; g.stroke(); g.restore();
@@ -267,7 +268,7 @@ export default {
     // ---------- clock ----------
     let T = 0, mode = 'routes', ended = false, cardShown = false, mapT = 0, skipOffered = false;
     let mapStart = 1e9;
-    const cuesMap = env.cues([[.5, 4, '各自走来的路，在东京写下同一页。'], [4.3, MAP_LEN, '日本 · 东京，是这一页的最后一站。']]);
+    const cuesMap = env.cues([[.5, 4, '各自走来的路，在深圳写下同一页。'], [4.3, MAP_LEN, '深圳，是我们相遇的地方。']]);
     // The two tables and their captions live in the free frame: under the notch (and, on larger screens, the chapter's
     // running head), above the dock where the subtitle, the hint and the way on appear. Captions keep a fixed height, so
     // nothing moves when a city has no school line, and the sand never slides under the words below it.
@@ -284,7 +285,8 @@ export default {
       el.style.setProperty('--bw', bw + 'px'); el.style.setProperty('--bh', bw / ar + 'px');
       const mw = portrait ? Math.min(sf.w * .98, zoneH * .96 * ar) : Math.min(sf.w * .8, zoneH * .95 * ar);
       el.style.setProperty('--mw', mw + 'px'); el.style.setProperty('--mh', mw / ar + 'px');
-      labelEls.forEach(L => { if (L.flipped) { L.s.classList.toggle('l'); L.flipped = false; } L.fit = false; });   // measured again in the new frame
+      // measured again in the new frame; a small map keeps just the city names (the sand has already told the rest)
+      labelEls.forEach(L => { if (L.flipped) { L.s.classList.toggle('l'); L.flipped = false; } L.fit = false; L.s.textContent = mw < 520 ? L.city : L.text; });
     }
     resize();
     return {
@@ -340,7 +342,7 @@ export default {
             mode = 'map'; mapT = 0; field.classList.add('is-map');
             const l = lanes[0]; l.old = l.cur; l.cur = ART.arts.map; l.p = 0; l.pan = -1; l.grains = [];
             l.sand.style.transform = l.glow.style.transform = '';
-            l.meta.h3.textContent = '日本 · 东京'; l.meta.school.textContent = ''; l.meta.line.textContent = '';
+            l.meta.h3.textContent = '广东 · 深圳'; l.meta.school.textContent = ''; l.meta.line.textContent = '';
             env.audio.sfx('whoosh', .5);
           }
         } else {

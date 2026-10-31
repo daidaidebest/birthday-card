@@ -12,7 +12,7 @@ before it, no stinger, no cadence may play even a fragment of it: tools/check_hb
   book      A major        63 bpm  warm, intimate: a fireside lullaby in 12/8 (nylon guitar, felt piano); the story theme
                                    (the dream theme, 16 bars, the score's main tune) lilting on clarinet, sung by the cello.
   journey   D major       116 bpm  a tender travelling ballad, felt in half time: her road (flute) sings the journey's own
-                                   tune, his (cello) climbs toward it; in Tokyo (bar 15) they meet in octaves on the story
+                                   tune, his (cello) climbs toward it; in Shenzhen (bar 15) they meet in octaves on the story
                                    theme's opening; the road home in harmony. The sand keeps this grid (34 bars, 70.34 s).
   memories  E minor -> G   66 bpm  nostalgic, close: a piano nocturne of its own; her letter ('bloom') brings the letter
                                    motif back in G on a solo violin, the cello beneath, vibraphone light.
@@ -516,7 +516,7 @@ JOURNEY_BPM = 116
 def journey():
     """Two roads of sand: a travelling ballad in D on the 116 bpm grid the sand keeps (one city per 2 bars; bar 1 at 0 s),
     felt in half time. Her road, a flute, sings the journey's own tune; his road, a cello, walks below and climbs toward
-    it; on bar 15 (29.0 s, the routes meet in Tokyo) they play the story theme's opening together in octaves (the book's
+    it; on bar 15 (29.0 s, the routes meet in Shenzhen) they play the story theme's opening together in octaves (the book's
     tune: their story) while the strings lift and a harp sweeps in; then the road home, the cello in harmony beneath; the
     piano alone, and the two still talking, to close. No drums: the piano's eighths keep the time. 34 bars, 70.344828 s."""
     S = Song('journey', JOURNEY_BPM)
@@ -546,7 +546,7 @@ def journey():
     S.ramp('cello', 8, 56, 70, 104)
     pads(S, 'str', tl, 40, lo=55, n=3, mel_=FL); S.ramp('str', 0, 8, 40, 40); S.ramp('str', 8, 40, 40, 58); S.ramp('str', 40, 56, 58, 92); S.ramp('str', 56, 76, 92, 98)
     S.ramp('str', 76, 100, 98, 70); S.ramp('str', 100, 136, 70, 40)
-    # 15-18: Tokyo: together, in octaves, on the story theme's opening; a harp sweeps in, the celesta catches the light
+    # 15-18: Shenzhen: together, in octaves, on the story theme's opening; a harp sweeps in, the celesta catches the light
     gliss(S, 'harp', 56, PENTA('A3', 'A5', (9, 11, 4, 6)), 1.2, 38, dur=1.6)
     S.play('fl', meet, 68, legato=1.02); S.play('cello', meet, 62, semis=-12, legato=1.02)
     S.arch('fl', 56, 72, 90, 106); S.ramp('cello', 56, 72, 100, 106)

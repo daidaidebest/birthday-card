@@ -41,6 +41,7 @@ def webp(a, path, q):
     to8(a).save(path, 'WEBP', quality=q, method=6); return os.path.getsize(path)
 report = {}
 for o, k in (('portrait', 'p'), ('landscape', 'l')):
+    if not os.path.isdir(os.path.join(SRC, 'cake_' + o)): continue   # one orientation may be re-rendered alone
     d = os.path.join(SRC, f'cake_{o}'); full = (1080, 1920) if k == 'p' else (1440, 810); half = (full[0] // 2, full[1] // 2)
     sizes = {}
     for src, dst in (('wide-unlit', 'unlit'), ('wide-lit', 'lit'), ('wide-after', 'after'), ('wide-mask', 'mask'), ('close-unlit', 'close-unlit'), ('close-lit', 'close-lit')):

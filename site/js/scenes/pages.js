@@ -11,13 +11,10 @@ export const CITIES = {
   zhoukou: { name: '周口', lon: 114.65, lat: 33.62 }, tianjin: { name: '天津', lon: 117.2, lat: 39.08 }, beijing: { name: '北京', lon: 116.39, lat: 39.9 },
   hongkong: { name: '香港', lon: 114.18, lat: 22.31 }, shenzhen: { name: '深圳', lon: 114.06, lat: 22.55 },
   wuhan: { name: '武汉', lon: 114.27, lat: 30.58 }, nanjing: { name: '南京', lon: 118.78, lat: 32.05 }, shanghai: { name: '上海', lon: 121.43, lat: 31.22 },
-  tokyo: { name: '东京', lon: 139.69, lat: 35.69 },
 };
-// Natural Earth 1:110m (public domain), same projection as CHINA_OUTLINE: the last stop of both roads.
-export const JAPAN_OUTLINE = 'M1104.4 369.3L1091.4 387.0L1091.7 405.0L1086.4 419.0L1088.8 427.7L1081.5 440.1L1063.7 448.3L1039.0 449.4L1019.1 469.4L1009.7 462.6L1009.1 449.6L984.8 453.4L968.2 461.7L951.8 462.0L966.0 474.9L956.7 504.6L947.6 512.0L940.8 505.2L944.3 489.4L935.4 484.3L929.7 472.3L943.0 466.9L950.3 455.9L964.4 446.9L974.6 434.9L1002.5 429.7L1017.5 433.3L1032.1 402.2L1041.5 410.5L1062.0 393.0L1070.0 386.2L1078.8 364.8L1076.4 345.1L1082.3 334.1L1097.2 330.9L1104.8 355.1L1104.4 369.3ZM1142.6 285.7L1152.5 278.3L1155.6 297.9L1134.8 302.7L1122.6 320.1L1100.6 308.1L1092.9 327.3L1077.4 327.5L1075.4 310.1L1082.4 296.7L1097.3 295.7L1101.4 271.5L1105.5 257.8L1122.0 276.1L1132.7 282.0L1142.6 285.7ZM971.2 469.4L978.9 458.9L986.9 461.0L992.7 453.6L1002.9 457.4L1004.7 463.4L996.8 474.0L991.1 468.4L983.9 472.4L980.2 482.7L971.1 477.7L971.2 469.4Z';
 export const mapXY = c => [140 + (c.lon - 73) * 14, 110 + (54 - c.lat) * 17.5];
-export const HER_ROUTE = ['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhen', 'tokyo'];
-export const HIS_ROUTE = ['wuhan', 'nanjing', 'shanghai', 'shenzhen', 'tokyo'];
+export const HER_ROUTE = ['zhoukou', 'tianjin', 'beijing', 'hongkong', 'shenzhen'];
+export const HIS_ROUTE = ['wuhan', 'nanjing', 'shanghai', 'shenzhen'];
 
 // ---------------- paper ----------------
 const paperCache = new Map();

@@ -141,27 +141,25 @@
 .jr-city.l{transform:translate(calc(-100% - 12px),-50%)}
 .jr-city.u{margin-top:-1.1em}.jr-city.d{margin-top:1.1em}
 .jr-city.on{opacity:1}
-.portrait .jr.is-map .jr-box>*{transform:scale(1.22)!important;transform-origin:52% 50%}
+.portrait .jr.is-map .jr-box>*{transform:scale(1.2)!important;transform-origin:50% 50%}
 
 /* ---------- memories ---------- */
 .mm-wall{position:absolute;inset:0;pointer-events:none}
-.mm-card{position:absolute;left:0;top:0;width:var(--cw);padding:calc(var(--cw)*.06) calc(var(--cw)*.06) calc(var(--cw)*.2);background:#f7f1e6;box-shadow:0 14px 30px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4);transform-origin:50% 0;will-change:transform}
-.mm-card .clip{position:absolute;left:50%;top:calc(var(--cw)*-.07);width:calc(var(--cw)*.07);height:calc(var(--cw)*.17);margin-left:calc(var(--cw)*-.035);background:linear-gradient(90deg,#8a6a45,#c9a679 50%,#7a5a38);border-radius:2px;box-shadow:0 2px 3px rgba(0,0,0,.4)}
-.mm-card .ph{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;background:#222}
+/* v19 · framed photographs on the wall: the card is the frame's sprite with the photograph behind its opening; laid out at the
+   size it has in her hands and scaled down on the wall (js/scenes/memories.js hang()) */
+.mm-card{position:absolute;left:0;top:0;margin:0;opacity:0;transform-origin:50% 50%;will-change:transform;cursor:pointer;pointer-events:auto}
+.mm-turn{position:absolute;inset:0}
+.mm-fr{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.mm-card .ph{position:absolute;overflow:hidden;background:#2a2019}
+.mm-card .ph img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.96) contrast(1.01);transition:transform .3s linear}
+.mm-scrim{position:absolute;inset:0;z-index:3;background:radial-gradient(ellipse at 50% 45%,rgba(14,8,6,.62),rgba(8,4,4,.86));opacity:0;pointer-events:none}
 /* v17 · photos as remembered, not cards switched on: the one she takes down develops out of a soft, bright haze, carries a
    fine film grain and a gentle vignette; the others step back out of focus */
-.mm-card{transition:filter 1s ease}
-.mm-card.back{filter:blur(1.4px) brightness(.82)}
 .mm-card .ph::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 0 calc(var(--cw)*.14) rgba(28,16,6,.32)}
+.low-power .mm-card.reading .ph::after{display:none}
 .mm-card.develop .ph{animation:develop 2.2s cubic-bezier(.3,0,.2,1) both}
 @keyframes develop{0%{filter:brightness(1.32) saturate(.5) contrast(.86) blur(1.6px)}55%{filter:brightness(1.08) saturate(.85) contrast(.96) blur(.3px)}100%{filter:none}}
 .mm-card.reading .ph::after{content:"";position:absolute;inset:-30%;z-index:3;pointer-events:none;opacity:.22;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.5 -.25'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");animation:grain 1.2s steps(5) infinite}
-.low-power .mm-card.back{filter:none}.low-power .mm-card.reading .ph::after{display:none}
-.mm-card .ph-depth{position:relative}.mm-card .ph-depth .dp-layer{filter:none;transition:none;object-fit:fill}
-.mm-card img{width:100%;height:100%;object-fit:cover;display:block;filter:sepia(.12) saturate(.95) contrast(1.02);transition:transform .3s linear}
-.mm-card figcaption{position:absolute;left:0;right:0;bottom:0;height:calc(var(--cw)*.2);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3b2a1c;text-align:center;padding:0 6%}
-.mm-card figcaption b{font-weight:500;font-size:calc(var(--cw)*.075);letter-spacing:.12em;white-space:nowrap}
-.mm-card figcaption span{font-size:calc(var(--cw)*.045);letter-spacing:.04em;opacity:0;max-height:0;transition:opacity 1.2s ease;color:#6a4f36}
 
 .mm-letter{position:absolute;left:0;bottom:0;width:var(--lw);height:var(--lh);transform:translateY(calc(100% + 40vh)) rotate(2deg);transition:transform 1.4s cubic-bezier(.3,0,.1,1);z-index:6}
 /* risen, it rests square and untransformed, so the browser draws its writing at the screen's own resolution */
@@ -173,11 +171,11 @@
 .mm-text p{margin-bottom:.9em;text-indent:2em;text-wrap:pretty}
 .mm-text p.greet{text-indent:0;font-weight:500;font-size:1.08em}
 .mm-text p.close{text-align:right;text-indent:0;margin-top:1.4em;font-size:1.05em;color:#7a2a2a}
-.mm-text p.ps{text-indent:0;margin-top:1.6em;font-size:.92em;color:#6a4a2a;font-style:italic}
+.mm-text p.ps{text-indent:0;text-align:right;margin-top:.6em;font-size:.98em;color:#5a3c22}
 .mm-text span{opacity:0;transition:opacity .45s ease}
 .mm-text span.on{opacity:1;filter:none}
 .low-power .mm-text span,.low-power .pro-paper-inner span{filter:none}
-.mm-quote{position:absolute;left:58%;right:6%;top:40%;color:#f3e3c6;opacity:0;transform:translateY(10px);transition:opacity .55s ease,transform .8s ease;pointer-events:none}
+.mm-quote{z-index:6;position:absolute;left:58%;right:6%;top:40%;color:#f3e3c6;opacity:0;transform:translateY(10px);transition:opacity .55s ease,transform .8s ease;pointer-events:none}
 .mm-quote.on{opacity:1;transform:none;transition:opacity 1.2s ease,transform 1.4s ease}
 .mm-quote small{display:block;font-family:var(--latin);font-style:italic;letter-spacing:.4em;font-size:12px;color:var(--gold);opacity:.8}
 .mm-quote b{display:block;margin:.7em 0 .8em;font-weight:500;font-size:clamp(24px,2.6vw,38px);letter-spacing:.18em;line-height:1.5;text-shadow:0 0 30px rgba(255,180,120,.3)}
@@ -259,7 +257,6 @@
 .scene-book{touch-action:none}
 .scene-journey{touch-action:none}
 .scene-journey .jr-box{cursor:crosshair}
-.scene-memories .mm-card{cursor:pointer;pointer-events:auto}
 .scene-memories{touch-action:none}
 
 /* v16 · the envelope in warm candlelight: two soft glows from low on the left, breathing out of step (screen blend) */
@@ -309,8 +306,6 @@
 @keyframes coverInvite{0%,100%{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 10px rgba(255,210,130,.25))}50%{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 18px rgba(255,214,140,.55))}}
 
 /* v18 · turning a polaroid over: the paper lives on an inner card that squashes edge-on and opens on its other side */
-.scene-memories .mm-card{padding:0;background:none;box-shadow:none}
-.mm-turn{position:relative;padding:calc(var(--cw)*.06) calc(var(--cw)*.06) calc(var(--cw)*.2);background:#f7f1e6;box-shadow:0 14px 30px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.32)}
 .mm-backface{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1em;padding:14%;text-align:center;opacity:0;visibility:hidden;
   background:repeating-linear-gradient(180deg,transparent 0 calc(var(--cw)*.11),rgba(120,92,60,.08) calc(var(--cw)*.11) calc(var(--cw)*.113)),radial-gradient(ellipse at 40% 30%,#fbf5ea,#efe3cc);color:#4a3220}
 .mm-backface p{font-size:calc(var(--cw)*.075);line-height:1.9;letter-spacing:.06em;transform:rotate(-1.2deg)}

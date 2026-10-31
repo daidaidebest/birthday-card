@@ -19,7 +19,7 @@ const LETTER = [
   '以及，允许自己被好好地爱着。', '',
   '请跟着烛光，去书房找那本魔法书。',
 ];
-const SIGN = '—— 一个在远方，很想你的人';
+const SIGN = '—— 爱你的daidaide';
 const DUST_HINT = '用手指划过夜空，撒一点星光';
 const ADDRESS = ['师宝宝 收', '月光湖畔 · 最高的塔楼', '朝东的那扇窗'];
 const A = {};

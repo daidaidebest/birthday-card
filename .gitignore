@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+*.credentials.json
+*.credentials.json.bak
+*.log
+.DS_Store
+__pycache__/
+private-restored/
+*-password.txt
+*.private-plan.json
+# local tooling: the depth model (~100 MB) is downloaded on demand by whoever regenerates depth planes
+/models/
+/depth/
+/site/preview.html
+/site/dev.html

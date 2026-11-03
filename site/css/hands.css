@@ -1,0 +1,15 @@
+/* Leave the painted palms and the tiny star clear; the words float above them. */
+#film.catching-star #dock{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  top:var(--catch-caption-y,45%);
+  bottom:auto;
+  gap:6px;
+}
+#film.catching-star #subtitle{width:100%}
+#film.catching-star #hint{margin:0;max-width:100%}
+@media (orientation:landscape) and (max-height:500px){
+  #film.catching-star #dock{left:8%;right:8%;gap:2px}
+}

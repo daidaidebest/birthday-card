@@ -1,0 +1,12 @@
+/* v19 · the film's one finish, over every chapter (owned by the grade pipeline, tools/grade/): a restrained vignette and a
+   fine moving grain; scenes may ask for a lighter or deeper vignette with --vig. While she reads (#film.reading: book
+   pages, letters) grain and vignette step back from the writing.
+   v20: no blended sheet here. #grade has a z-index, so a mix-blend-mode child can only blend inside it: v19's "lighten"
+   matte drew as a plain 55% dark veil over every chapter (except in low power, which is why the headless runs missed it). */
+#grade{position:absolute;inset:0;z-index:41;pointer-events:none;background:radial-gradient(ellipse 125% 100% at 50% 46%,rgba(0,0,0,0) 55%,rgba(7,4,9,var(--vig,.3)) 100%)}
+#film[data-scene=prologue]{--vig:.24}#film[data-scene=book]{--vig:.22}#film[data-scene=journey]{--vig:.2}#film[data-scene=memories]{--vig:.2}#film[data-scene=wish]{--vig:.26}
+#grain{position:absolute;inset:-50%;z-index:45;pointer-events:none;opacity:.07;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.4 -.2'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");animation:grain 1s steps(6) infinite}
+@keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-3%)}60%{transform:translate(-2%,-1%)}80%{transform:translate(3%,3%)}100%{transform:translate(0,0)}}
+.low-power #grain{display:none}
+#film.reading{--vig:.14}#film.reading #grain{opacity:.025;animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){#grain{animation:none}}

@@ -1,0 +1,14 @@
+{
+  "name": "birthday-card",
+  "version": "13.0.0",
+  "private": true,
+  "type": "module",
+  "description": "师宝宝的生日童话 — a static, dependency-free birthday site. The existing GitHub Pages workflow runs npm ci → lint → build and publishes dist/.",
+  "scripts": {
+    "lint": "node scripts/lint.mjs",
+    "build": "node scripts/build.mjs",
+    "postbuild": "node scripts/check-memory-book.mjs",
+    "dev": "cd site && python3 -m http.server 8123",
+    "deploy:check": "node scripts/check-memory-book.mjs"
+  }
+}
